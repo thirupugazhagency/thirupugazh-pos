@@ -41,19 +41,21 @@ class Sale(db.Model):
 
 # ---------------- INIT DB ----------------
 
-@app.before_first_request
-def create_tables():
-    db.create_all()
+def init_db():
+    with app.app_context():
+        db.create_all()
 
-    # Create default admin if not exists
-    if not User.query.filter_by(username="admin").first():
-        admin = User(
-            username="admin",
-            password=generate_password_hash("admin123"),
-            role="admin"
-        )
-        db.session.add(admin)
-        db.session.commit()
+        if not User.query.filter_by(username="admin").first():
+            admin = User(
+                username="admin",
+                password=generate_password_hash("admin123"),
+                role="admin"
+            )
+            db.session.add(admin)
+            db.session.commit()
+
+# Initialize DB at startup
+init_db()
 
 # ---------------- ROUTES ----------------
 
