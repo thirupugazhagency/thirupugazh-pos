@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 app = Flask(__name__)
@@ -44,15 +45,38 @@ class Sale(db.Model):
 def create_tables():
     db.create_all()
 
+    # Create default admin if not exists
+    if not User.query.filter_by(username="admin").first():
+        admin = User(
+            username="admin",
+            password=generate_password_hash("admin123"),
+            role="admin"
+        )
+        db.session.add(admin)
+        db.session.commit()
+
 # ---------------- ROUTES ----------------
 
 @app.route("/")
 def home():
-    return "Thirupugazh POS API is Running with Database"
+    return "Thirupugazh POS API is Running with Login System"
 
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok"})
+# -------- LOGIN API --------
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+
+    user = User.query.filter_by(username=data.get("username")).first()
+
+    if user and check_password_hash(user.password, data.get("password")):
+        return jsonify({
+            "status": "ok",
+            "username": user.username,
+            "role": user.role
+        })
+
+    return jsonify({"status": "error", "message": "Invalid login"}), 401
 
 # ---------------- RUN ----------------
 
