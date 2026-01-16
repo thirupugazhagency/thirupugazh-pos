@@ -63,8 +63,6 @@ init_db()
 def home():
     return "Thirupugazh POS API is Running with Login System"
 
-# -------- LOGIN API --------
-
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
