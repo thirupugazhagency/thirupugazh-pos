@@ -58,6 +58,30 @@ def login():
         return jsonify({"status": "ok", "role": user.role})
     return jsonify({"status": "error"}), 401
 
+# ---------------- USERS ----------------
+
+@app.route("/users", methods=["POST"])
+def create_user():
+    data = request.json
+
+    if not data.get("username") or not data.get("password") or not data.get("role"):
+        return jsonify({"error": "Missing fields"}), 400
+
+    if User.query.filter_by(username=data["username"]).first():
+        return jsonify({"error": "User already exists"}), 400
+
+    user = User(
+        username=data["username"],
+        password=generate_password_hash(data["password"]),
+        role=data["role"]
+    )
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"status": "user created"})
+
+
 # ---------------- MENU ----------------
 
 @app.route("/menu", methods=["GET"])
