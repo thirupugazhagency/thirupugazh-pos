@@ -42,6 +42,19 @@ class Sale(db.Model):
     cash_details = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Cart(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CartItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
+    menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
+    quantity = db.Column(db.Integer, default=1)
+
+    menu = db.relationship("Menu")
+
+
 # ---------------- ROUTES ----------------
 
 @app.route("/")
