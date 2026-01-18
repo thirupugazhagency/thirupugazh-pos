@@ -42,6 +42,10 @@ class Sale(db.Model):
     cash_details = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    staff_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    staff = db.relationship("User")
+
+
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -179,48 +183,38 @@ def view_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     data = request.json
-
     cart_id = data.get("cart_id")
     payment_method = data.get("payment_method")
+    staff_id = data.get("staff_id")
+
     txn_id = data.get("txn_id", "")
     cash_details = data.get("cash_details", "")
 
-    if not cart_id or not payment_method:
-        return jsonify({"error": "cart_id and payment_method are required"}), 400
+    if not staff_id:
+        return jsonify({"error": "staff_id is required"}), 400
 
-    payment_method = payment_method.upper()
+    staff = User.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Invalid staff"}), 400
 
-    # Validate payment method
-    if payment_method not in ["CASH", "UPI", "ONLINE", "MIXED"]:
-        return jsonify({"error": "Invalid payment method"}), 400
-
-    # Validation rules
-    if payment_method == "CASH" and not cash_details:
-        return jsonify({"error": "cash_details required for CASH payment"}), 400
-
-    if payment_method in ["UPI", "ONLINE"] and not txn_id:
-        return jsonify({"error": "txn_id required for UPI/ONLINE payment"}), 400
-
-    if payment_method == "MIXED" and (not txn_id or not cash_details):
-        return jsonify({"error": "Both txn_id and cash_details required for MIXED payment"}), 400
-
-    cart_items = CartItem.query.filter_by(cart_id=cart_id).all()
-    if not cart_items:
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    if not items:
         return jsonify({"error": "Cart is empty or not found"}), 400
 
-    total = sum(i.menu.price * i.quantity for i in cart_items)
+    total = sum(i.menu.price * i.quantity for i in items)
 
     sale = Sale(
         total=total,
         payment_method=payment_method,
         txn_id=txn_id,
-        cash_details=cash_details
+        cash_details=cash_details,
+        staff_id=staff_id
     )
 
     db.session.add(sale)
 
     # Clear cart
-    for i in cart_items:
+    for i in items:
         db.session.delete(i)
 
     db.session.commit()
@@ -228,7 +222,22 @@ def checkout():
     return jsonify({
         "status": "success",
         "total": total,
-        "payment_method": payment_method
+        "staff": staff.username
+    })
+@app.route("/report/staff/<int:staff_id>")
+def report_by_staff(staff_id):
+    staff = User.query.get(staff_id)
+    if not staff:
+        return jsonify({"error": "Staff not found"}), 404
+
+    sales = Sale.query.filter_by(staff_id=staff_id).all()
+
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "staff": staff.username,
+        "total_sales": total,
+        "bills_count": len(sales)
     })
 
 # ---------------- REPORTS ----------------
