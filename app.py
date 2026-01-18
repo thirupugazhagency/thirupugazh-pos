@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# ---------------- CONFIG (updated) ----------------
+# ---------------- CONFIG ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -54,7 +54,6 @@ class CartItem(db.Model):
 
     menu = db.relationship("Menu")
 
-
 # ---------------- ROUTES ----------------
 
 @app.route("/")
@@ -96,8 +95,6 @@ def create_user():
 
 # ---------------- MENU ----------------
 
-# ---------------- MENU ----------------
-
 @app.route("/menu", methods=["GET"])
 def get_menu():
     items = Menu.query.all()
@@ -129,7 +126,6 @@ def create_cart():
     db.session.commit()
     return jsonify({"cart_id": cart.id})
 
-
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     data = request.json
@@ -151,7 +147,6 @@ def add_to_cart():
 
     db.session.commit()
     return jsonify({"status": "added"})
-
 
 @app.route("/cart/<int:cart_id>", methods=["GET"])
 def view_cart(cart_id):
@@ -179,6 +174,7 @@ def view_cart(cart_id):
         "total": total
     })
 
+# ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -214,21 +210,7 @@ def checkout():
         "total": total
     })
 
-
-# ---------------- SALES ----------------
-
-@app.route("/sale", methods=["POST"])
-def create_sale():
-    data = request.json
-    sale = Sale(
-        total=data["total"],
-        payment_method=data["payment_method"],
-        txn_id=data.get("txn_id", ""),
-        cash_details=data.get("cash_details", "")
-    )
-    db.session.add(sale)
-    db.session.commit()
-    return jsonify({"status": "ok"})
+# ---------------- REPORTS ----------------
 
 @app.route("/report/today")
 def report_today():
@@ -247,12 +229,48 @@ def report_month():
     ).scalar() or 0
     return jsonify({"total": total})
 
+# ---------------- SALES HISTORY ----------------
+
+@app.route("/sales", methods=["GET"])
+def all_sales():
+    sales = Sale.query.order_by(Sale.created_at.desc()).all()
+
+    result = []
+    for s in sales:
+        result.append({
+            "id": s.id,
+            "total": s.total,
+            "payment_method": s.payment_method,
+            "txn_id": s.txn_id,
+            "cash_details": s.cash_details,
+            "created_at": s.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+    return jsonify(result)
+
+
+@app.route("/sales/today", methods=["GET"])
+def sales_today():
+    today = datetime.utcnow().date()
+
+    sales = Sale.query.filter(
+        db.func.date(Sale.created_at) == today
+    ).all()
+
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "count": len(sales),
+        "total": total
+    })
+
 # ---------------- INIT DB ----------------
 
 def init_db():
     with app.app_context():
         db.create_all()
 
+        # Create admin user if not exists
         if not User.query.first():
             admin = User(
                 username="admin",
@@ -260,11 +278,13 @@ def init_db():
                 role="admin"
             )
             db.session.add(admin)
+            db.session.commit()
 
-            db.session.add(Menu(name="Full Ticket", price=580))
-            db.session.add(Menu(name="Half Ticket", price=300))
-            db.session.add(Menu(name="Three Ticket", price=150))
-
+        # Create menu items if not exists
+        if not Menu.query.first():
+            db.session.add(Menu(name="Full Set", price=580))
+            db.session.add(Menu(name="Half Set", price=300))
+            db.session.add(Menu(name="Three Tickets", price=150))
             db.session.commit()
 
 init_db()
