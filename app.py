@@ -179,16 +179,36 @@ def view_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     data = request.json
+
     cart_id = data.get("cart_id")
     payment_method = data.get("payment_method")
     txn_id = data.get("txn_id", "")
     cash_details = data.get("cash_details", "")
 
-    items = CartItem.query.filter_by(cart_id=cart_id).all()
-    if not items:
-        return jsonify({"error": "Cart empty"}), 400
+    if not cart_id or not payment_method:
+        return jsonify({"error": "cart_id and payment_method are required"}), 400
 
-    total = sum(i.menu.price * i.quantity for i in items)
+    payment_method = payment_method.upper()
+
+    # Validate payment method
+    if payment_method not in ["CASH", "UPI", "ONLINE", "MIXED"]:
+        return jsonify({"error": "Invalid payment method"}), 400
+
+    # Validation rules
+    if payment_method == "CASH" and not cash_details:
+        return jsonify({"error": "cash_details required for CASH payment"}), 400
+
+    if payment_method in ["UPI", "ONLINE"] and not txn_id:
+        return jsonify({"error": "txn_id required for UPI/ONLINE payment"}), 400
+
+    if payment_method == "MIXED" and (not txn_id or not cash_details):
+        return jsonify({"error": "Both txn_id and cash_details required for MIXED payment"}), 400
+
+    cart_items = CartItem.query.filter_by(cart_id=cart_id).all()
+    if not cart_items:
+        return jsonify({"error": "Cart is empty or not found"}), 400
+
+    total = sum(i.menu.price * i.quantity for i in cart_items)
 
     sale = Sale(
         total=total,
@@ -200,14 +220,15 @@ def checkout():
     db.session.add(sale)
 
     # Clear cart
-    for i in items:
+    for i in cart_items:
         db.session.delete(i)
 
     db.session.commit()
 
     return jsonify({
         "status": "success",
-        "total": total
+        "total": total,
+        "payment_method": payment_method
     })
 
 # ---------------- REPORTS ----------------
