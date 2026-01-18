@@ -120,6 +120,101 @@ def delete_menu(item_id):
     db.session.commit()
     return jsonify({"status": "deleted"})
 
+# ---------------- CART ----------------
+
+@app.route("/cart/create", methods=["POST"])
+def create_cart():
+    cart = Cart()
+    db.session.add(cart)
+    db.session.commit()
+    return jsonify({"cart_id": cart.id})
+
+
+@app.route("/cart/add", methods=["POST"])
+def add_to_cart():
+    data = request.json
+    cart_id = data.get("cart_id")
+    menu_id = data.get("menu_id")
+    qty = data.get("quantity", 1)
+
+    cart = Cart.query.get(cart_id)
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
+
+    if item:
+        item.quantity += qty
+    else:
+        item = CartItem(cart_id=cart_id, menu_id=menu_id, quantity=qty)
+        db.session.add(item)
+
+    db.session.commit()
+    return jsonify({"status": "added"})
+
+
+@app.route("/cart/<int:cart_id>", methods=["GET"])
+def view_cart(cart_id):
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+
+    result = []
+    total = 0
+
+    for i in items:
+        subtotal = i.menu.price * i.quantity
+        total += subtotal
+
+        result.append({
+            "id": i.id,
+            "menu_id": i.menu.id,
+            "name": i.menu.name,
+            "price": i.menu.price,
+            "quantity": i.quantity,
+            "subtotal": subtotal
+        })
+
+    return jsonify({
+        "cart_id": cart_id,
+        "items": result,
+        "total": total
+    })
+
+
+@app.route("/checkout", methods=["POST"])
+def checkout():
+    data = request.json
+    cart_id = data.get("cart_id")
+    payment_method = data.get("payment_method")
+    txn_id = data.get("txn_id", "")
+    cash_details = data.get("cash_details", "")
+
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    if not items:
+        return jsonify({"error": "Cart empty"}), 400
+
+    total = sum(i.menu.price * i.quantity for i in items)
+
+    sale = Sale(
+        total=total,
+        payment_method=payment_method,
+        txn_id=txn_id,
+        cash_details=cash_details
+    )
+
+    db.session.add(sale)
+
+    # Clear cart
+    for i in items:
+        db.session.delete(i)
+
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "total": total
+    })
+
+
 # ---------------- SALES ----------------
 
 @app.route("/sale", methods=["POST"])
