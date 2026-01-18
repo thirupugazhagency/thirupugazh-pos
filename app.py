@@ -83,6 +83,8 @@ def create_user():
 
 # ---------------- MENU ----------------
 
+# ---------------- MENU ----------------
+
 @app.route("/menu", methods=["GET"])
 def get_menu():
     items = Menu.query.all()
