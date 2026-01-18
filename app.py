@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# ---------------- CONFIG ----------------
+# ---------------- CONFIG (updated) ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
