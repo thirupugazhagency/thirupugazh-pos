@@ -42,10 +42,6 @@ class Sale(db.Model):
     cash_details = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    staff_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-    staff = db.relationship("User")
-
-
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -62,7 +58,7 @@ class CartItem(db.Model):
 
 @app.route("/")
 def home():
-    return "Thirupugazh POS API is running with database"
+    return "Thirupugazh POS API is running"
 
 # ---------------- AUTH ----------------
 
@@ -185,21 +181,12 @@ def checkout():
     data = request.json
     cart_id = data.get("cart_id")
     payment_method = data.get("payment_method")
-    staff_id = data.get("staff_id")
-
     txn_id = data.get("txn_id", "")
     cash_details = data.get("cash_details", "")
 
-    if not staff_id:
-        return jsonify({"error": "staff_id is required"}), 400
-
-    staff = User.query.get(staff_id)
-    if not staff:
-        return jsonify({"error": "Invalid staff"}), 400
-
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     if not items:
-        return jsonify({"error": "Cart is empty or not found"}), 400
+        return jsonify({"error": "Cart empty"}), 400
 
     total = sum(i.menu.price * i.quantity for i in items)
 
@@ -207,8 +194,7 @@ def checkout():
         total=total,
         payment_method=payment_method,
         txn_id=txn_id,
-        cash_details=cash_details,
-        staff_id=staff_id
+        cash_details=cash_details
     )
 
     db.session.add(sale)
@@ -221,23 +207,7 @@ def checkout():
 
     return jsonify({
         "status": "success",
-        "total": total,
-        "staff": staff.username
-    })
-@app.route("/report/staff/<int:staff_id>")
-def report_by_staff(staff_id):
-    staff = User.query.get(staff_id)
-    if not staff:
-        return jsonify({"error": "Staff not found"}), 404
-
-    sales = Sale.query.filter_by(staff_id=staff_id).all()
-
-    total = sum(s.total for s in sales)
-
-    return jsonify({
-        "staff": staff.username,
-        "total_sales": total,
-        "bills_count": len(sales)
+        "total": total
     })
 
 # ---------------- REPORTS ----------------
@@ -250,49 +220,17 @@ def report_today():
     ).scalar() or 0
     return jsonify({"total": total})
 
-@app.route("/report/month")
-def report_month():
-    now = datetime.utcnow()
-    total = db.session.query(db.func.sum(Sale.total)).filter(
-        db.extract("month", Sale.created_at) == now.month,
-        db.extract("year", Sale.created_at) == now.year
-    ).scalar() or 0
-    return jsonify({"total": total})
-
-# ---------------- SALES HISTORY ----------------
-
-@app.route("/sales", methods=["GET"])
-def all_sales():
+@app.route("/report/all")
+def report_all():
     sales = Sale.query.order_by(Sale.created_at.desc()).all()
-
-    result = []
-    for s in sales:
-        result.append({
+    return jsonify([
+        {
             "id": s.id,
             "total": s.total,
             "payment_method": s.payment_method,
-            "txn_id": s.txn_id,
-            "cash_details": s.cash_details,
-            "created_at": s.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        })
-
-    return jsonify(result)
-
-
-@app.route("/sales/today", methods=["GET"])
-def sales_today():
-    today = datetime.utcnow().date()
-
-    sales = Sale.query.filter(
-        db.func.date(Sale.created_at) == today
-    ).all()
-
-    total = sum(s.total for s in sales)
-
-    return jsonify({
-        "count": len(sales),
-        "total": total
-    })
+            "created_at": s.created_at
+        } for s in sales
+    ])
 
 # ---------------- INIT DB ----------------
 
@@ -300,17 +238,7 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # Create admin user if not exists
-        if not User.query.first():
-            admin = User(
-                username="admin",
-                password=generate_password_hash("admin123"),
-                role="admin"
-            )
-            db.session.add(admin)
-            db.session.commit()
-
-        # Create menu items if not exists
+        # Create default menu only if empty
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
             db.session.add(Menu(name="Half Set", price=300))
@@ -319,7 +247,7 @@ def init_db():
 
 init_db()
 
-# ---------------- LOCAL RUN ----------------
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
