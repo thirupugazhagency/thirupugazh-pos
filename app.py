@@ -81,7 +81,6 @@ def create_user():
 
     return jsonify({"status": "user created"})
 
-
 # ---------------- MENU ----------------
 
 @app.route("/menu", methods=["GET"])
@@ -91,15 +90,6 @@ def get_menu():
 
 @app.route("/menu", methods=["POST"])
 def add_menu():
-@app.route("/menu/<int:item_id>", methods=["DELETE"])
-def delete_menu(item_id):
-    item = Menu.query.get(item_id)
-    if not item:
-        return jsonify({"error": "Not found"}), 404
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify({"status": "deleted"})
-
     data = request.json
     item = Menu(name=data["name"], price=data["price"])
     db.session.add(item)
