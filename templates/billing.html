@@ -6,43 +6,76 @@
 
     <style>
         body {
-            font-family: Arial;
             margin: 0;
-            background: #f5f5f5;
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
         }
 
         header {
             background: #1e88e5;
             color: white;
             padding: 10px;
-            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header img {
+            height: 40px;
+        }
+
+        header .title {
             font-size: 20px;
+            font-weight: bold;
         }
 
         .container {
             display: flex;
-            height: calc(100vh - 50px);
+            height: calc(100vh - 60px);
         }
 
         .menu {
-            width: 50%;
+            width: 55%;
             padding: 10px;
             overflow-y: auto;
             background: white;
         }
 
+        .menu h3 {
+            margin-top: 0;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
         .menu button {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
+            padding: 20px;
             font-size: 18px;
+            border: none;
+            border-radius: 10px;
+            background: #4caf50;
+            color: white;
         }
 
         .cart {
-            width: 50%;
+            width: 45%;
             padding: 10px;
             background: #fafafa;
             border-left: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cart h3 {
+            margin-top: 0;
+        }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
         }
 
         .cart-item {
@@ -52,7 +85,7 @@
             font-size: 16px;
         }
 
-        .total {
+        .total-box {
             font-size: 22px;
             font-weight: bold;
             margin-top: 10px;
@@ -61,10 +94,11 @@
         .pay-btn {
             width: 100%;
             padding: 15px;
-            font-size: 20px;
+            font-size: 22px;
             background: green;
             color: white;
             border: none;
+            border-radius: 8px;
             margin-top: 10px;
         }
     </style>
@@ -72,71 +106,122 @@
 <body>
 
 <header>
-    🧾 Thirupugazh POS Billing
+    <img src="/static/logo.jpg" style="height:40px; vertical-align:middle;">
+    <span style="margin-left:10px;">🧾 Thirupugazh POS Billing</span>
 </header>
 
 <div class="container">
 
-    <!-- LEFT: MENU -->
+    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
-        <div id="menuItems">Loading menu...</div>
+        <div class="menu-grid" id="menuButtons">
+            Loading menu...
+        </div>
     </div>
 
-    <!-- RIGHT: CART -->
+    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
 
-        <div id="cartItems"></div>
+        <div class="cart-items" id="cartItems"></div>
 
-        <div class="total">
-            Total: ₹<span id="total">0</span>
+        <div class="total-box">
+            Total: ₹ <span id="total">0</span>
         </div>
 
-        <button class="pay-btn" onclick="checkout()">PAY</button>
+        <button class="pay-btn" onclick="payNow()">PAY</button>
     </div>
 
 </div>
 
 <script>
-let cart = [];
-let total = 0;
+    let cartId = null;
+    let total = 0;
 
-// Load menu from API
-fetch("/menu")
-  .then(res => res.json())
-  .then(data => {
-      let html = "";
-      data.forEach(item => {
-          html += `<button onclick="addItem(${item.id}, '${item.name}', ${item.price})">
-                      ${item.name} - ₹${item.price}
-                   </button>`;
-      });
-      document.getElementById("menuItems").innerHTML = html;
-  });
+    async function init() {
+        // Create cart
+        let c = await fetch("/cart/create", { method: "POST" });
+        let cj = await c.json();
+        cartId = cj.cart_id;
 
-function addItem(id, name, price) {
-    cart.push({id, name, price});
-    total += price;
-    renderCart();
-}
+        loadMenu();
+        refreshCart();
+    }
 
-function renderCart() {
-    let html = "";
-    cart.forEach(item => {
-        html += `<div class="cart-item">
-                    <span>${item.name}</span>
-                    <span>₹${item.price}</span>
-                 </div>`;
-    });
+    async function loadMenu() {
+        let res = await fetch("/menu");
+        let menu = await res.json();
 
-    document.getElementById("cartItems").innerHTML = html;
-    document.getElementById("total").innerText = total;
-}
+        let html = "";
+        menu.forEach(item => {
+            html += `<button onclick="addItem(${item.id})">${item.name}<br>₹${item.price}</button>`;
+        });
 
-function checkout() {
-    alert("Next step: connect cart to backend checkout API");
-}
+        document.getElementById("menuButtons").innerHTML = html;
+    }
+
+    async function addItem(menuId) {
+        await fetch("/cart/add", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                cart_id: cartId,
+                menu_id: menuId,
+                quantity: 1
+            })
+        });
+
+        refreshCart();
+    }
+
+    async function refreshCart() {
+        let res = await fetch("/cart/" + cartId);
+        let cart = await res.json();
+
+        let html = "";
+        cart.items.forEach(item => {
+            html += `<div class="cart-item">
+                        <span>${item.name} x ${item.quantity}</span>
+                        <span>₹${item.subtotal}</span>
+                     </div>`;
+        });
+
+        document.getElementById("cartItems").innerHTML = html;
+        document.getElementById("total").innerText = cart.final_total;
+    }
+
+    async function payNow() {
+        let staffId = localStorage.getItem("user_id");
+
+        if (!staffId) {
+            alert("Please login again");
+            window.location.href = "/ui/login";
+            return;
+        }
+
+        let res = await fetch("/checkout", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                cart_id: cartId,
+                payment_method: "CASH",
+                cash_details: "CASH",
+                staff_id: staffId
+            })
+        });
+
+        let j = await res.json();
+
+        if (j.status === "success") {
+            alert("Payment success! Total ₹" + j.total);
+            location.reload();
+        } else {
+            alert("Error: " + JSON.stringify(j));
+        }
+    }
+
+    init();
 </script>
 
 </body>
