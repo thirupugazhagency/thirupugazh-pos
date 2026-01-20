@@ -8,7 +8,6 @@
         body {
             font-family: Arial;
             margin: 0;
-            padding: 0;
             background: #f5f5f5;
         }
 
@@ -81,7 +80,7 @@
     <!-- LEFT: MENU -->
     <div class="menu">
         <h3>Menu</h3>
-        Loading menu...
+        <div id="menuItems">Loading menu...</div>
     </div>
 
     <!-- RIGHT: CART -->
@@ -94,67 +93,49 @@
             Total: ₹<span id="total">0</span>
         </div>
 
-        <button class="pay-btn">PAY</button>
+        <button class="pay-btn" onclick="checkout()">PAY</button>
     </div>
 
 </div>
 
 <script>
-let cartId = null;
-
-// Create cart when page loads
-window.onload = async function () {
-    const res = await fetch("/cart/create", { method: "POST" });
-    const data = await res.json();
-    cartId = data.cart_id;
-
-    loadMenu();
-    loadCart();
-};
+let cart = [];
+let total = 0;
 
 // Load menu from API
-async function loadMenu() {
-    const res = await fetch("/menu");
-    const menu = await res.json();
+fetch("/menu")
+  .then(res => res.json())
+  .then(data => {
+      let html = "";
+      data.forEach(item => {
+          html += `<button onclick="addItem(${item.id}, '${item.name}', ${item.price})">
+                      ${item.name} - ₹${item.price}
+                   </button>`;
+      });
+      document.getElementById("menuItems").innerHTML = html;
+  });
 
-    let html = "<h3>Menu</h3>";
-    menu.forEach(item => {
-        html += `<button onclick="addItem(${item.id})">${item.name} - ₹${item.price}</button>`;
-    });
-
-    document.querySelector(".menu").innerHTML = html;
+function addItem(id, name, price) {
+    cart.push({id, name, price});
+    total += price;
+    renderCart();
 }
 
-// Add item to cart
-async function addItem(menuId) {
-    await fetch("/cart/add", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId,
-            quantity: 1
-        })
-    });
-
-    loadCart();
-}
-
-// Load cart from API
-async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
-    const data = await res.json();
-
+function renderCart() {
     let html = "";
-    data.items.forEach(item => {
+    cart.forEach(item => {
         html += `<div class="cart-item">
-                    <span>${item.name} x ${item.quantity}</span>
-                    <span>₹${item.subtotal}</span>
+                    <span>${item.name}</span>
+                    <span>₹${item.price}</span>
                  </div>`;
     });
 
     document.getElementById("cartItems").innerHTML = html;
-    document.getElementById("total").innerText = data.final_total;
+    document.getElementById("total").innerText = total;
+}
+
+function checkout() {
+    alert("Next step: connect cart to backend checkout API");
 }
 </script>
 
