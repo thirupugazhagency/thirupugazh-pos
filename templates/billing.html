@@ -5,59 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
-        body {
-            font-family: Arial;
-            margin: 0;
-            padding: 0;
-            background: #f5f5f5;
-        }
+        body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
 
-        header {
-            background: #1e88e5;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 20px;
-        }
+        .container { display: flex; height: calc(100vh - 50px); }
+        .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
+        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
 
-        .container {
-            display: flex;
-            height: calc(100vh - 50px);
-        }
+        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .menu {
-            width: 50%;
-            padding: 10px;
-            overflow-y: auto;
-            background: white;
-        }
-
-        .menu button {
+        input, select {
             width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
-        .cart {
-            width: 50%;
             padding: 10px;
-            background: #fafafa;
-            border-left: 1px solid #ccc;
-        }
-
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
             font-size: 16px;
+            margin-bottom: 8px;
         }
 
-        .total {
-            font-size: 22px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
         .pay-btn {
             width: 100%;
@@ -72,101 +37,135 @@
 </head>
 <body>
 
-<header>
-    🧾 Thirupugazh POS Billing
-</header>
+<header>🧾 Thirupugazh POS Billing</header>
 
 <div class="container">
 
     <!-- LEFT: MENU -->
     <div class="menu">
         <h3>Menu</h3>
-
-        <!-- TEMP STATIC BUTTONS (will connect to API next) -->
-        <button onclick="addItem('Full Set', 580)">Full Set - ₹580</button>
-        <button onclick="addItem('Half Set', 300)">Half Set - ₹300</button>
-        <button onclick="addItem('Three Tickets', 150)">Three Tickets - ₹150</button>
+        <div id="menuButtons">Loading menu...</div>
     </div>
 
     <!-- RIGHT: CART -->
     <div class="cart">
-        <h3>Cart</h3>
+        <h3>Customer</h3>
+        <input id="customerName" placeholder="Customer Name">
+        <input id="customerPhone" placeholder="Customer Phone">
 
+        <h3>Discount</h3>
+        <input id="discountAmount" type="number" placeholder="Discount amount">
+        <button onclick="applyDiscount()">Apply Discount</button>
+
+        <h3>Cart</h3>
         <div id="cartItems"></div>
 
         <div class="total">
-            Total: ₹<span id="total">0</span>
+            Total: ₹<span id="finalTotal">0</span>
         </div>
 
-        <button class="pay-btn">PAY</button>
+        <h3>Payment</h3>
+        <select id="paymentMethod">
+            <option value="CASH">CASH</option>
+            <option value="UPI">UPI</option>
+            <option value="MIXED">MIXED</option>
+        </select>
+
+        <input id="txnId" placeholder="UPI Txn ID (if any)">
+        <input id="cashDetails" placeholder="Cash details (e.g. 500+500)">
+
+        <button class="pay-btn" onclick="payNow()">PAY</button>
     </div>
 
 </div>
 
 <script>
+let API = "";
 let cartId = null;
 
-// When page loads
-window.onload = async function () {
-    await createCart();
-    await loadMenu();
-    await refreshCart();
-};
+// 1️⃣ Create cart
+fetch(API + "/cart/create", { method: "POST" })
+.then(r => r.json())
+.then(d => {
+    cartId = d.cart_id;
+    loadMenu();
+});
 
-// Create cart in backend
-async function createCart() {
-    let res = await fetch("/cart/create", { method: "POST" });
-    let data = await res.json();
-    cartId = data.cart_id;
-    console.log("Cart created:", cartId);
-}
-
-// Load menu from backend
-async function loadMenu() {
-    let res = await fetch("/menu");
-    let menu = await res.json();
-
-    let menuDiv = document.querySelector(".menu");
-    menuDiv.innerHTML = "<h3>Menu</h3>";
-
-    menu.forEach(item => {
-        let btn = document.createElement("button");
-        btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = () => addItem(item.id);
-        menuDiv.appendChild(btn);
+// 2️⃣ Load menu
+function loadMenu() {
+    fetch(API + "/menu")
+    .then(r => r.json())
+    .then(items => {
+        let html = "";
+        items.forEach(i => {
+            html += `<button onclick="addItem(${i.id})">${i.name} - ₹${i.price}</button>`;
+        });
+        document.getElementById("menuButtons").innerHTML = html;
     });
 }
 
-// Add item to cart
-async function addItem(menuId) {
-    await fetch("/cart/add", {
+// 3️⃣ Add item
+function addItem(menuId) {
+    fetch(API + "/cart/add", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId,
-            quantity: 1
-        })
-    });
-
-    await refreshCart();
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId, quantity: 1 })
+    }).then(() => refreshCart());
 }
 
-// Refresh cart from backend
-async function refreshCart() {
-    let res = await fetch(`/cart/${cartId}`);
-    let cart = await res.json();
+// 4️⃣ Apply discount
+function applyDiscount() {
+    let amount = parseInt(document.getElementById("discountAmount").value || 0);
+    if(amount <= 0) return alert("Enter discount");
 
-    let html = "";
-    cart.items.forEach(item => {
-        html += `<div class="cart-item">
-                    <span>${item.name} x ${item.quantity}</span>
-                    <span>₹${item.subtotal}</span>
-                 </div>`;
+    fetch(API + "/cart/add-discount", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId, amount: amount, reason: "Manual" })
+    }).then(() => refreshCart());
+}
+
+// 5️⃣ Refresh cart
+function refreshCart() {
+    fetch(API + "/cart/" + cartId)
+    .then(r => r.json())
+    .then(d => {
+        let html = "";
+        d.items.forEach(i => {
+            html += `<div class="cart-item"><span>${i.name} x ${i.quantity}</span><span>₹${i.subtotal}</span></div>`;
+        });
+
+        if(d.discount_total > 0){
+            html += `<div class="cart-item"><b>Discount</b><b>- ₹${d.discount_total}</b></div>`;
+        }
+
+        document.getElementById("cartItems").innerHTML = html;
+        document.getElementById("finalTotal").innerText = d.final_total;
     });
+}
 
-    document.getElementById("cartItems").innerHTML = html;
-    document.getElementById("total").innerText = cart.final_total;
+// 6️⃣ PAY
+function payNow() {
+    let data = {
+        cart_id: cartId,
+        payment_method: document.getElementById("paymentMethod").value,
+        txn_id: document.getElementById("txnId").value,
+        cash_details: document.getElementById("cashDetails").value,
+        customer_name: document.getElementById("customerName").value,
+        customer_phone: document.getElementById("customerPhone").value,
+        staff_id: 2
+    };
+
+    fetch(API + "/checkout", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(d => {
+        alert("Payment Success! Total = " + d.total);
+        location.reload();
+    });
 }
 </script>
 
