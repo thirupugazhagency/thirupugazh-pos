@@ -69,7 +69,7 @@ class Sale(db.Model):
 def home():
     return "Thirupugazh POS API is running"
 
-@app.route("/ui")
+@app.route("/ui/login")
 def ui_login():
     return render_template("login.html")
 
