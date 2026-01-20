@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 app = Flask(__name__)
@@ -60,22 +60,18 @@ class Sale(db.Model):
     cash_details = db.Column(db.String(200))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
-    staff_id = db.Column(db.Integer)
+    staff_id = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# ---------------- ROUTES ----------------
+# ---------------- BASIC ROUTES ----------------
 
 @app.route("/")
 def home():
-    return "Thirupugazh POS API is running"
+    return "Thirupugazh POS API Running"
 
 @app.route("/ui/login")
 def ui_login():
     return render_template("login.html")
-
-@app.route("/ui/billing")
-def ui_billing():
-    return render_template("billing.html")
 
 # ---------------- AUTH ----------------
 
@@ -84,10 +80,14 @@ def login():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
     if user and check_password_hash(user.password, data.get("password")):
-        return jsonify({"status": "ok", "role": user.role, "user_id": user.id})
+        return jsonify({
+            "status": "ok",
+            "role": user.role,
+            "user_id": user.id
+        })
     return jsonify({"status": "error"}), 401
 
-# ---------------- USERS ----------------
+# ---------------- USER / STAFF MANAGEMENT ----------------
 
 @app.route("/users", methods=["POST"])
 def create_user():
@@ -116,14 +116,6 @@ def create_user():
 def get_menu():
     items = Menu.query.all()
     return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
-
-@app.route("/menu", methods=["POST"])
-def add_menu():
-    data = request.json
-    item = Menu(name=data["name"], price=data["price"])
-    db.session.add(item)
-    db.session.commit()
-    return jsonify({"status": "ok"})
 
 # ---------------- CART ----------------
 
@@ -168,20 +160,11 @@ def add_discount():
     if not cart_id or not amount:
         return jsonify({"error": "cart_id and amount required"}), 400
 
-    cart = Cart.query.get(cart_id)
-    if not cart:
-        return jsonify({"error": "Cart not found"}), 404
-
-    discount = AppliedDiscount(
-        cart_id=cart_id,
-        amount=amount,
-        reason=reason
-    )
-
+    discount = AppliedDiscount(cart_id=cart_id, amount=amount, reason=reason)
     db.session.add(discount)
     db.session.commit()
 
-    return jsonify({"status": "discount added", "amount": amount})
+    return jsonify({"status": "discount added"})
 
 # ---------------- VIEW CART ----------------
 
@@ -190,31 +173,11 @@ def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
 
-    result = []
-    total = 0
-
-    for i in items:
-        subtotal = i.menu.price * i.quantity
-        total += subtotal
-
-        result.append({
-            "id": i.id,
-            "menu_id": i.menu.id,
-            "name": i.menu.name,
-            "price": i.menu.price,
-            "quantity": i.quantity,
-            "subtotal": subtotal
-        })
-
+    total = sum(i.menu.price * i.quantity for i in items)
     discount_total = sum(d.amount for d in discounts)
 
     return jsonify({
         "cart_id": cart_id,
-        "items": result,
-        "discounts": [
-            {"id": d.id, "reason": d.reason, "amount": d.amount}
-            for d in discounts
-        ],
         "total": total,
         "discount_total": discount_total,
         "final_total": total - discount_total
@@ -239,13 +202,11 @@ def checkout():
 
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     if not items:
-        return jsonify({"error": "Cart is empty or not found"}), 400
+        return jsonify({"error": "Cart empty"}), 400
 
     cart_total = sum(i.menu.price * i.quantity for i in items)
-
     discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
     discount_total = sum(d.amount for d in discounts)
-
     final_total = cart_total - discount_total
 
     sale = Sale(
@@ -260,19 +221,14 @@ def checkout():
 
     db.session.add(sale)
 
-    # Clear cart
     for i in items:
         db.session.delete(i)
-
     for d in discounts:
         db.session.delete(d)
 
     db.session.commit()
 
-    return jsonify({
-        "status": "success",
-        "total": final_total
-    })
+    return jsonify({"status": "success", "total": final_total})
 
 # ---------------- REPORTS ----------------
 
@@ -291,12 +247,11 @@ def init_db():
         db.create_all()
 
         if not User.query.first():
-            admin = User(
+            db.session.add(User(
                 username="admin",
                 password=generate_password_hash("admin123"),
                 role="admin"
-            )
-            db.session.add(admin)
+            ))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
