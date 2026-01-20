@@ -243,6 +243,45 @@ def report_today():
         db.func.date(Sale.created_at) == today
     ).scalar() or 0
     return jsonify({"total": total})
+@app.route("/report/staff/<int:staff_id>")
+def report_by_staff(staff_id):
+    sales = Sale.query.filter_by(staff_id=staff_id).order_by(Sale.created_at.desc()).all()
+
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "staff_id": staff_id,
+        "total": total,
+        "sales": [
+            {
+                "id": s.id,
+                "total": s.total,
+                "payment_method": s.payment_method,
+                "customer_name": s.customer_name,
+                "customer_phone": s.customer_phone,
+                "date": s.created_at.strftime("%Y-%m-%d %H:%M")
+            }
+            for s in sales
+        ]
+    })
+@app.route("/report/staff-summary")
+def report_staff_summary():
+    rows = db.session.query(
+        Sale.staff_id,
+        db.func.sum(Sale.total)
+    ).group_by(Sale.staff_id).all()
+
+    result = []
+
+    for staff_id, total in rows:
+        user = User.query.get(staff_id)
+        result.append({
+            "staff_id": staff_id,
+            "username": user.username if user else "Unknown",
+            "total": total
+        })
+
+    return jsonify(result)
 
 # ---------------- INIT DB ----------------
 
