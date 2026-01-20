@@ -73,6 +73,10 @@ def home():
 def ui_login():
     return render_template("login.html")
 
+@app.route("/ui/billing")
+def ui_billing():
+    return render_template("billing.html")
+
 # ---------------- AUTH ----------------
 
 @app.route("/login", methods=["POST"])
