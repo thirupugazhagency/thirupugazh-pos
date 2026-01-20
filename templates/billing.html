@@ -1,9 +1,174 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Billing</title>
+    <title>Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 50px);
+        }
+
+        .menu {
+            width: 50%;
+            padding: 10px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .menu button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .cart {
+            width: 50%;
+            padding: 10px;
+            background: #fafafa;
+            border-left: 1px solid #ccc;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .total {
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .pay-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            background: green;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Billing Screen Working ✅</h1>
+
+<header>
+    🧾 Thirupugazh POS Billing
+</header>
+
+<div class="container">
+
+    <!-- LEFT: MENU -->
+    <div class="menu">
+        <h3>Menu</h3>
+
+        <!-- TEMP STATIC BUTTONS (will connect to API next) -->
+        <button onclick="addItem('Full Set', 580)">Full Set - ₹580</button>
+        <button onclick="addItem('Half Set', 300)">Half Set - ₹300</button>
+        <button onclick="addItem('Three Tickets', 150)">Three Tickets - ₹150</button>
+    </div>
+
+    <!-- RIGHT: CART -->
+    <div class="cart">
+        <h3>Cart</h3>
+
+        <div id="cartItems"></div>
+
+        <div class="total">
+            Total: ₹<span id="total">0</span>
+        </div>
+
+        <button class="pay-btn">PAY</button>
+    </div>
+
+</div>
+
+<script>
+let cartId = null;
+
+// When page loads
+window.onload = async function () {
+    await createCart();
+    await loadMenu();
+    await refreshCart();
+};
+
+// Create cart in backend
+async function createCart() {
+    let res = await fetch("/cart/create", { method: "POST" });
+    let data = await res.json();
+    cartId = data.cart_id;
+    console.log("Cart created:", cartId);
+}
+
+// Load menu from backend
+async function loadMenu() {
+    let res = await fetch("/menu");
+    let menu = await res.json();
+
+    let menuDiv = document.querySelector(".menu");
+    menuDiv.innerHTML = "<h3>Menu</h3>";
+
+    menu.forEach(item => {
+        let btn = document.createElement("button");
+        btn.innerText = `${item.name} - ₹${item.price}`;
+        btn.onclick = () => addItem(item.id);
+        menuDiv.appendChild(btn);
+    });
+}
+
+// Add item to cart
+async function addItem(menuId) {
+    await fetch("/cart/add", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId,
+            quantity: 1
+        })
+    });
+
+    await refreshCart();
+}
+
+// Refresh cart from backend
+async function refreshCart() {
+    let res = await fetch(`/cart/${cartId}`);
+    let cart = await res.json();
+
+    let html = "";
+    cart.items.forEach(item => {
+        html += `<div class="cart-item">
+                    <span>${item.name} x ${item.quantity}</span>
+                    <span>₹${item.subtotal}</span>
+                 </div>`;
+    });
+
+    document.getElementById("cartItems").innerHTML = html;
+    document.getElementById("total").innerText = cart.final_total;
+}
+</script>
+
 </body>
 </html>
