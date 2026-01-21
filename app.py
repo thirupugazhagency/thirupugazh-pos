@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import os
 
 app = Flask(__name__)
@@ -9,6 +9,7 @@ app = Flask(__name__)
 # ---------------- CONFIG ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
@@ -24,9 +25,9 @@ db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # admin / staff
+    username = db.Column(db.String(50), unique=True)
+    password = db.Column(db.String(200))
+    role = db.Column(db.String(20))  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -39,15 +40,22 @@ class Cart(db.Model):
 
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    cart_id = db.Column(db.Integer)
-    menu_id = db.Column(db.Integer)
+    cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
+    menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
     quantity = db.Column(db.Integer, default=1)
+    menu = db.relationship("Menu")
 
 class AppliedDiscount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    cart_id = db.Column(db.Integer)
-    amount = db.Column(db.Integer)
+    cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
     reason = db.Column(db.String(200))
+    amount = db.Column(db.Integer)
+
+class BusinessDay(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, unique=True)
+    is_closed = db.Column(db.Boolean, default=False)
+    closed_at = db.Column(db.DateTime)
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -58,13 +66,32 @@ class Sale(db.Model):
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     staff_id = db.Column(db.Integer)
+    business_day_id = db.Column(db.Integer, db.ForeignKey("business_day.id"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ---------------- HELPERS ----------------
+
+def get_business_day():
+    now = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
+    today = now.date()
+
+    if now.time() < time(15, 0):  # before 3 PM = yesterday business day
+        today = today - timedelta(days=1)
+
+    bd = BusinessDay.query.filter_by(date=today).first()
+
+    if not bd:
+        bd = BusinessDay(date=today)
+        db.session.add(bd)
+        db.session.commit()
+
+    return bd
 
 # ---------------- UI ----------------
 
 @app.route("/")
 def home():
-    return "Thirupugazh POS Running"
+    return "Thirupugazh POS API Running"
 
 @app.route("/ui/login")
 def ui_login():
@@ -115,25 +142,21 @@ def create_cart():
     return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
-def add_to_cart():
+def add_cart():
     data = request.json
-    item = CartItem(
-        cart_id=data["cart_id"],
-        menu_id=data["menu_id"],
-        quantity=data.get("quantity", 1)
-    )
-    db.session.add(item)
+    item = CartItem.query.filter_by(cart_id=data["cart_id"], menu_id=data["menu_id"]).first()
+    if item:
+        item.quantity += data.get("quantity", 1)
+    else:
+        item = CartItem(cart_id=data["cart_id"], menu_id=data["menu_id"], quantity=data.get("quantity", 1))
+        db.session.add(item)
     db.session.commit()
     return jsonify({"status": "added"})
 
 @app.route("/cart/add-discount", methods=["POST"])
 def add_discount():
     data = request.json
-    d = AppliedDiscount(
-        cart_id=data["cart_id"],
-        amount=data["amount"],
-        reason=data.get("reason", "Manual Discount")
-    )
+    d = AppliedDiscount(cart_id=data["cart_id"], amount=data["amount"], reason=data.get("reason","Manual"))
     db.session.add(d)
     db.session.commit()
     return jsonify({"status": "discount added"})
@@ -143,24 +166,10 @@ def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
 
-    total = 0
-    rows = []
-
-    for i in items:
-        m = Menu.query.get(i.menu_id)
-        sub = m.price * i.quantity
-        total += sub
-        rows.append({
-            "name": m.name,
-            "price": m.price,
-            "qty": i.quantity,
-            "subtotal": sub
-        })
-
+    total = sum(i.menu.price * i.quantity for i in items)
     discount_total = sum(d.amount for d in discounts)
 
     return jsonify({
-        "items": rows,
         "total": total,
         "discount": discount_total,
         "final": total - discount_total
@@ -172,66 +181,48 @@ def view_cart(cart_id):
 def checkout():
     data = request.json
 
-    cart_id = data["cart_id"]
-    staff_id = data["staff_id"]
+    if not data.get("staff_id"):
+        return jsonify({"error": "staff_id required"}), 400
 
-    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    items = CartItem.query.filter_by(cart_id=data["cart_id"]).all()
     if not items:
-        return jsonify({"error": "Cart empty"}), 400
+        return jsonify({"error": "empty cart"}), 400
 
-    total = 0
-    for i in items:
-        m = Menu.query.get(i.menu_id)
-        total += m.price * i.quantity
-
-    discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
+    total = sum(i.menu.price * i.quantity for i in items)
+    discounts = AppliedDiscount.query.filter_by(cart_id=data["cart_id"]).all()
     discount_total = sum(d.amount for d in discounts)
 
-    final = total - discount_total
+    bd = get_business_day()
 
     sale = Sale(
-        total=final,
+        total=total - discount_total,
         payment_method=data["payment_method"],
-        txn_id=data.get("txn_id", ""),
-        cash_details=data.get("cash_details", ""),
-        customer_name=data.get("customer_name", ""),
-        customer_phone=data.get("customer_phone", ""),
-        staff_id=staff_id
+        txn_id=data.get("txn_id",""),
+        cash_details=data.get("cash_details",""),
+        customer_name=data.get("customer_name",""),
+        customer_phone=data.get("customer_phone",""),
+        staff_id=data["staff_id"],
+        business_day_id=bd.id
     )
 
     db.session.add(sale)
 
-    # Clear cart
-    for i in items:
-        db.session.delete(i)
-    for d in discounts:
-        db.session.delete(d)
+    for i in items: db.session.delete(i)
+    for d in discounts: db.session.delete(d)
 
     db.session.commit()
 
-    return jsonify({"status": "success", "total": final})
+    return jsonify({"status": "success", "total": sale.total})
 
 # ---------------- REPORTS ----------------
 
-@app.route("/report/staff/<int:staff_id>")
-def staff_report(staff_id):
-    sales = Sale.query.filter_by(staff_id=staff_id).all()
-    total = sum(s.total for s in sales)
-    return jsonify({
-        "staff_id": staff_id,
-        "total": total,
-        "count": len(sales)
-    })
+@app.route("/report/today")
+def today_report():
+    bd = get_business_day()
+    total = db.session.query(db.func.sum(Sale.total)).filter(Sale.business_day_id == bd.id).scalar() or 0
+    return jsonify({"business_date": str(bd.date), "total": total})
 
-@app.route("/report/summary")
-def summary():
-    sales = Sale.query.all()
-    return jsonify({
-        "total_sales": len(sales),
-        "amount": sum(s.total for s in sales)
-    })
-
-# ---------------- INIT ----------------
+# ---------------- INIT DB ----------------
 
 def init_db():
     with app.app_context():
@@ -239,7 +230,6 @@ def init_db():
 
         if not User.query.first():
             db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
-            db.session.add(User(username="staff1", password=generate_password_hash("staff123"), role="staff"))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
