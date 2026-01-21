@@ -5,73 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
-        body {
-            font-family: Arial;
-            margin: 0;
-            padding: 0;
-            background: #f2f2f2;
-        }
+        body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
 
-        header {
-            background: #1e88e5;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
+        .container { display: flex; height: calc(100vh - 50px); }
 
-        header img {
-            height: 40px;
-        }
+        .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
+        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
 
-        .container {
-            display: flex;
-            height: calc(100vh - 60px);
-        }
+        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .menu {
-            width: 50%;
-            padding: 10px;
-            overflow-y: auto;
-            background: white;
-        }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
-        .menu button {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
-        .cart {
-            width: 50%;
-            padding: 10px;
-            background: #fafafa;
-            border-left: 1px solid #ccc;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-        }
-
-        .total {
-            font-size: 22px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
+        .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
         .pay-btn {
             width: 100%;
@@ -86,161 +32,104 @@
 </head>
 <body>
 
-<header>
-    <img src="/static/logo.jpg">
-    Thirupugazh POS Billing
-</header>
+<header>🧾 Thirupugazh POS Billing</header>
 
 <div class="container">
 
-    <!-- LEFT: MENU -->
     <div class="menu">
         <h3>Menu</h3>
-        <div id="menuButtons">Loading...</div>
+        <div id="menuButtons"></div>
     </div>
 
-    <!-- RIGHT: CART -->
     <div class="cart">
-        <h3>Customer Details</h3>
-        <input id="customer_name" placeholder="Customer Name">
-        <input id="customer_phone" placeholder="Customer Phone">
-
         <h3>Cart</h3>
         <div id="cartItems"></div>
-
-        <h3>Discount</h3>
-        <input id="discountAmount" type="number" placeholder="Discount amount">
-        <button onclick="applyDiscount()">Apply Discount</button>
 
         <div class="total">
             Total: ₹<span id="total">0</span>
         </div>
 
-        <h3>Payment</h3>
-        <select id="payment_method" onchange="paymentChanged()">
-            <option value="CASH">CASH</option>
-            <option value="UPI">UPI</option>
-            <option value="ONLINE">ONLINE</option>
-            <option value="MIXED">MIXED</option>
-        </select>
-
-        <input id="cash_details" placeholder="Cash details (eg: 500+500)">
-        <input id="txn_id" placeholder="Transaction ID">
-
-        <button class="pay-btn" onclick="pay()">PAY</button>
+        <button class="pay-btn">PAY</button>
     </div>
 
 </div>
 
 <script>
-let cart_id = null;
-let staff_id = localStorage.getItem("staff_id") || 1;
+alert("BILLING JS LOADED");
+const API = "https://thirupugazh-pos.onrender.com";
 
-// Create cart on load
-fetch("/cart/create", {method:"POST"})
-.then(r=>r.json())
-.then(d => {
-    cart_id = d.cart_id;
-});
+let cartId = null;
+
+// Create new cart
+async function createCart() {
+    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const data = await res.json();
+    cartId = data.cart_id;
+    console.log("Cart created:", cartId);
+}
 
 // Load menu
-fetch("/menu")
-.then(r=>r.json())
-.then(data => {
-    let html = "";
-    data.forEach(item => {
-        html += `<button onclick="addItem(${item.id})">${item.name} - ₹${item.price}</button>`;
-    });
-    document.getElementById("menuButtons").innerHTML = html;
-});
+async function loadMenu() {
+    const res = await fetch(API + "/menu");
+    const menu = await res.json();
 
-function addItem(menu_id) {
-    fetch("/cart/add", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
+    const div = document.getElementById("menuButtons");
+    div.innerHTML = "";
+
+    menu.forEach(item => {
+        const btn = document.createElement("button");
+        btn.innerText = `${item.name} - ₹${item.price}`;
+        btn.onclick = () => addToCart(item.id);
+        div.appendChild(btn);
+    });
+}
+
+// Add to cart
+async function addToCart(menuId) {
+    if (!cartId) {
+        alert("Cart not ready yet");
+        return;
+    }
+
+    await fetch(API + "/cart/add", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
-            cart_id: cart_id,
-            menu_id: menu_id,
+            cart_id: cartId,
+            menu_id: menuId,
             quantity: 1
         })
-    }).then(loadCart);
-}
-
-function applyDiscount() {
-    let amt = document.getElementById("discountAmount").value;
-    if(!amt) return alert("Enter discount amount");
-
-    fetch("/cart/add-discount", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            cart_id: cart_id,
-            amount: parseInt(amt),
-            reason: "Manual Discount"
-        })
-    }).then(loadCart);
-}
-
-function loadCart() {
-    fetch("/cart/" + cart_id)
-    .then(r=>r.json())
-    .then(data => {
-        let html = "";
-        data.items.forEach(i => {
-            html += `<div class="cart-item">
-                        <span>${i.name} x ${i.quantity}</span>
-                        <span>₹${i.subtotal}</span>
-                     </div>`;
-        });
-
-        if(data.discounts.length > 0){
-            data.discounts.forEach(d => {
-                html += `<div class="cart-item" style="color:red;">
-                            <span>Discount</span>
-                            <span>-₹${d.amount}</span>
-                         </div>`;
-            });
-        }
-
-        document.getElementById("cartItems").innerHTML = html;
-        document.getElementById("total").innerText = data.final_total;
     });
+
+    await loadCart();
 }
 
-function paymentChanged(){
-    let m = document.getElementById("payment_method").value;
-    document.getElementById("cash_details").style.display = (m=="CASH"||m=="MIXED")?"block":"none";
-    document.getElementById("txn_id").style.display = (m=="UPI"||m=="ONLINE"||m=="MIXED")?"block":"none";
-}
+// Load cart
+async function loadCart() {
+    if (!cartId) return;
 
-paymentChanged();
+    const res = await fetch(API + `/cart/${cartId}`);
+    const data = await res.json();
 
-function pay() {
-    let payload = {
-        cart_id: cart_id,
-        payment_method: document.getElementById("payment_method").value,
-        cash_details: document.getElementById("cash_details").value,
-        txn_id: document.getElementById("txn_id").value,
-        customer_name: document.getElementById("customer_name").value,
-        customer_phone: document.getElementById("customer_phone").value,
-        staff_id: staff_id
-    };
+    const div = document.getElementById("cartItems");
+    div.innerHTML = "";
 
-    fetch("/checkout", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(payload)
-    })
-    .then(r=>r.json())
-    .then(d => {
-        if(d.status=="success"){
-            alert("Payment Successful! ₹" + d.total);
-            location.reload();
-        } else {
-            alert(JSON.stringify(d));
-        }
+    data.items.forEach(i => {
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `<span>${i.name} x ${i.quantity}</span><span>₹${i.subtotal}</span>`;
+        div.appendChild(row);
     });
+
+    document.getElementById("total").innerText = data.final_total ?? data.total;
 }
+
+// INIT
+(async function init() {
+    await createCart();
+    await loadMenu();
+    await loadCart();
+})();
 </script>
 
 </body>
