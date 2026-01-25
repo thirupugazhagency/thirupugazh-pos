@@ -116,7 +116,7 @@ def add_to_cart():
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     result = []
-    total = 0
+    total
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -126,6 +126,26 @@ def view_cart(cart_id):
             "subtotal": subtotal
         })
     return jsonify({"items": result, "total": total})
+
+@app.route("/cart/remove", methods=["POST"])
+def remove_from_cart():
+    data = request.json
+    cart_id = data.get("cart_id")
+    menu_id = data.get("menu_id")
+
+    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
+
+    if not item:
+        return jsonify({"error": "Item not found"}), 404
+
+    if item.quantity > 1:
+        item.quantity -= 1
+    else:
+        db.session.delete(item)
+
+    db.session.commit()
+    return jsonify({"status": "removed"})
+
 
 # ---------------- HOLD SYSTEM ----------------
 
