@@ -10,68 +10,43 @@
 
         .container { display: flex; height: calc(100vh - 60px); }
 
-        .menu { width: 45%; padding: 10px; overflow-y: auto; background: white; }
+        .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
         .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
 
-        .cart { width: 55%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
+        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
         .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
-        input, select {
+        .pay-btn {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 6px;
-            font-size: 16px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 12px;
-            font-size: 18px;
-            margin-top: 6px;
-            border: none;
+            padding: 15px;
+            font-size: 20px;
+            background: green;
             color: white;
-        }
-
-        .pay-btn { background: green; }
-        .hold-btn { background: orange; }
-
-        .hold-list {
-            background: #fff3cd;
-            padding: 8px;
-            margin-bottom: 10px;
-        }
-
-        .hold-list button {
-            width: 100%;
-            margin-top: 5px;
+            border: none;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
 <header>
+    <img src="/static/logo.jpg" style="height:40px; vertical-align:middle;">
     🧾 Thirupugazh POS Billing
 </header>
 
 <div class="container">
 
-    <!-- LEFT -->
+    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons"></div>
     </div>
 
-    <!-- RIGHT -->
+    <!-- CART -->
     <div class="cart">
-
-        <div class="hold-list">
-            <b>📌 HOLD BILLS</b>
-            <div id="holdList"></div>
-        </div>
-
         <h3>Cart</h3>
         <div id="cartItems"></div>
 
@@ -79,43 +54,30 @@
             Total: ₹<span id="total">0</span>
         </div>
 
-        <hr>
-
-        <input id="customerName" placeholder="Customer Name">
-        <input id="customerPhone" placeholder="Customer Phone (10 digits)">
-        
-        <select id="paymentMethod">
-            <option value="">Select Payment</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="ONLINE">Online</option>
-            <option value="MIXED">Mixed</option>
-        </select>
-
-        <input id="txnId" placeholder="Transaction ID (if UPI/Online)">
-        <input id="cashDetails" placeholder="Cash Details (eg: 500+500)">
-
-        <button class="btn hold-btn" onclick="holdBill()">HOLD BILL</button>
-        <button class="btn pay-btn" onclick="pay()">PAY</button>
-
+        <button class="pay-btn" onclick="pay()">PAY</button>
     </div>
 
 </div>
 
 <script>
-const API = "";
-let cartId = null;
-const STAFF_ID = 2; // change later after login integration
+const API = "https://thirupugazh-pos.onrender.com";
 
+let cartId = null;
+
+// Create new cart
 async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
+    const res = await fetch(API + "/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
+    console.log("Cart created:", cartId);
 }
 
+// Load menu
 async function loadMenu() {
-    const res = await fetch("/menu");
+    console.log("Loading menu...");
+    const res = await fetch(API + "/menu");
     const menu = await res.json();
+    console.log("Menu data:", menu);
 
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
@@ -128,8 +90,11 @@ async function loadMenu() {
     });
 }
 
+// Add to cart
 async function addToCart(menuId) {
-    await fetch("/cart/add", {
+    console.log("Adding item", menuId);
+
+    await fetch(API + "/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -138,11 +103,13 @@ async function addToCart(menuId) {
             quantity: 1
         })
     });
+
     loadCart();
 }
 
+// Load cart
 async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
+    const res = await fetch(API + `/cart/${cartId}`);
     const data = await res.json();
 
     const div = document.getElementById("cartItems");
@@ -155,82 +122,18 @@ async function loadCart() {
         div.appendChild(row);
     });
 
-    document.getElementById("total").innerText = data.final_total;
+    document.getElementById("total").innerText = data.final_total ?? data.total;
 }
 
-async function holdBill() {
-    await fetch(`/cart/hold/${cartId}`, { method: "POST" });
-    await createCart();
-    await loadCart();
-    await loadHoldList();
-}
-
-async function loadHoldList() {
-    const res = await fetch("/cart/hold-list");
-    const list = await res.json();
-
-    const div = document.getElementById("holdList");
-    div.innerHTML = "";
-
-    list.forEach(c => {
-        const btn = document.createElement("button");
-        btn.innerText = `Resume Bill #${c.cart_id}`;
-        btn.onclick = () => resumeHold(c.cart_id);
-        div.appendChild(btn);
-    });
-}
-
-async function resumeHold(id) {
-    await fetch(`/cart/resume/${id}`, { method: "POST" });
-    cartId = id;
-    loadCart();
-}
-
-async function pay() {
-    const name = document.getElementById("customerName").value;
-    const phone = document.getElementById("customerPhone").value;
-    const method = document.getElementById("paymentMethod").value;
-
-    if (!name || !phone || phone.length !== 10 || !method) {
-        alert("Fill all details correctly");
-        return;
-    }
-
-    const txn = document.getElementById("txnId").value;
-    const cash = document.getElementById("cashDetails").value;
-
-    const res = await fetch("/checkout", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: method,
-            txn_id: txn,
-            cash_details: cash,
-            customer_name: name,
-            customer_phone: phone,
-            staff_id: STAFF_ID
-        })
-    });
-
-    const data = await res.json();
-
-    if (data.status === "success") {
-        alert("Payment Success: ₹" + data.total);
-        await createCart();
-        await loadCart();
-        await loadHoldList();
-    } else {
-        alert(JSON.stringify(data));
-    }
+function pay() {
+    alert("Payment screen will come next step 🙂");
 }
 
 // INIT
-(async function(){
+(async function init() {
     await createCart();
     await loadMenu();
     await loadCart();
-    await loadHoldList();
 })();
 </script>
 
