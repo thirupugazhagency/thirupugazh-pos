@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta, time
+from datetime import datetime
 import os
 
 app = Flask(__name__)
@@ -9,8 +9,9 @@ app = Flask(__name__)
 # ---------------- CONFIG ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
+    raise RuntimeError("DATABASE_URL is not set in environment variables")
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -24,18 +25,19 @@ db = SQLAlchemy(app)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True)
-    password = db.Column(db.String(200))
-    role = db.Column(db.String(20))  # admin / staff
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))
-    price = db.Column(db.Integer)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Integer, nullable=False)
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD
 
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,14 +48,14 @@ class CartItem(db.Model):
 
 class AppliedDiscount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    cart_id = db.Column(db.Integer)
+    cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
     reason = db.Column(db.String(200))
-    amount = db.Column(db.Integer)
+    amount = db.Column(db.Integer, nullable=False)
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    total = db.Column(db.Integer)
-    payment_method = db.Column(db.String(20))
+    total = db.Column(db.Integer, nullable=False)
+    payment_method = db.Column(db.String(20), nullable=False)
     txn_id = db.Column(db.String(100))
     cash_details = db.Column(db.String(200))
     customer_name = db.Column(db.String(100))
@@ -61,40 +63,7 @@ class Sale(db.Model):
     staff_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class HeldBill(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    staff_id = db.Column(db.Integer)
-    data = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class BusinessDay(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime)
-    end_time = db.Column(db.DateTime)
-    closed = db.Column(db.Boolean, default=False)
-
-# ---------------- HELPERS ----------------
-
-def get_business_day():
-    now = datetime.utcnow() + timedelta(hours=5, minutes=30)  # IST
-    today_3pm = datetime.combine(now.date(), time(15,0))
-
-    if now < today_3pm:
-        start = today_3pm - timedelta(days=1)
-        end = today_3pm
-    else:
-        start = today_3pm
-        end = today_3pm + timedelta(days=1)
-
-    day = BusinessDay.query.filter_by(start_time=start).first()
-    if not day:
-        day = BusinessDay(start_time=start, end_time=end, closed=False)
-        db.session.add(day)
-        db.session.commit()
-
-    return day
-
-# ---------------- UI ----------------
+# ---------------- ROUTES ----------------
 
 @app.route("/")
 def home():
@@ -113,152 +82,243 @@ def ui_billing():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
-    u = User.query.filter_by(username=data.get("username")).first()
-    if u and check_password_hash(u.password, data.get("password")):
-        return jsonify({"status":"ok","role":u.role,"user_id":u.id})
-    return jsonify({"status":"error"}),401
+    user = User.query.filter_by(username=data.get("username")).first()
+    if user and check_password_hash(user.password, data.get("password")):
+        return jsonify({"status": "ok", "role": user.role, "user_id": user.id})
+    return jsonify({"status": "error"}), 401
 
 # ---------------- USERS ----------------
 
 @app.route("/users", methods=["POST"])
 def create_user():
-    d = request.json
-    u = User(username=d["username"], password=generate_password_hash(d["password"]), role=d["role"])
-    db.session.add(u)
+    data = request.json
+
+    if not data.get("username") or not data.get("password") or not data.get("role"):
+        return jsonify({"error": "Missing fields"}), 400
+
+    if User.query.filter_by(username=data["username"]).first():
+        return jsonify({"error": "User already exists"}), 400
+
+    user = User(
+        username=data["username"],
+        password=generate_password_hash(data["password"]),
+        role=data["role"]
+    )
+
+    db.session.add(user)
     db.session.commit()
-    return jsonify({"status":"created"})
+
+    return jsonify({"status": "user created"})
 
 # ---------------- MENU ----------------
 
-@app.route("/menu")
-def menu():
-    return jsonify([{"id":m.id,"name":m.name,"price":m.price} for m in Menu.query.all()])
+@app.route("/menu", methods=["GET"])
+def get_menu():
+    items = Menu.query.all()
+    return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
 
 # ---------------- CART ----------------
 
 @app.route("/cart/create", methods=["POST"])
-def cart_create():
-    c = Cart()
-    db.session.add(c)
+def create_cart():
+    cart = Cart(status="ACTIVE")
+    db.session.add(cart)
     db.session.commit()
-    return jsonify({"cart_id":c.id})
+    return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
-def cart_add():
-    d = request.json
-    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
+def add_to_cart():
+    data = request.json
+    cart_id = data.get("cart_id")
+    menu_id = data.get("menu_id")
+    qty = data.get("quantity", 1)
+
+    cart = Cart.query.get(cart_id)
+    if not cart or cart.status != "ACTIVE":
+        return jsonify({"error": "Cart not found or not active"}), 404
+
+    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
+
     if item:
-        item.quantity += d.get("quantity",1)
+        item.quantity += qty
     else:
-        item = CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=d.get("quantity",1))
+        item = CartItem(cart_id=cart_id, menu_id=menu_id, quantity=qty)
         db.session.add(item)
+
     db.session.commit()
-    return jsonify({"status":"added"})
+    return jsonify({"status": "added"})
+
+# ---------------- DISCOUNT ----------------
 
 @app.route("/cart/add-discount", methods=["POST"])
 def add_discount():
-    d = request.json
-    disc = AppliedDiscount(cart_id=d["cart_id"], amount=d["amount"], reason=d.get("reason","Manual"))
-    db.session.add(disc)
-    db.session.commit()
-    return jsonify({"status":"ok"})
+    data = request.json
+    cart_id = data.get("cart_id")
+    amount = data.get("amount")
+    reason = data.get("reason", "Manual Discount")
 
-@app.route("/cart/<int:cid>")
-def view_cart(cid):
-    items = CartItem.query.filter_by(cart_id=cid).all()
-    discs = AppliedDiscount.query.filter_by(cart_id=cid).all()
-    total = sum(i.menu.price * i.quantity for i in items)
-    disc_total = sum(d.amount for d in discs)
+    if not cart_id or not amount:
+        return jsonify({"error": "cart_id and amount required"}), 400
+
+    cart = Cart.query.get(cart_id)
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    discount = AppliedDiscount(
+        cart_id=cart_id,
+        amount=amount,
+        reason=reason
+    )
+
+    db.session.add(discount)
+    db.session.commit()
+
+    return jsonify({"status": "discount added", "amount": amount})
+
+# ---------------- VIEW CART ----------------
+
+@app.route("/cart/<int:cart_id>", methods=["GET"])
+def view_cart(cart_id):
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
+
+    result = []
+    total = 0
+
+    for i in items:
+        subtotal = i.menu.price * i.quantity
+        total += subtotal
+        result.append({
+            "id": i.id,
+            "menu_id": i.menu.id,
+            "name": i.menu.name,
+            "price": i.menu.price,
+            "quantity": i.quantity,
+            "subtotal": subtotal
+        })
+
+    discount_total = sum(d.amount for d in discounts)
+
     return jsonify({
-        "items":[{"name":i.menu.name,"qty":i.quantity,"price":i.menu.price} for i in items],
-        "total": total,
-        "discount": disc_total,
-        "final": total - disc_total
+        "cart_id": cart_id,
+        "items": result,
+        "discount_total": discount_total,
+        "final_total": total - discount_total
     })
 
 # ---------------- HOLD BILL ----------------
 
-@app.route("/hold", methods=["POST"])
-def hold_bill():
-    d = request.json
-    hb = HeldBill(staff_id=d["staff_id"], data=str(d))
-    db.session.add(hb)
-    db.session.commit()
-    return jsonify({"status":"held"})
+@app.route("/cart/hold/<int:cart_id>", methods=["POST"])
+def hold_cart(cart_id):
+    cart = Cart.query.get(cart_id)
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
 
-@app.route("/holds/<int:staff_id>")
-def list_holds(staff_id):
-    return jsonify([{"id":h.id,"data":h.data} for h in HeldBill.query.filter_by(staff_id=staff_id).all()])
-
-@app.route("/hold/<int:hid>", methods=["DELETE"])
-def delete_hold(hid):
-    h = HeldBill.query.get(hid)
-    db.session.delete(h)
+    cart.status = "HOLD"
     db.session.commit()
-    return jsonify({"status":"deleted"})
+
+    return jsonify({"status": "held"})
+
+
+@app.route("/cart/hold-list", methods=["GET"])
+def hold_list():
+    carts = Cart.query.filter_by(status="HOLD").all()
+    return jsonify([{"cart_id": c.id} for c in carts])
+
+
+@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
+def resume_cart(cart_id):
+    cart = Cart.query.get(cart_id)
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    cart.status = "ACTIVE"
+    db.session.commit()
+
+    return jsonify({"status": "resumed"})
 
 # ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
-    d = request.json
-    if not d.get("staff_id"):
-        return jsonify({"error":"staff_id required"}),400
+    data = request.json
 
-    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
+    cart_id = data.get("cart_id")
+    payment_method = data.get("payment_method")
+    txn_id = data.get("txn_id", "")
+    cash_details = data.get("cash_details", "")
+    customer_name = data.get("customer_name", "")
+    customer_phone = data.get("customer_phone", "")
+    staff_id = data.get("staff_id")
+
+    if not staff_id:
+        return jsonify({"error": "staff_id is required"}), 400
+
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
     if not items:
-        return jsonify({"error":"Cart empty"}),400
+        return jsonify({"error": "Cart empty"}), 400
 
-    total = sum(i.menu.price * i.quantity for i in items)
-    discs = AppliedDiscount.query.filter_by(cart_id=d["cart_id"]).all()
-    disc_total = sum(x.amount for x in discs)
-    final = total - disc_total
+    cart_total = sum(i.menu.price * i.quantity for i in items)
+    discounts = AppliedDiscount.query.filter_by(cart_id=cart_id).all()
+    discount_total = sum(d.amount for d in discounts)
+    final_total = cart_total - discount_total
 
     sale = Sale(
-        total=final,
-        payment_method=d["payment_method"],
-        txn_id=d.get("txn_id",""),
-        cash_details=d.get("cash_details",""),
-        customer_name=d.get("customer_name",""),
-        customer_phone=d.get("customer_phone",""),
-        staff_id=d["staff_id"]
+        total=final_total,
+        payment_method=payment_method,
+        txn_id=txn_id,
+        cash_details=cash_details,
+        customer_name=customer_name,
+        customer_phone=customer_phone,
+        staff_id=staff_id
     )
 
     db.session.add(sale)
 
-    for i in items: db.session.delete(i)
-    for x in discs: db.session.delete(x)
+    cart = Cart.query.get(cart_id)
+    cart.status = "PAID"
+
+    for i in items:
+        db.session.delete(i)
+    for d in discounts:
+        db.session.delete(d)
 
     db.session.commit()
 
-    return jsonify({"status":"success","total":final})
+    return jsonify({"status": "success", "total": final_total})
 
-# ---------------- REPORTS ----------------
+# ---------------- REPORT ----------------
 
 @app.route("/report/today")
 def report_today():
-    day = get_business_day()
+    today = datetime.utcnow().date()
     total = db.session.query(db.func.sum(Sale.total)).filter(
-        Sale.created_at >= day.start_time,
-        Sale.created_at < day.end_time
+        db.func.date(Sale.created_at) == today
     ).scalar() or 0
-    return jsonify({"total":total,"from":str(day.start_time),"to":str(day.end_time)})
+    return jsonify({"total": total})
 
-# ---------------- INIT ----------------
+# ---------------- INIT DB ----------------
 
 def init_db():
     with app.app_context():
         db.create_all()
+
         if not User.query.first():
-            db.session.add(User(username="admin",password=generate_password_hash("admin123"),role="admin"))
-            db.session.add(User(username="staff1",password=generate_password_hash("1234"),role="staff"))
+            admin = User(username="admin", password=generate_password_hash("admin123"), role="admin")
+            staff = User(username="staff1", password=generate_password_hash("staff123"), role="staff")
+            db.session.add(admin)
+            db.session.add(staff)
+
         if not Menu.query.first():
-            db.session.add(Menu(name="Full Set",price=580))
-            db.session.add(Menu(name="Half Set",price=300))
-            db.session.add(Menu(name="Three Tickets",price=150))
+            db.session.add(Menu(name="Full Set", price=580))
+            db.session.add(Menu(name="Half Set", price=300))
+            db.session.add(Menu(name="Three Tickets", price=150))
+
         db.session.commit()
 
 init_db()
+
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
