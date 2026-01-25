@@ -6,7 +6,6 @@
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-
         header {
             background: #1e88e5;
             color: white;
@@ -32,13 +31,6 @@
 
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-top: 8px;
-            font-size: 16px;
-        }
-
         .pay-btn {
             width: 100%;
             padding: 15px;
@@ -48,24 +40,31 @@
             border: none;
             margin-top: 10px;
         }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
 
 <header>
     <img src="/static/logo.jpg">
-    Thirupugazh POS Billing
+    🧾 Thirupugazh POS Billing
 </header>
 
 <div class="container">
 
-    <!-- LEFT -->
+    <!-- LEFT: MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons"></div>
     </div>
 
-    <!-- RIGHT -->
+    <!-- RIGHT: CART -->
     <div class="cart">
         <h3>Cart</h3>
 
@@ -75,15 +74,17 @@
             Total: ₹<span id="total">0</span>
         </div>
 
+        <hr>
+
         <input id="customerName" placeholder="Customer Name">
-        <input id="customerPhone" placeholder="Customer Phone">
-        <input id="discountAmount" type="number" placeholder="Discount Amount">
+        <input id="customerPhone" placeholder="Customer Phone (10 digits)" maxlength="10" type="number">
 
         <select id="paymentMethod">
-            <option value="CASH">CASH</option>
+            <option value="">Select Payment Method</option>
+            <option value="CASH">Cash</option>
             <option value="UPI">UPI</option>
-            <option value="ONLINE">ONLINE</option>
-            <option value="MIXED">MIXED</option>
+            <option value="ONLINE">Online</option>
+            <option value="MIXED">Mixed</option>
         </select>
 
         <button class="pay-btn" onclick="doPay()">PAY</button>
@@ -93,13 +94,15 @@
 
 <script>
 const API = "";
+
 let cartId = null;
 
-// Create cart
+// Create new cart
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
+    console.log("Cart created:", cartId);
 }
 
 // Load menu
@@ -118,7 +121,7 @@ async function loadMenu() {
     });
 }
 
-// Add item
+// Add to cart
 async function addToCart(menuId) {
     await fetch("/cart/add", {
         method: "POST",
@@ -130,7 +133,7 @@ async function addToCart(menuId) {
         })
     });
 
-    loadCart();
+    await loadCart();
 }
 
 // Load cart
@@ -144,38 +147,82 @@ async function loadCart() {
     data.items.forEach(i => {
         const row = document.createElement("div");
         row.className = "cart-item";
-        row.innerHTML = `<span>${i.name} x ${i.quantity}</span><span>₹${i.subtotal}</span>`;
+        row.innerHTML = `<span>${i.name} x ${i.quantity || 1}</span><span>₹${i.subtotal}</span>`;
         div.appendChild(row);
     });
 
     document.getElementById("total").innerText = data.final_total ?? data.total;
 }
 
-// Pay
+// PAY
 async function doPay() {
     const staffId = localStorage.getItem("user_id");
+
+    const customerName = document.getElementById("customerName").value.trim();
+    const customerPhone = document.getElementById("customerPhone").value.trim();
+    const paymentMethod = document.getElementById("paymentMethod").value;
+
+    let txnId = "";
+    let cashDetails = "";
+
+    // --- VALIDATIONS ---
+    if (!customerName) {
+        alert("Enter customer name");
+        return;
+    }
+
+    if (!customerPhone || customerPhone.length !== 10 || isNaN(customerPhone)) {
+        alert("Enter valid 10-digit phone number");
+        return;
+    }
+
+    if (!paymentMethod) {
+        alert("Select payment method");
+        return;
+    }
+
+    if (paymentMethod === "UPI" || paymentMethod === "ONLINE") {
+        txnId = prompt("Enter Transaction ID:");
+        if (!txnId) {
+            alert("Transaction ID is required!");
+            return;
+        }
+    }
+
+    if (paymentMethod === "CASH" || paymentMethod === "MIXED") {
+        cashDetails = prompt("Enter cash details (example: 500+500):");
+        if (!cashDetails) {
+            alert("Cash details required!");
+            return;
+        }
+    }
 
     const res = await fetch("/checkout", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: document.getElementById("paymentMethod").value,
-            cash_details: "",
-            customer_name: document.getElementById("customerName").value,
-            customer_phone: document.getElementById("customerPhone").value,
+            payment_method: paymentMethod,
+            txn_id: txnId,
+            cash_details: cashDetails,
+            customer_name: customerName,
+            customer_phone: customerPhone,
             staff_id: staffId
         })
     });
 
     const data = await res.json();
-    alert("Bill Success! Total: " + data.total);
 
-    await createCart();
-    await loadCart();
+    if (data.status === "success") {
+        alert("Bill Success! Total: ₹" + data.total);
+        await createCart();
+        await loadCart();
+    } else {
+        alert("Error: " + JSON.stringify(data));
+    }
 }
 
-// Init
+// INIT
 (async function init() {
     await createCart();
     await loadMenu();
