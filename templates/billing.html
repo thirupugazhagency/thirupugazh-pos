@@ -15,9 +15,28 @@
 
         .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 16px;
+            background: white;
+            padding: 8px;
+            border-radius: 5px;
+        }
 
-        .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
+        .qty-btn {
+            padding: 5px 10px;
+            font-size: 18px;
+            margin: 0 5px;
+        }
+
+        .total {
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
 
         .pay-btn {
             width: 100%;
@@ -33,7 +52,7 @@
 <body>
 
 <header>
-    <img src="/static/logo.jpg" style="height:40px; vertical-align:middle;">
+    <img src="/static/logo.jpg" height="40" style="vertical-align:middle;">
     🧾 Thirupugazh POS Billing
 </header>
 
@@ -54,19 +73,18 @@
             Total: ₹<span id="total">0</span>
         </div>
 
-        <button class="pay-btn" onclick="pay()">PAY</button>
+        <button class="pay-btn">PAY</button>
     </div>
 
 </div>
 
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
-
+const API = "";
 let cartId = null;
 
-// Create new cart
+// Create cart
 async function createCart() {
-    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
     console.log("Cart created:", cartId);
@@ -74,10 +92,8 @@ async function createCart() {
 
 // Load menu
 async function loadMenu() {
-    console.log("Loading menu...");
-    const res = await fetch(API + "/menu");
+    const res = await fetch("/menu");
     const menu = await res.json();
-    console.log("Menu data:", menu);
 
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
@@ -85,22 +101,33 @@ async function loadMenu() {
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = () => addToCart(item.id);
+        btn.onclick = () => addItem(item.id);
         div.appendChild(btn);
     });
 }
 
-// Add to cart
-async function addToCart(menuId) {
-    console.log("Adding item", menuId);
-
-    await fetch(API + "/cart/add", {
+// Add item
+async function addItem(menuId) {
+    await fetch("/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            menu_id: menuId,
-            quantity: 1
+            menu_id: menuId
+        })
+    });
+
+    loadCart();
+}
+
+// Remove item
+async function removeItem(menuId) {
+    await fetch("/cart/remove", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId
         })
     });
 
@@ -109,7 +136,7 @@ async function addToCart(menuId) {
 
 // Load cart
 async function loadCart() {
-    const res = await fetch(API + `/cart/${cartId}`);
+    const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
     const div = document.getElementById("cartItems");
@@ -118,15 +145,22 @@ async function loadCart() {
     data.items.forEach(i => {
         const row = document.createElement("div");
         row.className = "cart-item";
-        row.innerHTML = `<span>${i.name} x ${i.quantity}</span><span>₹${i.subtotal}</span>`;
+
+        row.innerHTML = `
+            <div>
+                <b>${i.name}</b><br>
+                ₹${i.price} x ${i.quantity} = ₹${i.subtotal}
+            </div>
+            <div>
+                <button class="qty-btn" onclick="removeItem(${i.menu_id})">−</button>
+                <button class="qty-btn" onclick="addItem(${i.menu_id})">+</button>
+            </div>
+        `;
+
         div.appendChild(row);
     });
 
-    document.getElementById("total").innerText = data.final_total ?? data.total;
-}
-
-function pay() {
-    alert("Payment screen will come next step 🙂");
+    document.getElementById("total").innerText = data.final_total;
 }
 
 // INIT
