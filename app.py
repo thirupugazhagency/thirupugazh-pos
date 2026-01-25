@@ -27,7 +27,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -76,12 +76,38 @@ def login():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
     if user and check_password_hash(user.password, data.get("password")):
-        return jsonify({"status": "ok", "role": user.role, "user_id": user.id})
+        return jsonify({
+            "status": "ok",
+            "role": user.role,
+            "user_id": user.id
+        })
     return jsonify({"status": "error"}), 401
+
+# ---------------- ADMIN: STAFF MANAGEMENT ----------------
+
+@app.route("/admin/create-staff", methods=["POST"])
+def create_staff():
+    data = request.json
+
+    if not data.get("username") or not data.get("password"):
+        return jsonify({"error": "username and password required"}), 400
+
+    if User.query.filter_by(username=data["username"]).first():
+        return jsonify({"error": "User already exists"}), 400
+
+    staff = User(
+        username=data["username"],
+        password=generate_password_hash(data["password"]),
+        role="staff"
+    )
+    db.session.add(staff)
+    db.session.commit()
+
+    return jsonify({"status": "staff created"})
 
 # ---------------- MENU ----------------
 
-@app.route("/menu")
+@app.route("/menu", methods=["GET"])
 def get_menu():
     items = Menu.query.all()
     return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
@@ -102,10 +128,8 @@ def add_to_cart():
     menu_id = data.get("menu_id")
 
     cart = Cart.query.get(cart_id)
-    menu = Menu.query.get(menu_id)
-
-    if not cart or not menu:
-        return jsonify({"error": "Invalid cart or menu"}), 400
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
 
     item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
 
@@ -136,7 +160,7 @@ def remove_from_cart():
     db.session.commit()
     return jsonify({"status": "ok"})
 
-@app.route("/cart/<int:cart_id>")
+@app.route("/cart/<int:cart_id>", methods=["GET"])
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
 
@@ -144,10 +168,6 @@ def view_cart(cart_id):
     total = 0
 
     for i in items:
-        if not i.menu:
-            db.session.delete(i)
-            continue
-
         subtotal = i.menu.price * i.quantity
         total += subtotal
 
@@ -158,8 +178,6 @@ def view_cart(cart_id):
             "quantity": i.quantity,
             "subtotal": subtotal
         })
-
-    db.session.commit()
 
     return jsonify({
         "cart_id": cart_id,
@@ -184,7 +202,7 @@ def checkout():
     if not items:
         return jsonify({"error": "Cart empty"}), 400
 
-    total = sum(i.menu.price * i.quantity for i in items if i.menu)
+    total = sum(i.menu.price * i.quantity for i in items)
 
     sale = Sale(
         total=total,
@@ -210,10 +228,12 @@ def init_db():
         db.create_all()
 
         if not User.query.first():
-            admin = User(username="admin", password=generate_password_hash("admin123"), role="admin")
-            staff = User(username="staff1", password=generate_password_hash("1234"), role="staff")
+            admin = User(
+                username="admin",
+                password=generate_password_hash("admin123"),
+                role="admin"
+            )
             db.session.add(admin)
-            db.session.add(staff)
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
