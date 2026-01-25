@@ -6,9 +6,22 @@
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
 
-        .container { display: flex; height: calc(100vh - 50px); }
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        header img {
+            height: 40px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+
+        .container { display: flex; height: calc(100vh - 60px); }
 
         .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
         .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
@@ -18,6 +31,13 @@
         .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 16px;
+        }
 
         .pay-btn {
             width: 100%;
@@ -32,7 +52,10 @@
 </head>
 <body>
 
-<header>🧾 Thirupugazh POS Billing</header>
+<header>
+    <img src="/static/logo.jpg">
+    Thirupugazh POS Billing
+</header>
 
 <div class="container">
 
@@ -45,37 +68,44 @@
     <!-- RIGHT -->
     <div class="cart">
         <h3>Cart</h3>
+
         <div id="cartItems"></div>
 
         <div class="total">
             Total: ₹<span id="total">0</span>
         </div>
 
-        <button class="pay-btn">PAY</button>
+        <input id="customerName" placeholder="Customer Name">
+        <input id="customerPhone" placeholder="Customer Phone">
+        <input id="discountAmount" type="number" placeholder="Discount Amount">
+
+        <select id="paymentMethod">
+            <option value="CASH">CASH</option>
+            <option value="UPI">UPI</option>
+            <option value="ONLINE">ONLINE</option>
+            <option value="MIXED">MIXED</option>
+        </select>
+
+        <button class="pay-btn" onclick="doPay()">PAY</button>
     </div>
 
 </div>
 
-<!-- ✅ SCRIPT MUST BE AT BOTTOM -->
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
-
+const API = "";
 let cartId = null;
 
-// Create new cart
+// Create cart
 async function createCart() {
-    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
-    console.log("Cart created:", cartId);
 }
 
 // Load menu
 async function loadMenu() {
-    console.log("Loading menu...");
-    const res = await fetch(API + "/menu");
+    const res = await fetch("/menu");
     const menu = await res.json();
-    console.log("Menu data:", menu);
 
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
@@ -83,24 +113,14 @@ async function loadMenu() {
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = () => {
-            console.log("Clicked:", item.name);
-            addToCart(item.id);
-        };
+        btn.onclick = () => addToCart(item.id);
         div.appendChild(btn);
     });
 }
 
-// Add to cart
+// Add item
 async function addToCart(menuId) {
-    if (!cartId) {
-        alert("Cart not ready yet");
-        return;
-    }
-
-    console.log("Adding to cart:", menuId);
-
-    await fetch(API + "/cart/add", {
+    await fetch("/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -110,17 +130,13 @@ async function addToCart(menuId) {
         })
     });
 
-    await loadCart();
+    loadCart();
 }
 
 // Load cart
 async function loadCart() {
-    if (!cartId) return;
-
-    const res = await fetch(API + `/cart/${cartId}`);
+    const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
-
-    console.log("Cart data:", data);
 
     const div = document.getElementById("cartItems");
     div.innerHTML = "";
@@ -135,9 +151,32 @@ async function loadCart() {
     document.getElementById("total").innerText = data.final_total ?? data.total;
 }
 
-// INIT
+// Pay
+async function doPay() {
+    const staffId = localStorage.getItem("user_id");
+
+    const res = await fetch("/checkout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            payment_method: document.getElementById("paymentMethod").value,
+            cash_details: "",
+            customer_name: document.getElementById("customerName").value,
+            customer_phone: document.getElementById("customerPhone").value,
+            staff_id: staffId
+        })
+    });
+
+    const data = await res.json();
+    alert("Bill Success! Total: " + data.total);
+
+    await createCart();
+    await loadCart();
+}
+
+// Init
 (async function init() {
-    console.log("Billing screen loaded");
     await createCart();
     await loadMenu();
     await loadCart();
