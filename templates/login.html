@@ -16,32 +16,32 @@
 
         .login-box {
             background: white;
-            padding: 25px;
-            width: 320px;
-            text-align: center;
+            padding: 20px;
+            width: 300px;
             border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            text-align: center;
         }
 
-        input {
+        .login-box img {
+            width: 120px;
+            margin-bottom: 15px;
+        }
+
+        .login-box input {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
+            padding: 10px;
+            margin: 8px 0;
             font-size: 16px;
         }
 
-        button {
+        .login-box button {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             font-size: 18px;
             background: #1e88e5;
             color: white;
             border: none;
-        }
-
-        img {
-            width: 120px;
-            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -49,39 +49,39 @@
 
 <div class="login-box">
     <img src="/static/logo.jpg">
+    <h2>Login</h2>
 
-    <h2>Thirupugazh POS</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
 
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-
-    <button onclick="doLogin()">LOGIN</button>
-
-    <p id="msg" style="color:red;"></p>
+    <button onclick="doLogin()">Login</button>
 </div>
 
 <script>
 async function doLogin() {
-    const u = document.getElementById("username").value;
-    const p = document.getElementById("password").value;
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    if (!username || !password) {
+        alert("Enter username and password");
+        return;
+    }
 
     const res = await fetch("/login", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({username: u, password: p})
+        body: JSON.stringify({username, password})
     });
 
     const data = await res.json();
 
     if (data.status === "ok") {
-        // Save user in browser
         localStorage.setItem("user_id", data.user_id);
         localStorage.setItem("role", data.role);
 
-        // Go to billing
         window.location.href = "/ui/billing";
     } else {
-        document.getElementById("msg").innerText = "Invalid login";
+        alert("Login failed");
     }
 }
 </script>

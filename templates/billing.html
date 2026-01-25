@@ -6,7 +6,20 @@
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
+
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+        }
+
+        header img {
+            height: 40px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
 
         .container { display: flex; height: calc(100vh - 60px); }
 
@@ -18,18 +31,14 @@
         .cart-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
             margin-bottom: 8px;
             font-size: 16px;
-            background: white;
-            padding: 8px;
-            border-radius: 5px;
+            align-items: center;
         }
 
-        .qty-btn {
+        .cart-item button {
             padding: 5px 10px;
-            font-size: 18px;
-            margin: 0 5px;
+            font-size: 16px;
         }
 
         .total {
@@ -47,12 +56,19 @@
             border: none;
             margin-top: 10px;
         }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <img src="/static/logo.jpg" height="40" style="vertical-align:middle;">
+    <img src="/static/logo.jpg">
     🧾 Thirupugazh POS Billing
 </header>
 
@@ -67,24 +83,40 @@
     <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
+
         <div id="cartItems"></div>
 
         <div class="total">
             Total: ₹<span id="total">0</span>
         </div>
 
-        <button class="pay-btn">PAY</button>
+        <hr>
+
+        <input id="custName" placeholder="Customer Name">
+        <input id="custPhone" placeholder="Customer Phone (10 digits)">
+        
+        <select id="payMethod">
+            <option value="">Select Payment Method</option>
+            <option value="CASH">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="CARD">Card</option>
+        </select>
+
+        <input id="txnId" placeholder="Transaction ID (for UPI / Card)">
+
+        <button class="pay-btn" onclick="payNow()">PAY</button>
     </div>
 
 </div>
 
 <script>
-const API = "";
+const API = "https://thirupugazh-pos.onrender.com";
+
 let cartId = null;
 
 // Create cart
 async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
+    const res = await fetch(API + "/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
     console.log("Cart created:", cartId);
@@ -92,7 +124,7 @@ async function createCart() {
 
 // Load menu
 async function loadMenu() {
-    const res = await fetch("/menu");
+    const res = await fetch(API + "/menu");
     const menu = await res.json();
 
     const div = document.getElementById("menuButtons");
@@ -101,14 +133,14 @@ async function loadMenu() {
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = () => addItem(item.id);
+        btn.onclick = () => addToCart(item.id);
         div.appendChild(btn);
     });
 }
 
 // Add item
-async function addItem(menuId) {
-    await fetch("/cart/add", {
+async function addToCart(menuId) {
+    await fetch(API + "/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -121,8 +153,8 @@ async function addItem(menuId) {
 }
 
 // Remove item
-async function removeItem(menuId) {
-    await fetch("/cart/remove", {
+async function removeFromCart(menuId) {
+    await fetch(API + "/cart/remove", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -136,7 +168,7 @@ async function removeItem(menuId) {
 
 // Load cart
 async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
+    const res = await fetch(API + `/cart/${cartId}`);
     const data = await res.json();
 
     const div = document.getElementById("cartItems");
@@ -147,20 +179,56 @@ async function loadCart() {
         row.className = "cart-item";
 
         row.innerHTML = `
-            <div>
-                <b>${i.name}</b><br>
-                ₹${i.price} x ${i.quantity} = ₹${i.subtotal}
-            </div>
-            <div>
-                <button class="qty-btn" onclick="removeItem(${i.menu_id})">−</button>
-                <button class="qty-btn" onclick="addItem(${i.menu_id})">+</button>
-            </div>
+            <span>${i.name} x ${i.quantity}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">-</button>
+                <button onclick="addToCart(${i.menu_id})">+</button>
+                ₹${i.subtotal}
+            </span>
         `;
 
         div.appendChild(row);
     });
 
-    document.getElementById("total").innerText = data.final_total;
+    document.getElementById("total").innerText = data.final_total ?? data.total;
+}
+
+// PAY
+async function payNow() {
+    const name = document.getElementById("custName").value.trim();
+    const phone = document.getElementById("custPhone").value.trim();
+    const method = document.getElementById("payMethod").value;
+    const txn = document.getElementById("txnId").value.trim();
+
+    if (!name) return alert("Enter customer name");
+    if (!phone || phone.length != 10) return alert("Enter valid 10 digit phone number");
+    if (!method) return alert("Select payment method");
+
+    if (method != "CASH" && !txn) {
+        return alert("Transaction ID required for UPI/Card");
+    }
+
+    const res = await fetch(API + "/checkout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            payment_method: method,
+            customer_name: name,
+            customer_phone: phone,
+            txn_id: txn,
+            staff_id: 2
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.status == "success") {
+        alert("Payment Successful! Total = ₹" + data.total);
+        location.reload();
+    } else {
+        alert("Error: " + JSON.stringify(data));
+    }
 }
 
 // INIT
