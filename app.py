@@ -27,7 +27,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -36,7 +36,7 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD
+    status = db.Column(db.String(20), default="OPEN")  # OPEN / HOLD
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -79,6 +79,28 @@ def login():
         return jsonify({"status": "ok", "role": user.role, "user_id": user.id})
     return jsonify({"status": "error"}), 401
 
+# ---------------- ADMIN ----------------
+
+@app.route("/admin/change-password", methods=["POST"])
+def admin_change_password():
+    data = request.json
+    admin_id = data.get("admin_id")
+    user_id = data.get("user_id")
+    new_password = data.get("new_password")
+
+    admin = User.query.get(admin_id)
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"status": "password changed"})
+
 # ---------------- MENU ----------------
 
 @app.route("/menu", methods=["GET"])
@@ -90,7 +112,7 @@ def get_menu():
 
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    cart = Cart(status="ACTIVE")
+    cart = Cart()
     db.session.add(cart)
     db.session.commit()
     return jsonify({"cart_id": cart.id})
@@ -176,10 +198,10 @@ def hold_cart():
 
     return jsonify({"status": "held"})
 
-@app.route("/cart/held", methods=["GET"])
-def list_held_carts():
+@app.route("/cart/holds", methods=["GET"])
+def list_holds():
     carts = Cart.query.filter_by(status="HOLD").all()
-    return jsonify([{"cart_id": c.id, "created_at": c.created_at.strftime("%H:%M")} for c in carts])
+    return jsonify([{"id": c.id, "created_at": str(c.created_at)} for c in carts])
 
 @app.route("/cart/resume/<int:cart_id>", methods=["POST"])
 def resume_cart(cart_id):
@@ -187,16 +209,9 @@ def resume_cart(cart_id):
     if not cart:
         return jsonify({"error": "Cart not found"}), 404
 
-    cart.status = "ACTIVE"
+    cart.status = "OPEN"
     db.session.commit()
     return jsonify({"status": "resumed"})
-
-@app.route("/cart/delete/<int:cart_id>", methods=["POST"])
-def delete_cart(cart_id):
-    CartItem.query.filter_by(cart_id=cart_id).delete()
-    Cart.query.filter_by(id=cart_id).delete()
-    db.session.commit()
-    return jsonify({"status": "deleted"})
 
 # ---------------- CHECKOUT ----------------
 
@@ -229,11 +244,23 @@ def checkout():
     for i in items:
         db.session.delete(i)
 
-    Cart.query.filter_by(id=cart_id).delete()
+    cart = Cart.query.get(cart_id)
+    db.session.delete(cart)
 
     db.session.commit()
 
     return jsonify({"status": "success", "total": total})
+
+# ---------------- REPORTS ----------------
+
+@app.route("/report/staff/<int:staff_id>")
+def staff_report(staff_id):
+    sales = Sale.query.filter_by(staff_id=staff_id).all()
+    return jsonify([{
+        "id": s.id,
+        "total": s.total,
+        "date": str(s.created_at)
+    } for s in sales])
 
 # ---------------- INIT DB ----------------
 
