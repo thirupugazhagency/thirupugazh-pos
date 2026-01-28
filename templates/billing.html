@@ -15,18 +15,11 @@
 
         .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
-        .qty-btn {
-            padding: 5px 10px;
-            font-size: 18px;
-            margin: 0 5px;
+        .cart-controls button {
+            padding: 4px 10px;
+            font-size: 16px;
         }
 
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
@@ -67,22 +60,22 @@
 </div>
 
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
-
 let cartId = null;
 
-// 1️⃣ Create cart
+// ---------------- CREATE CART ----------------
 async function createCart() {
-    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
     console.log("Cart created:", cartId);
 }
 
-// 2️⃣ Load menu
+// ---------------- LOAD MENU ----------------
 async function loadMenu() {
-    const res = await fetch(API + "/menu");
+    console.log("Loading menu...");
+    const res = await fetch("/menu");
     const menu = await res.json();
+    console.log("Menu data:", menu);
 
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
@@ -95,9 +88,9 @@ async function loadMenu() {
     });
 }
 
-// 3️⃣ Add item
+// ---------------- ADD TO CART ----------------
 async function addToCart(menuId) {
-    await fetch(API + "/cart/add", {
+    await fetch("/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -106,12 +99,12 @@ async function addToCart(menuId) {
         })
     });
 
-    await loadCart();
+    loadCart();
 }
 
-// 4️⃣ Remove item
+// ---------------- REMOVE FROM CART ----------------
 async function removeFromCart(menuId) {
-    await fetch(API + "/cart/remove", {
+    await fetch("/cart/remove", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -120,12 +113,12 @@ async function removeFromCart(menuId) {
         })
     });
 
-    await loadCart();
+    loadCart();
 }
 
-// 5️⃣ Load cart
+// ---------------- LOAD CART ----------------
 async function loadCart() {
-    const res = await fetch(API + `/cart/${cartId}`);
+    const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
     const div = document.getElementById("cartItems");
@@ -136,24 +129,22 @@ async function loadCart() {
         row.className = "cart-item";
 
         row.innerHTML = `
-            <div>
-                <b>${i.name}</b><br>
-                ₹${i.price} x ${i.quantity} = ₹${i.subtotal}
-            </div>
-            <div>
-                <button class="qty-btn" onclick="removeFromCart(${i.menu_id})">−</button>
-                <button class="qty-btn" onclick="addToCart(${i.menu_id})">+</button>
-            </div>
+            <span>${i.name} x ${i.quantity}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">-</button>
+                ₹${i.subtotal}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
         `;
 
         div.appendChild(row);
     });
 
-    document.getElementById("total").innerText = data.final_total || data.total;
+    document.getElementById("total").innerText = data.total;
 }
 
-// 6️⃣ Init
-(async function() {
+// ---------------- INIT ----------------
+(async function init() {
     await createCart();
     await loadMenu();
     await loadCart();
