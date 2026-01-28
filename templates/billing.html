@@ -17,11 +17,6 @@
 
         .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
-        .cart-controls button {
-            padding: 4px 10px;
-            font-size: 16px;
-        }
-
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
         .pay-btn {
@@ -60,9 +55,11 @@
 </div>
 
 <script>
+console.log("Billing JS loaded");
+
 let cartId = null;
 
-// ---------------- CREATE CART ----------------
+// Create cart
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
@@ -70,11 +67,13 @@ async function createCart() {
     console.log("Cart created:", cartId);
 }
 
-// ---------------- LOAD MENU ----------------
+// Load menu
 async function loadMenu() {
     console.log("Loading menu...");
+
     const res = await fetch("/menu");
     const menu = await res.json();
+
     console.log("Menu data:", menu);
 
     const div = document.getElementById("menuButtons");
@@ -88,8 +87,10 @@ async function loadMenu() {
     });
 }
 
-// ---------------- ADD TO CART ----------------
+// Add to cart
 async function addToCart(menuId) {
+    console.log("Adding item", menuId);
+
     await fetch("/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -99,24 +100,10 @@ async function addToCart(menuId) {
         })
     });
 
-    loadCart();
+    await loadCart();
 }
 
-// ---------------- REMOVE FROM CART ----------------
-async function removeFromCart(menuId) {
-    await fetch("/cart/remove", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId
-        })
-    });
-
-    loadCart();
-}
-
-// ---------------- LOAD CART ----------------
+// Load cart
 async function loadCart() {
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
@@ -127,23 +114,14 @@ async function loadCart() {
     data.items.forEach(i => {
         const row = document.createElement("div");
         row.className = "cart-item";
-
-        row.innerHTML = `
-            <span>${i.name} x ${i.quantity}</span>
-            <span>
-                <button onclick="removeFromCart(${i.menu_id})">-</button>
-                ₹${i.subtotal}
-                <button onclick="addToCart(${i.menu_id})">+</button>
-            </span>
-        `;
-
+        row.innerHTML = `<span>${i.name} x ${i.quantity}</span><span>₹${i.subtotal}</span>`;
         div.appendChild(row);
     });
 
     document.getElementById("total").innerText = data.total;
 }
 
-// ---------------- INIT ----------------
+// Init
 (async function init() {
     await createCart();
     await loadMenu();
