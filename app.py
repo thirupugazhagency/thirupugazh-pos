@@ -1,15 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 
 app = Flask(__name__)
 
 # ---------------- CONFIG ----------------
-
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
@@ -22,12 +20,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # ---------------- MODELS ----------------
-
-class BusinessDay(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime)
-    is_closed = db.Column(db.Boolean, default=False)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,7 +34,7 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    is_hold = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -59,18 +51,7 @@ class Sale(db.Model):
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     staff_id = db.Column(db.Integer)
-    business_day_id = db.Column(db.Integer, db.ForeignKey("business_day.id"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-# ---------------- HELPERS ----------------
-
-def get_current_business_day():
-    day = BusinessDay.query.filter_by(is_closed=False).first()
-    if not day:
-        day = BusinessDay(start_time=datetime.utcnow(), is_closed=False)
-        db.session.add(day)
-        db.session.commit()
-    return day
 
 # ---------------- UI ----------------
 
@@ -98,7 +79,7 @@ def login():
 
 # ---------------- MENU ----------------
 
-@app.route("/menu", methods=["GET"])
+@app.route("/menu")
 def get_menu():
     items = Menu.query.all()
     return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
@@ -107,7 +88,7 @@ def get_menu():
 
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    cart = Cart()
+    cart = Cart(status="ACTIVE")
     db.session.add(cart)
     db.session.commit()
     return jsonify({"cart_id": cart.id})
@@ -119,12 +100,10 @@ def add_to_cart():
     menu_id = data.get("menu_id")
 
     item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
-
     if item:
         item.quantity += 1
     else:
-        item = CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1)
-        db.session.add(item)
+        db.session.add(CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1))
 
     db.session.commit()
     return jsonify({"status": "added"})
@@ -150,9 +129,9 @@ def remove_from_cart():
 @app.route("/cart/<int:cart_id>")
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
+
     result = []
     total = 0
-
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -164,32 +143,40 @@ def view_cart(cart_id):
             "subtotal": subtotal
         })
 
-    return jsonify({
-        "items": result,
-        "total": total,
-        "final_total": total
-    })
+    return jsonify({"items": result, "total": total, "final_total": total})
 
-# ---------------- HOLD BILL ----------------
+# ---------------- HOLD SYSTEM ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
     data = request.json
     cart_id = data.get("cart_id")
+
     cart = Cart.query.get(cart_id)
-    cart.is_hold = True
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    cart.status = "HOLD"
     db.session.commit()
-    return jsonify({"status": "held"})
+
+    new_cart = Cart(status="ACTIVE")
+    db.session.add(new_cart)
+    db.session.commit()
+
+    return jsonify({"new_cart_id": new_cart.id})
 
 @app.route("/cart/holds")
 def list_holds():
-    carts = Cart.query.filter_by(is_hold=True).all()
-    return jsonify([{"id": c.id} for c in carts])
+    carts = Cart.query.filter_by(status="HOLD").all()
+    return jsonify([{"id": c.id, "created_at": str(c.created_at)} for c in carts])
 
-@app.route("/cart/resume/<int:cart_id>")
+@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
 def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
-    cart.is_hold = False
+    if not cart or cart.status != "HOLD":
+        return jsonify({"error": "Invalid cart"}), 400
+
+    cart.status = "ACTIVE"
     db.session.commit()
     return jsonify({"status": "resumed", "cart_id": cart.id})
 
@@ -198,12 +185,7 @@ def resume_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     data = request.json
-
     cart_id = data.get("cart_id")
-    payment_method = data.get("payment_method")
-    customer_name = data.get("customer_name")
-    customer_phone = data.get("customer_phone")
-    staff_id = data.get("staff_id")
 
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     if not items:
@@ -211,52 +193,31 @@ def checkout():
 
     total = sum(i.menu.price * i.quantity for i in items)
 
-    day = get_current_business_day()
-
     sale = Sale(
         total=total,
-        payment_method=payment_method,
-        customer_name=customer_name,
-        customer_phone=customer_phone,
-        staff_id=staff_id,
-        business_day_id=day.id
+        payment_method=data.get("payment_method"),
+        customer_name=data.get("customer_name"),
+        customer_phone=data.get("customer_phone"),
+        staff_id=data.get("staff_id")
     )
 
     db.session.add(sale)
 
-    for i in items:
-        db.session.delete(i)
+    cart = Cart.query.get(cart_id)
+    cart.status = "PAID"
 
     db.session.commit()
-
     return jsonify({"status": "success", "total": total})
 
-# ---------------- DAY CLOSE ----------------
-
-@app.route("/day/close", methods=["POST"])
-def close_day():
-    day = get_current_business_day()
-    day.is_closed = True
-    day.end_time = datetime.utcnow()
-
-    new_day = BusinessDay(start_time=datetime.utcnow(), is_closed=False)
-
-    db.session.add(new_day)
-    db.session.commit()
-
-    return jsonify({"status": "day closed", "new_day_id": new_day.id})
-
-# ---------------- INIT ----------------
+# ---------------- INIT DB ----------------
 
 def init_db():
     with app.app_context():
         db.create_all()
 
         if not User.query.first():
-            admin = User(username="admin", password=generate_password_hash("admin123"), role="admin")
-            staff = User(username="staff1", password=generate_password_hash("1234"), role="staff")
-            db.session.add(admin)
-            db.session.add(staff)
+            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
+            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
