@@ -1,23 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh POS</title>
+    <title>Thirupugazh POS Billing</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
+
         header {
             background: #1e88e5;
             color: white;
             padding: 10px;
-            text-align: center;
             font-size: 20px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
         }
-        header img { height: 40px; }
+
+        header button {
+            padding: 6px 12px;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+        }
 
         .container { display: flex; height: calc(100vh - 60px); }
 
@@ -26,45 +31,43 @@
 
         .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
-        .btn { padding: 6px 10px; font-size: 16px; }
+        .btn { padding: 6px 10px; }
 
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
-        button.main {
+        select, input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 16px;
+        }
+
+        .main {
             width: 100%;
             padding: 15px;
             font-size: 18px;
+            margin-top: 10px;
             border: none;
             color: white;
-            margin-top: 10px;
+            cursor: pointer;
         }
 
         .pay { background: green; }
         .hold { background: orange; }
         .resume { background: #444; }
-
-        select, input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            margin-top: 8px;
-        }
     </style>
 </head>
 
 <body>
 
 <header>
-    <img src="/static/logo.png" alt="Logo">
-    Thirupugazh POS Billing
+    <span>🧾 Thirupugazh POS</span>
+    <div>
+        <button onclick="logout()">Logout</button>
+        <button id="adminBtn" onclick="changePassword()" style="display:none">Change Agent Password</button>
+    </div>
 </header>
 
 <div class="container">
@@ -102,6 +105,39 @@
 <script>
 const API = "https://thirupugazh-pos.onrender.com";
 let cartId = null;
+const ROLE = localStorage.getItem("role");
+
+// Admin-only button
+if (ROLE === "admin") {
+    document.getElementById("adminBtn").style.display = "inline-block";
+}
+
+// LOGOUT
+function logout() {
+    localStorage.clear();
+    window.location.href = "/ui/login";
+}
+
+// ADMIN CHANGE PASSWORD
+function changePassword() {
+    const username = prompt("Agent Username:");
+    const newPassword = prompt("New Password:");
+    if (!username || !newPassword) return;
+
+    fetch(API + "/admin/change-password", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-ROLE": "admin"
+        },
+        body: JSON.stringify({
+            username: username,
+            new_password: newPassword
+        })
+    })
+    .then(res => res.json())
+    .then(() => alert("Password updated"));
+}
 
 // CREATE CART
 async function createCart() {
@@ -125,21 +161,21 @@ async function loadMenu() {
 }
 
 // ADD ITEM
-async function addToCart(menuId) {
+async function addToCart(id) {
     await fetch(API + "/cart/add", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart_id: cartId, menu_id: id })
     });
     loadCart();
 }
 
 // REMOVE ITEM
-async function removeFromCart(menuId) {
+async function removeFromCart(id) {
     await fetch(API + "/cart/remove", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart_id: cartId, menu_id: id })
     });
     loadCart();
 }
@@ -174,11 +210,10 @@ async function loadCart() {
 async function holdBill() {
     const res = await fetch(API + "/cart/hold", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart_id: cartId })
     });
-    const data = await res.json();
-    cartId = data.new_cart_id;
+    cartId = (await res.json()).new_cart_id;
     loadCart();
 }
 
@@ -197,22 +232,22 @@ async function resumeHold() {
 
 // PAY
 async function payNow() {
-    const paymentMode = document.getElementById("paymentMode").value;
+    const mode = document.getElementById("paymentMode").value;
     const discount = document.getElementById("discount").value || 0;
 
-    if (!paymentMode) {
+    if (!mode) {
         alert("Select payment mode");
         return;
     }
 
     const res = await fetch(API + "/checkout", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: paymentMode,
+            payment_method: mode,
             discount: discount,
-            staff_id: 1
+            staff_id: localStorage.getItem("user_id")
         })
     });
 
