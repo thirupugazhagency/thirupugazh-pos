@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Thirupugazh POS</title>
+<title>Thirupugazh – POS Billing</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -22,7 +22,7 @@ button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border
 <body>
 
 <header>
-<span>🧾 Thirupugazh POS</span>
+<span>🧾 Thirupugazh – POS</span>
 <button onclick="logout()">Logout</button>
 </header>
 
@@ -41,9 +41,9 @@ button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border
 <h3>Cart</h3>
 <div id="cartItems"></div>
 
-<div><b>Total: ₹<span id="total">0</span></b></div>
+<b>Total: ₹<span id="total">0</span></b>
 
-<input type="number" id="discount" placeholder="Discount ₹">
+<input id="discount" type="number" placeholder="Discount ₹">
 
 <select id="paymentMode" onchange="toggleTxn()">
 <option value="">Select Payment Mode *</option>
@@ -69,8 +69,7 @@ let cartId=null;
 function logout(){localStorage.clear();location.href="/ui/login";}
 
 function toggleTxn(){
-const mode=paymentMode.value;
-transactionId.style.display=["UPI","ONLINE","MIXED"].includes(mode)?"block":"none";
+transactionId.style.display=["UPI","ONLINE","MIXED"].includes(paymentMode.value)?"block":"none";
 }
 
 async function createCart(){
@@ -102,7 +101,7 @@ async function loadCart(){
 const d=await (await fetch(API+`/cart/${cartId}`)).json();
 cartItems.innerHTML="";
 d.items.forEach(i=>{
-cartItems.innerHTML+=`${i.name} 
+cartItems.innerHTML+=`${i.name}
 <button onclick="removeFromCart(${i.menu_id})">-</button>
 ${i.quantity}
 <button onclick="addToCart(${i.menu_id})">+</button>
@@ -149,4 +148,3 @@ else alert(d.error);
 
 </body>
 </html>
-s
