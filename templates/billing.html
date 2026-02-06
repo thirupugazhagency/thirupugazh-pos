@@ -21,8 +21,32 @@
 
         .btn { padding: 6px 10px; font-size: 16px; }
 
-        .pay-btn { width: 100%; padding: 15px; font-size: 20px; background: green; color: white; border: none; margin-top: 10px; }
-        .hold-btn { width: 100%; padding: 15px; font-size: 18px; background: orange; color: white; border: none; margin-top: 10px; }
+        .pay-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            background: green;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
+
+        .hold-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: orange;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -44,8 +68,17 @@
             Total: ₹<span id="total">0</span>
         </div>
 
+        <!-- PAYMENT MODE -->
+        <select id="paymentMode">
+            <option value="">Select Payment Mode</option>
+            <option value="CASH">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="ONLINE">Online</option>
+            <option value="MIXED">Mixed</option>
+        </select>
+
         <button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
-        <button class="pay-btn">PAY</button>
+        <button class="pay-btn" onclick="payNow()">PAY</button>
     </div>
 
 </div>
@@ -134,7 +167,39 @@ async function loadCart() {
 
 // ---------------- HOLD ----------------
 function holdBill() {
-    alert("Hold system will be activated in next step");
+    alert("Hold system already exists and will be wired next");
+}
+
+// ---------------- PAY ----------------
+async function payNow() {
+    const paymentMode = document.getElementById("paymentMode").value;
+
+    if (!paymentMode) {
+        alert("Please select payment mode");
+        return;
+    }
+
+    const res = await fetch(API + "/checkout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            payment_method: paymentMode,
+            customer_name: "",
+            customer_phone: "",
+            staff_id: 1
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.status === "success") {
+        alert("Payment successful. Total ₹" + data.total);
+        await createCart();
+        await loadCart();
+    } else {
+        alert("Payment failed");
+    }
 }
 
 // ---------------- INIT ----------------
