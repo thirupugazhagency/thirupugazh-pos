@@ -90,7 +90,7 @@ def login():
         return jsonify({"status": "ok", "user_id": u.id, "role": u.role})
     return jsonify({"status": "error"}), 401
 
-# ---------------- MENU (FOR BILLING – VERY IMPORTANT) ----------------
+# ---------------- MENU (CRITICAL FOR BILLING) ----------------
 @app.route("/menu")
 def get_menu():
     menus = Menu.query.order_by(Menu.id).all()
@@ -98,6 +98,18 @@ def get_menu():
         {"id": m.id, "name": m.name, "price": m.price}
         for m in menus
     ])
+
+# ================== 🔥 TEMPORARY MENU FIX ROUTE ==================
+# USE ONLY ONCE – SAFE – DOES NOT DUPLICATE
+@app.route("/admin/fix-menu")
+def fix_menu():
+    if Menu.query.count() == 0:
+        db.session.add(Menu(name="Full Set", price=580))
+        db.session.add(Menu(name="Half Set", price=300))
+        db.session.add(Menu(name="Three Tickets", price=150))
+        db.session.commit()
+        return "Menu inserted successfully"
+    return "Menu already exists"
 
 # ================== ADMIN MENU MANAGEMENT ==================
 
@@ -159,11 +171,6 @@ def init_db():
                 password=generate_password_hash("admin123"),
                 role="admin"
             ))
-
-        if not Menu.query.first():
-            db.session.add(Menu(name="Full Set", price=580))
-            db.session.add(Menu(name="Half Set", price=300))
-            db.session.add(Menu(name="Three Tickets", price=150))
 
         db.session.commit()
 
