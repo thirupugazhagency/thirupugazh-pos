@@ -3,3 +3,5 @@ flask_sqlalchemy
 gunicorn
 psycopg2-binary
 werkzeug
+openpyxl
+reportlab
