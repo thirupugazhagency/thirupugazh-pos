@@ -6,7 +6,7 @@
 
 <style>
 body{
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Arial;
     background:#f4f6f8;
     margin:0;
 }
@@ -27,9 +27,6 @@ header{
     border-radius:8px;
     box-shadow:0 5px 15px rgba(0,0,0,0.2);
 }
-h3{
-    margin-top:0;
-}
 button{
     width:100%;
     padding:15px;
@@ -37,30 +34,16 @@ button{
     margin-top:12px;
     border:none;
     cursor:pointer;
-    border-radius:4px;
 }
-.excel{
-    background:#2e7d32;
-    color:white;
-}
-.pdf{
-    background:#c62828;
-    color:white;
-}
-.logout{
-    background:#455a64;
-    color:white;
-    padding:8px 14px;
-}
+.excel{background:#2e7d32;color:white;}
+.pdf{background:#c62828;color:white;}
+.logout{background:#555;color:white;}
 input{
     width:100%;
     padding:10px;
     margin-top:10px;
-    font-size:16px;
 }
-hr{
-    margin:25px 0;
-}
+hr{margin:25px 0;}
 </style>
 </head>
 
@@ -73,73 +56,41 @@ hr{
 
 <div class="container">
 
-<h3>📅 Daily / Date-wise Sales</h3>
-<input type="date" id="reportDate">
+<h3>📆 Monthly Summary</h3>
 
-<button class="excel" onclick="downloadExcel()">
-⬇ Download Date-wise Excel
+<input type="month" id="reportMonth">
+
+<button class="excel" onclick="monthlyExcel()">
+⬇ Monthly Excel Report
 </button>
 
-<button class="pdf" onclick="downloadPDF()">
-⬇ Download Date-wise PDF
-</button>
-
-<hr>
-
-<h3>📊 All-Time Sales</h3>
-
-<button class="excel" onclick="window.open('/admin/report/excel','_blank')">
-⬇ Download All Excel
-</button>
-
-<button class="pdf" onclick="window.open('/admin/report/pdf','_blank')">
-⬇ Download All PDF
-</button>
-
-<hr>
-
-<h3>👤 Agent-wise Sales</h3>
-
-<button class="excel" onclick="window.open('/admin/report/agent/excel','_blank')">
-⬇ Agent-wise Excel Report
-</button>
-
-<button class="pdf" onclick="window.open('/admin/report/agent/pdf','_blank')">
-⬇ Agent-wise PDF Report
+<button class="pdf" onclick="monthlyPDF()">
+⬇ Monthly PDF Report
 </button>
 
 </div>
 
 <script>
-// ADMIN CHECK
-const ROLE = localStorage.getItem("role");
-if (ROLE !== "admin") {
-    alert("Admin access only");
-    window.location.href = "/ui/login";
+if(localStorage.getItem("role") !== "admin"){
+    alert("Admin only");
+    window.location.href="/ui/login";
 }
 
-// DATE-WISE EXCEL
-function downloadExcel(){
-    const d = document.getElementById("reportDate").value;
-    const url = d
-      ? `/admin/report/excel?date=${d}`
-      : `/admin/report/excel`;
-    window.open(url, "_blank");
+function monthlyExcel(){
+    const m=document.getElementById("reportMonth").value;
+    if(!m){alert("Select month");return;}
+    window.open(`/admin/report/monthly/excel?month=${m}`,"_blank");
 }
 
-// DATE-WISE PDF
-function downloadPDF(){
-    const d = document.getElementById("reportDate").value;
-    const url = d
-      ? `/admin/report/pdf?date=${d}`
-      : `/admin/report/pdf`;
-    window.open(url, "_blank");
+function monthlyPDF(){
+    const m=document.getElementById("reportMonth").value;
+    if(!m){alert("Select month");return;}
+    window.open(`/admin/report/monthly/pdf?month=${m}`,"_blank");
 }
 
-// LOGOUT
 function logout(){
     localStorage.clear();
-    window.location.href = "/ui/login";
+    window.location.href="/ui/login";
 }
 </script>
 
