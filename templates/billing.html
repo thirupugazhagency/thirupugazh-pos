@@ -3,23 +3,72 @@
 <head>
     <title>Thirupugazh POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        header img { height: 40px; }
+
         .container { display: flex; height: calc(100vh - 60px); }
-        .menu, .cart { width: 50%; padding: 10px; }
+
+        .menu { width: 50%; padding: 10px; background: white; overflow-y: auto; }
         .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
-        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+
+        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .btn { padding: 6px 10px; font-size: 16px; }
+
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
-        button { padding: 12px; font-size: 18px; width: 100%; margin-top: 10px; }
-        select, input { width: 100%; padding: 10px; margin-top: 8px; }
+
+        button.main {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .pay { background: green; }
+        .hold { background: orange; }
+        .resume { background: #444; }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 8px;
+        }
     </style>
 </head>
+
 <body>
 
-<header>🧾 Thirupugazh POS Billing</header>
+<header>
+    <img src="/static/logo.png" alt="Logo">
+    Thirupugazh POS Billing
+</header>
 
 <div class="container">
+
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons"></div>
@@ -43,24 +92,30 @@
             <option value="MIXED">Mixed</option>
         </select>
 
-        <button onclick="payNow()">PAY</button>
+        <button class="main hold" onclick="holdBill()">HOLD BILL</button>
+        <button class="main resume" onclick="resumeHold()">RESUME HOLD</button>
+        <button class="main pay" onclick="payNow()">PAY</button>
     </div>
+
 </div>
 
 <script>
 const API = "https://thirupugazh-pos.onrender.com";
 let cartId = null;
 
+// CREATE CART
 async function createCart() {
     const res = await fetch(API + "/cart/create", { method: "POST" });
     cartId = (await res.json()).cart_id;
 }
 
+// LOAD MENU
 async function loadMenu() {
     const res = await fetch(API + "/menu");
     const menu = await res.json();
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
+
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
@@ -69,28 +124,83 @@ async function loadMenu() {
     });
 }
 
-async function addToCart(id) {
+// ADD ITEM
+async function addToCart(menuId) {
     await fetch(API + "/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: id })
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
 
+// REMOVE ITEM
+async function removeFromCart(menuId) {
+    await fetch(API + "/cart/remove", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+    });
+    loadCart();
+}
+
+// LOAD CART
 async function loadCart() {
     const res = await fetch(API + `/cart/${cartId}`);
     const data = await res.json();
-    document.getElementById("cartItems").innerHTML =
-        data.items.map(i => `${i.name} x ${i.quantity} = ₹${i.subtotal}`).join("<br>");
+
+    const div = document.getElementById("cartItems");
+    div.innerHTML = "";
+
+    data.items.forEach(i => {
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `
+            <span>${i.name}</span>
+            <span>
+                <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
+                ${i.quantity}
+                <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+            <span>₹${i.subtotal}</span>
+        `;
+        div.appendChild(row);
+    });
+
     document.getElementById("total").innerText = data.total;
 }
 
+// HOLD
+async function holdBill() {
+    const res = await fetch(API + "/cart/hold", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ cart_id: cartId })
+    });
+    const data = await res.json();
+    cartId = data.new_cart_id;
+    loadCart();
+}
+
+// RESUME
+async function resumeHold() {
+    const res = await fetch(API + "/cart/holds");
+    const holds = await res.json();
+    if (holds.length === 0) {
+        alert("No hold bills");
+        return;
+    }
+    cartId = holds[0].id;
+    await fetch(API + `/cart/resume/${cartId}`, { method: "POST" });
+    loadCart();
+}
+
+// PAY
 async function payNow() {
-    const mode = document.getElementById("paymentMode").value;
+    const paymentMode = document.getElementById("paymentMode").value;
     const discount = document.getElementById("discount").value || 0;
 
-    if (!mode) {
+    if (!paymentMode) {
         alert("Select payment mode");
         return;
     }
@@ -100,7 +210,7 @@ async function payNow() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: mode,
+            payment_method: paymentMode,
             discount: discount,
             staff_id: 1
         })
@@ -112,6 +222,7 @@ async function payNow() {
     await loadCart();
 }
 
+// INIT
 (async function () {
     await createCart();
     await loadMenu();
