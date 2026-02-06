@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 # ---------------- CONFIG ----------------
 DATABASE_URL = os.environ.get("DATABASE_URL")
