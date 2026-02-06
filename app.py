@@ -94,127 +94,33 @@ def login():
         return jsonify({"status":"ok","user_id":u.id,"role":u.role})
     return jsonify({"status":"error"}),401
 
-# ---------------- MENU ----------------
-@app.route("/menu")
-def menu():
-    return jsonify([{"id":m.id,"name":m.name,"price":m.price} for m in Menu.query.all()])
+# ---------------- ADMIN: AGENTS LIST ----------------
+@app.route("/admin/agents")
+def list_agents():
+    agents = User.query.filter(User.role != "admin").all()
+    return jsonify([
+        {"id": a.id, "username": a.username}
+        for a in agents
+    ])
 
-# ---------------- CHECKOUT ----------------
-@app.route("/checkout", methods=["POST"])
-def checkout():
-    d = request.json
+# ---------------- ADMIN: CHANGE PASSWORD ----------------
+@app.route("/admin/change-password", methods=["POST"])
+def change_agent_password():
+    data = request.json
+    user_id = data.get("user_id")
+    new_password = data.get("new_password")
 
-    if not d.get("customer_name"):
-        return jsonify({"error":"Customer name required"}),400
-    if not re.fullmatch(r"\d{10}", d.get("customer_phone","")):
-        return jsonify({"error":"Valid mobile required"}),400
+    if not new_password or len(new_password) < 4:
+        return jsonify({"error":"Password too short"}),400
 
-    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
-    total = sum(i.menu.price * i.quantity for i in items)
-    discount = min(int(d.get("discount",0)), total)
-    final = total - discount
+    user = User.query.get(user_id)
+    if not user or user.role == "admin":
+        return jsonify({"error":"Invalid agent"}),400
 
-    sale = Sale(
-        total=final,
-        discount=discount,
-        payment_method=d["payment_method"],
-        customer_name=d["customer_name"],
-        customer_phone=d["customer_phone"],
-        transaction_id=d.get("transaction_id"),
-        staff_id=d["staff_id"],
-        business_date=get_business_date()
-    )
-
-    db.session.add(sale)
-    Cart.query.get(d["cart_id"]).status = "PAID"
+    user.password = generate_password_hash(new_password)
     db.session.commit()
 
-    return jsonify({"status":"success","total":final})
-
-# ================== MONTHLY SUMMARY ==================
-
-@app.route("/admin/report/monthly/excel")
-def monthly_excel():
-    month = request.args.get("month")
-    if not month:
-        return "Month required (YYYY-MM)", 400
-
-    year, mon = month.split("-")
-
-    count, total, discount = db.session.query(
-        func.count(Sale.id),
-        func.sum(Sale.total),
-        func.sum(Sale.discount)
-    ).filter(
-        extract("year", Sale.business_date) == int(year),
-        extract("month", Sale.business_date) == int(mon)
-    ).first()
-
-    total = total or 0
-    discount = discount or 0
-    net = total - discount
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Monthly Summary"
-
-    ws.append(["Month","Bills","Total Sales","Total Discount","Net Amount"])
-    ws.append([month, count or 0, total, discount, net])
-
-    file = BytesIO()
-    wb.save(file)
-    file.seek(0)
-
-    return send_file(
-        file,
-        as_attachment=True,
-        download_name=f"monthly_summary_{month}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-@app.route("/admin/report/monthly/pdf")
-def monthly_pdf():
-    month = request.args.get("month")
-    if not month:
-        return "Month required (YYYY-MM)", 400
-
-    year, mon = month.split("-")
-
-    count, total, discount = db.session.query(
-        func.count(Sale.id),
-        func.sum(Sale.total),
-        func.sum(Sale.discount)
-    ).filter(
-        extract("year", Sale.business_date) == int(year),
-        extract("month", Sale.business_date) == int(mon)
-    ).first()
-
-    total = total or 0
-    discount = discount or 0
-    net = total - discount
-
-    buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-
-    pdf.setFont("Helvetica-Bold",16)
-    pdf.drawString(40,800,"Thirupugazh POS – Monthly Summary")
-
-    pdf.setFont("Helvetica",12)
-    pdf.drawString(40,760,f"Month: {month}")
-    pdf.drawString(40,730,f"Total Bills: {count or 0}")
-    pdf.drawString(40,700,f"Total Sales: ₹{total}")
-    pdf.drawString(40,670,f"Total Discount: ₹{discount}")
-    pdf.drawString(40,640,f"Net Amount: ₹{net}")
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"monthly_summary_{month}.pdf",
-        mimetype="application/pdf"
-    )
+    return jsonify({"status":"password updated"})
 
 # ---------------- INIT ----------------
 def init_db():
@@ -228,10 +134,12 @@ def init_db():
                 role="admin"
             ))
 
-        if not Menu.query.first():
-            db.session.add(Menu(name="Full Set", price=580))
-            db.session.add(Menu(name="Half Set", price=300))
-            db.session.add(Menu(name="Three Tickets", price=150))
+        if not User.query.filter_by(username="agent1").first():
+            db.session.add(User(
+                username="agent1",
+                password=generate_password_hash("agent123"),
+                role="staff"
+            ))
 
         db.session.commit()
 

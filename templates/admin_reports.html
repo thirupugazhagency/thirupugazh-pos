@@ -1,48 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Admin Reports – Thirupugazh POS</title>
+<title>Admin Panel – Thirupugazh POS</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body{
-    font-family: Arial;
-    background:#f4f6f8;
-    margin:0;
-}
-header{
-    background:#263238;
-    color:white;
-    padding:15px;
-    font-size:20px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-.container{
-    max-width:600px;
-    margin:30px auto;
-    background:white;
-    padding:20px;
-    border-radius:8px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.2);
-}
-button{
-    width:100%;
-    padding:15px;
-    font-size:16px;
-    margin-top:12px;
-    border:none;
-    cursor:pointer;
-}
+body{font-family:Arial;background:#f4f6f8;margin:0;}
+header{background:#263238;color:white;padding:15px;font-size:20px;display:flex;justify-content:space-between;}
+.container{max-width:650px;margin:30px auto;background:white;padding:20px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+button{width:100%;padding:12px;font-size:15px;margin-top:10px;border:none;cursor:pointer;}
 .excel{background:#2e7d32;color:white;}
 .pdf{background:#c62828;color:white;}
+.admin{background:#1565c0;color:white;}
 .logout{background:#555;color:white;}
-input{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-}
+input,select{width:100%;padding:10px;margin-top:8px;}
 hr{margin:25px 0;}
 </style>
 </head>
@@ -50,30 +21,75 @@ hr{margin:25px 0;}
 <body>
 
 <header>
-  <span>📊 Admin Reports – Thirupugazh POS</span>
+  <span>🛠 Admin Panel – Thirupugazh POS</span>
   <button class="logout" onclick="logout()">Logout</button>
 </header>
 
 <div class="container">
 
-<h3>📆 Monthly Summary</h3>
+<h3>🔐 Change Agent Password</h3>
 
+<select id="agentSelect"></select>
+
+<input type="password" id="newPassword" placeholder="New Password">
+
+<button class="admin" onclick="changePassword()">
+Update Password
+</button>
+
+<hr>
+
+<h3>📆 Monthly Summary</h3>
 <input type="month" id="reportMonth">
 
-<button class="excel" onclick="monthlyExcel()">
-⬇ Monthly Excel Report
-</button>
-
-<button class="pdf" onclick="monthlyPDF()">
-⬇ Monthly PDF Report
-</button>
+<button class="excel" onclick="monthlyExcel()">Monthly Excel</button>
+<button class="pdf" onclick="monthlyPDF()">Monthly PDF</button>
 
 </div>
 
 <script>
-if(localStorage.getItem("role") !== "admin"){
+if(localStorage.getItem("role")!=="admin"){
     alert("Admin only");
     window.location.href="/ui/login";
+}
+
+function logout(){
+    localStorage.clear();
+    window.location.href="/ui/login";
+}
+
+// LOAD AGENTS
+fetch("/admin/agents")
+.then(r=>r.json())
+.then(data=>{
+    const sel=document.getElementById("agentSelect");
+    data.forEach(a=>{
+        const o=document.createElement("option");
+        o.value=a.id;
+        o.text=a.username;
+        sel.appendChild(o);
+    });
+});
+
+function changePassword(){
+    const uid=document.getElementById("agentSelect").value;
+    const pwd=document.getElementById("newPassword").value;
+    if(!pwd){alert("Enter password");return;}
+
+    fetch("/admin/change-password",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({user_id:uid,new_password:pwd})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.status){
+            alert("Password updated successfully");
+            document.getElementById("newPassword").value="";
+        }else{
+            alert(d.error);
+        }
+    });
 }
 
 function monthlyExcel(){
@@ -86,11 +102,6 @@ function monthlyPDF(){
     const m=document.getElementById("reportMonth").value;
     if(!m){alert("Select month");return;}
     window.open(`/admin/report/monthly/pdf?month=${m}`,"_blank");
-}
-
-function logout(){
-    localStorage.clear();
-    window.location.href="/ui/login";
 }
 </script>
 
