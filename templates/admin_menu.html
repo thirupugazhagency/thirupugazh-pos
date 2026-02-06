@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Menu Management – Thirupugazh POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{font-family:Arial;background:#f4f6f8;margin:0;}
+header{background:#263238;color:white;padding:15px;font-size:20px;}
+.container{max-width:600px;margin:30px auto;background:white;padding:20px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+input,button{width:100%;padding:10px;margin-top:8px;}
+button{cursor:pointer;}
+.add{background:#2e7d32;color:white;}
+.update{background:#1565c0;color:white;}
+.delete{background:#c62828;color:white;}
+.item{border-bottom:1px solid #ddd;padding:10px 0;}
+</style>
+</head>
+
+<body>
+
+<header>📋 Menu Management – Admin</header>
+
+<div class="container">
+
+<h3>Add New Item</h3>
+<input id="newName" placeholder="Item Name">
+<input id="newPrice" placeholder="Price (₹)">
+<button class="add" onclick="addItem()">Add Item</button>
+
+<hr>
+
+<h3>Existing Menu</h3>
+<div id="menuList"></div>
+
+</div>
+
+<script>
+if(localStorage.getItem("role")!=="admin"){
+    alert("Admin only");
+    window.location.href="/ui/login";
+}
+
+function loadMenu(){
+    fetch("/admin/menu")
+    .then(r=>r.json())
+    .then(data=>{
+        const d=document.getElementById("menuList");
+        d.innerHTML="";
+        data.forEach(i=>{
+            d.innerHTML+=`
+            <div class="item">
+                <b>${i.name}</b><br>
+                <input id="p${i.id}" value="${i.price}">
+                <button class="update" onclick="updateItem(${i.id})">Update</button>
+                <button class="delete" onclick="deleteItem(${i.id})">Delete</button>
+            </div>`;
+        });
+    });
+}
+
+function addItem(){
+    fetch("/admin/menu/add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            name:document.getElementById("newName").value,
+            price:document.getElementById("newPrice").value
+        })
+    }).then(()=>{loadMenu();});
+}
+
+function updateItem(id){
+    fetch("/admin/menu/update",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            id:id,
+            price:document.getElementById("p"+id).value
+        })
+    }).then(()=>{loadMenu();});
+}
+
+function deleteItem(id){
+    if(!confirm("Delete item?")) return;
+    fetch("/admin/menu/delete",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({id:id})
+    }).then(()=>{loadMenu();});
+}
+
+loadMenu();
+</script>
+
+</body>
+</html>

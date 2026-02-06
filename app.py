@@ -1,14 +1,8 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-from io import BytesIO
 import os, re
-
-from sqlalchemy import func, extract
-from openpyxl import Workbook
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 
 app = Flask(__name__, static_folder="static")
 
@@ -24,14 +18,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
-# ---------------- BUSINESS DAY (3 PM – 3 PM) ----------------
-def get_business_date(dt=None):
-    if dt is None:
-        dt = datetime.now()
-    if dt.hour < 15:
-        return (dt - timedelta(days=1)).date()
-    return dt.date()
-
 # ---------------- MODELS ----------------
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -41,32 +27,8 @@ class User(db.Model):
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100))
-    price = db.Column(db.Integer)
-
-class Cart(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class CartItem(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
-    menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
-    quantity = db.Column(db.Integer)
-    menu = db.relationship("Menu")
-
-class Sale(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    total = db.Column(db.Integer)
-    discount = db.Column(db.Integer, default=0)
-    payment_method = db.Column(db.String(20))
-    customer_name = db.Column(db.String(100))
-    customer_phone = db.Column(db.String(20))
-    transaction_id = db.Column(db.String(100))
-    staff_id = db.Column(db.Integer)
-    business_date = db.Column(db.Date)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Integer, nullable=False)
 
 # ---------------- UI ----------------
 @app.route("/")
@@ -77,13 +39,9 @@ def home():
 def ui_login():
     return render_template("login.html")
 
-@app.route("/ui/billing")
-def ui_billing():
-    return render_template("billing.html")
-
-@app.route("/ui/admin-reports")
-def ui_admin_reports():
-    return render_template("admin_reports.html")
+@app.route("/ui/admin-menu")
+def ui_admin_menu():
+    return render_template("admin_menu.html")
 
 # ---------------- AUTH ----------------
 @app.route("/login", methods=["POST"])
@@ -94,33 +52,47 @@ def login():
         return jsonify({"status":"ok","user_id":u.id,"role":u.role})
     return jsonify({"status":"error"}),401
 
-# ---------------- ADMIN: AGENTS LIST ----------------
-@app.route("/admin/agents")
-def list_agents():
-    agents = User.query.filter(User.role != "admin").all()
-    return jsonify([
-        {"id": a.id, "username": a.username}
-        for a in agents
-    ])
+# ---------------- MENU (PUBLIC – FOR BILLING) ----------------
+@app.route("/menu")
+def menu():
+    return jsonify([{"id":m.id,"name":m.name,"price":m.price} for m in Menu.query.all()])
 
-# ---------------- ADMIN: CHANGE PASSWORD ----------------
-@app.route("/admin/change-password", methods=["POST"])
-def change_agent_password():
-    data = request.json
-    user_id = data.get("user_id")
-    new_password = data.get("new_password")
+# ================== ADMIN MENU MANAGEMENT ==================
 
-    if not new_password or len(new_password) < 4:
-        return jsonify({"error":"Password too short"}),400
+@app.route("/admin/menu")
+def admin_menu_list():
+    return jsonify([{"id":m.id,"name":m.name,"price":m.price} for m in Menu.query.all()])
 
-    user = User.query.get(user_id)
-    if not user or user.role == "admin":
-        return jsonify({"error":"Invalid agent"}),400
+@app.route("/admin/menu/add", methods=["POST"])
+def admin_menu_add():
+    d = request.json
+    if not d.get("name") or not str(d.get("price")).isdigit():
+        return jsonify({"error":"Invalid data"}),400
 
-    user.password = generate_password_hash(new_password)
+    m = Menu(name=d["name"], price=int(d["price"]))
+    db.session.add(m)
     db.session.commit()
+    return jsonify({"status":"added"})
 
-    return jsonify({"status":"password updated"})
+@app.route("/admin/menu/update", methods=["POST"])
+def admin_menu_update():
+    d = request.json
+    m = Menu.query.get(d.get("id"))
+    if not m or not str(d.get("price")).isdigit():
+        return jsonify({"error":"Invalid"}),400
+
+    m.price = int(d["price"])
+    db.session.commit()
+    return jsonify({"status":"updated"})
+
+@app.route("/admin/menu/delete", methods=["POST"])
+def admin_menu_delete():
+    m = Menu.query.get(request.json.get("id"))
+    if not m:
+        return jsonify({"error":"Not found"}),404
+    db.session.delete(m)
+    db.session.commit()
+    return jsonify({"status":"deleted"})
 
 # ---------------- INIT ----------------
 def init_db():
@@ -134,12 +106,10 @@ def init_db():
                 role="admin"
             ))
 
-        if not User.query.filter_by(username="agent1").first():
-            db.session.add(User(
-                username="agent1",
-                password=generate_password_hash("agent123"),
-                role="staff"
-            ))
+        if not Menu.query.first():
+            db.session.add(Menu(name="Full Set", price=580))
+            db.session.add(Menu(name="Half Set", price=300))
+            db.session.add(Menu(name="Three Tickets", price=150))
 
         db.session.commit()
 
