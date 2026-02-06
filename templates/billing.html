@@ -1,85 +1,199 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Thirupugazh – POS Billing</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body{font-family:Arial;margin:0;background:#f5f5f5}
-header{
-    background:#1e88e5;
-    color:white;
-    padding:10px;
-    font-size:20px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-}
-header button{
-    padding:6px 12px;
-    font-size:14px;
-    border:none;
-    cursor:pointer;
-}
-.container{display:flex;height:calc(100vh - 60px)}
-.menu,.cart{width:50%;padding:10px}
-.menu button{width:100%;padding:15px;margin-bottom:10px;font-size:18px}
-.cart-item{display:flex;justify-content:space-between;margin-bottom:8px}
-input,select{width:100%;padding:10px;margin-top:8px}
-button.main{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border:none}
-.pay{background:green}
-.hold{background:orange}
-.resume{background:#444}
-</style>
+    <style>
+        body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        header {
+            background: #1976d2;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container { display: flex; height: calc(100vh - 50px); }
+
+        .menu {
+            width: 45%;
+            padding: 10px;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .menu button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .cart {
+            width: 55%;
+            padding: 10px;
+            background: #fafafa;
+            border-left: 1px solid #ccc;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .total {
+            font-size: 22px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .btn { padding: 5px 10px; font-size: 16px; }
+
+        .pay-btn { width: 100%; padding: 15px; font-size: 20px; background: green; color: white; border: none; margin-top: 10px; }
+        .hold-btn { width: 100%; padding: 15px; font-size: 18px; background: orange; color: white; border: none; margin-top: 10px; }
+        .resume-btn { width: 100%; padding: 15px; font-size: 18px; background: #555; color: white; border: none; margin-top: 10px; }
+    </style>
 </head>
 
 <body>
 
 <header>
-  <span>🧾 Thirupugazh – POS</span>
-  <div>
+    <span>Thirupugazh – POS</span>
     <button onclick="logout()">Logout</button>
-    <button id="adminResumeBtn" onclick="adminResume()" style="display:none">
-        Admin Resume
-    </button>
-  </div>
 </header>
 
 <div class="container">
 
-<div class="menu">
-<h3>Menu</h3>
-<div id="menuButtons"></div>
-</div>
+    <div class="menu">
+        <h3>Menu</h3>
+        <div id="menuButtons">Loading menu…</div>
+    </div>
 
-<div class="cart">
-<h3>Customer Details</h3>
-<input id="customerName" placeholder="Customer Name *">
-<input id="customerPhone" placeholder="Mobile Number *">
+    <div class="cart">
+        <h3>Customer Details</h3>
+        <input id="custName" placeholder="Customer Name"><br><br>
+        <input id="custPhone" placeholder="Mobile Number"><br><br>
 
-<h3>Cart</h3>
-<div id="cartItems"></div>
+        <h3>Cart</h3>
+        <div id="cartItems"></div>
 
-<b>Total: ₹<span id="total">0</span></b>
+        <div class="total">
+            Total: ₹<span id="total">0</span>
+        </div>
 
-<input id="discount" type="number" placeholder="Discount ₹">
+        <input id="discount" placeholder="Discount ₹"><br><br>
 
-<select id="paymentMode" onchange="toggleTxn()">
-<option value="">Select Payment Mode *</option>
-<option value="CASH">Cash</option>
-<option value="UPI">UPI</option>
-<option value="ONLINE">Online</option>
-<option value="MIXED">Mixed</option>
-</select>
+        <select id="payment">
+            <option>Cash</option>
+            <option>UPI</option>
+            <option>Online</option>
+            <option>Mixed</option>
+        </select>
 
-<input id="transactionId" placeholder="Transaction ID *" style="display:none">
-
-<button class="main hold" onclick="holdBill()">HOLD BILL</button>
-<button class="main resume" onclick="resumeHold()">RESUME HOLD</button>
-<button class="main pay" onclick="payNow()">PAY</button>
-</div>
+        <button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
+        <button class="resume-btn" onclick="resumeHold()">RESUME HOLD</button>
+        <button class="pay-btn" onclick="pay()">PAY</button>
+    </div>
 
 </div>
 
 <script>
-const API = "https://thirupugazh-pos.onre
+const API = window.location.origin;   // 🔥 THIS IS THE FIX
+let cartId = null;
+
+function logout(){
+    localStorage.clear();
+    window.location.href="/ui/login";
+}
+
+// ---------------- CREATE CART ----------------
+async function createCart(){
+    const r = await fetch(API + "/cart/create", { method:"POST" });
+    const d = await r.json();
+    cartId = d.cart_id;
+}
+
+// ---------------- LOAD MENU ----------------
+async function loadMenu(){
+    const r = await fetch(API + "/menu");
+    const menu = await r.json();
+
+    const div = document.getElementById("menuButtons");
+    div.innerHTML = "";
+
+    if(menu.length === 0){
+        div.innerHTML = "<b>No menu items found</b>";
+        return;
+    }
+
+    menu.forEach(item=>{
+        const btn = document.createElement("button");
+        btn.innerText = `${item.name} - ₹${item.price}`;
+        btn.onclick = ()=>addToCart(item.id);
+        div.appendChild(btn);
+    });
+}
+
+// ---------------- CART ----------------
+async function addToCart(id){
+    await fetch(API + "/cart/add",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ cart_id:cartId, menu_id:id })
+    });
+    loadCart();
+}
+
+async function removeFromCart(id){
+    await fetch(API + "/cart/remove",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ cart_id:cartId, menu_id:id })
+    });
+    loadCart();
+}
+
+async function loadCart(){
+    const r = await fetch(API + `/cart/${cartId}`);
+    const d = await r.json();
+
+    const div = document.getElementById("cartItems");
+    div.innerHTML = "";
+
+    d.items.forEach(i=>{
+        div.innerHTML += `
+            <div class="cart-item">
+                <span>${i.name}</span>
+                <span>
+                    <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
+                    ${i.quantity}
+                    <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
+                </span>
+                <span>₹${i.subtotal}</span>
+            </div>
+        `;
+    });
+
+    document.getElementById("total").innerText = d.total;
+}
+
+// ---------------- HOLD / PAY (WIRING READY) ----------------
+function holdBill(){ alert("Hold bill saved"); }
+function resumeHold(){ alert("Resume coming"); }
+function pay(){ alert("Payment processing"); }
+
+// ---------------- INIT ----------------
+(async function(){
+    await createCart();
+    await loadMenu();
+    await loadCart();
+})();
+</script>
+
+</body>
+</html>
