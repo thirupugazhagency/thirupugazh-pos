@@ -1,142 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh – POS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <style>
-        body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header {
-            background: #1976d2;
-            color: white;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 18px;
-        }
-
-        .container { display: flex; height: calc(100vh - 50px); }
-
-        .menu {
-            width: 45%;
-            padding: 10px;
-            overflow-y: auto;
-            background: white;
-        }
-
-        .menu button {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
-            font-size: 18px;
-            cursor: pointer;
-        }
-
-        .cart {
-            width: 55%;
-            padding: 10px;
-            background: #fafafa;
-            border-left: 1px solid #ccc;
-        }
-
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-
-        .total {
-            font-size: 22px;
-            font-weight: bold;
-            margin-top: 10px;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 8px;
-            margin-top: 6px;
-        }
-
-        .btn { padding: 5px 10px; font-size: 16px; }
-
-        .pay-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 20px;
-            background: green;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
-
-        .hold-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            background: orange;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
-
-        .resume-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            background: #555;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
-    </style>
+<title>Thirupugazh – POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;margin:0;background:#f5f5f5;}
+header{background:#1976d2;color:white;padding:10px;display:flex;justify-content:space-between;}
+.container{display:flex;height:calc(100vh - 50px);}
+.menu{width:45%;padding:10px;background:white;}
+.menu button{width:100%;padding:15px;margin-bottom:10px;font-size:18px;}
+.cart{width:55%;padding:10px;background:#fafafa;border-left:1px solid #ccc;}
+.cart-item{display:flex;justify-content:space-between;margin-bottom:8px;}
+.total{font-size:22px;font-weight:bold;margin-top:10px;}
+input,select{width:100%;padding:8px;margin-top:6px;}
+.hold-btn{background:orange;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
+.resume-btn{background:#555;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
+.pay-btn{background:green;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
+</style>
 </head>
 
 <body>
 
 <header>
-    <span>Thirupugazh – POS</span>
-    <button onclick="logout()">Logout</button>
+<span>Thirupugazh – POS</span>
+<button onclick="logout()">Logout</button>
 </header>
 
 <div class="container">
 
-    <!-- MENU -->
-    <div class="menu">
-        <h3>Menu</h3>
-        <div id="menuButtons">Loading menu…</div>
-    </div>
+<div class="menu">
+<h3>Menu</h3>
+<div id="menuButtons">Loading…</div>
+</div>
 
-    <!-- CART -->
-    <div class="cart">
+<div class="cart">
+<h3>Customer Details</h3>
+<input id="custName" placeholder="Customer Name">
+<input id="custPhone" placeholder="Mobile Number">
+<input id="txnId" placeholder="Transaction ID">
 
-        <h3>Customer Details</h3>
-        <input id="custName" placeholder="Customer Name *">
-        <input id="custPhone" placeholder="Mobile Number *">
-        <input id="txnId" placeholder="Transaction ID *">
+<h3>Cart</h3>
+<div id="cartItems"></div>
 
-        <h3>Cart</h3>
-        <div id="cartItems"></div>
+<div class="total">Total: ₹<span id="total">0</span></div>
 
-        <div class="total">
-            Total: ₹<span id="total">0</span>
-        </div>
-
-        <input id="discount" placeholder="Discount ₹">
-
-        <select id="payment">
-            <option value="">Select Payment Mode *</option>
-            <option>Cash</option>
-            <option>UPI</option>
-            <option>Online</option>
-            <option>Mixed</option>
-        </select>
-
-        <button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
-        <button class="resume-btn" onclick="resumeHold()">RESUME HOLD</button>
-        <button class="pay-btn" onclick="pay()">PAY</button>
-    </div>
+<button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
+<button class="resume-btn" onclick="showHolds()">RESUME HOLD</button>
+<button class="pay-btn">PAY</button>
+</div>
 
 </div>
 
@@ -144,112 +55,81 @@
 const API = window.location.origin;
 let cartId = null;
 
-function logout(){
-    localStorage.clear();
-    window.location.href="/ui/login";
-}
+// INIT
+(async()=>{
+    const r = await fetch(API+"/cart/create",{method:"POST"});
+    cartId = (await r.json()).cart_id;
+    loadMenu();
+    loadCart();
+})();
 
-// ---------------- CREATE CART ----------------
-async function createCart(){
-    const r = await fetch(API + "/cart/create", { method:"POST" });
-    const d = await r.json();
-    cartId = d.cart_id;
-}
-
-// ---------------- LOAD MENU ----------------
 async function loadMenu(){
-    const r = await fetch(API + "/menu");
-    const menu = await r.json();
-
-    const div = document.getElementById("menuButtons");
-    div.innerHTML = "";
-
-    if(menu.length === 0){
-        div.innerHTML = "<b>No menu items found</b>";
-        return;
-    }
-
-    menu.forEach(item=>{
-        const btn = document.createElement("button");
-        btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = ()=>addToCart(item.id);
-        div.appendChild(btn);
+    const r = await fetch(API+"/menu");
+    const m = await r.json();
+    const d=document.getElementById("menuButtons");
+    d.innerHTML="";
+    m.forEach(i=>{
+        const b=document.createElement("button");
+        b.innerText=`${i.name} - ₹${i.price}`;
+        b.onclick=()=>add(i.id);
+        d.appendChild(b);
     });
 }
 
-// ---------------- CART ----------------
-async function addToCart(id){
-    await fetch(API + "/cart/add",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ cart_id:cartId, menu_id:id })
-    });
+async function add(id){
+    await fetch(API+"/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
     loadCart();
 }
 
-async function removeFromCart(id){
-    await fetch(API + "/cart/remove",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body:JSON.stringify({ cart_id:cartId, menu_id:id })
-    });
+async function remove(id){
+    await fetch(API+"/cart/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
     loadCart();
 }
 
 async function loadCart(){
-    const r = await fetch(API + `/cart/${cartId}`);
-    const d = await r.json();
-
-    const div = document.getElementById("cartItems");
-    div.innerHTML = "";
-
+    const r=await fetch(API+`/cart/${cartId}`);
+    const d=await r.json();
+    const c=document.getElementById("cartItems");
+    c.innerHTML="";
     d.items.forEach(i=>{
-        div.innerHTML += `
-            <div class="cart-item">
-                <span>${i.name}</span>
-                <span>
-                    <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
-                    ${i.quantity}
-                    <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
-                </span>
-                <span>₹${i.subtotal}</span>
-            </div>
-        `;
+        c.innerHTML+=`
+        <div class="cart-item">
+        <span>${i.name}</span>
+        <span>
+        <button onclick="remove(${i.menu_id})">-</button>
+        ${i.quantity}
+        <button onclick="add(${i.menu_id})">+</button>
+        </span>
+        <span>₹${i.subtotal}</span>
+        </div>`;
     });
-
-    document.getElementById("total").innerText = d.total;
+    document.getElementById("total").innerText=d.total;
 }
 
-// ---------------- VALIDATION + PAY ----------------
-function pay(){
-    const name = document.getElementById("custName").value.trim();
-    const phone = document.getElementById("custPhone").value.trim();
-    const txn = document.getElementById("txnId").value.trim();
-    const paymode = document.getElementById("payment").value;
+async function holdBill(){
+    const r = await fetch(API+"/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId})});
+    const d = await r.json();
+    cartId = d.new_cart_id;
+    loadCart();
+    alert("Bill held successfully");
+}
 
-    if(!name || !phone || !txn || !paymode){
-        alert("Customer Name, Mobile, Transaction ID and Payment Mode are mandatory");
-        return;
+async function showHolds(){
+    const r = await fetch(API+"/cart/holds");
+    const h = await r.json();
+    const ids = h.map(x=>x.cart_id).join(", ");
+    const cid = prompt("Enter HOLD Cart ID:\n"+ids);
+    if(cid){
+        await fetch(API+`/cart/resume/${cid}`,{method:"POST"});
+        cartId = cid;
+        loadCart();
     }
-
-    alert("Validation OK. Payment will be processed in next step.");
 }
 
-// ---------------- HOLD / RESUME ----------------
-function holdBill(){
-    alert("Hold bill logic will be added next");
+function logout(){
+    localStorage.clear();
+    window.location.href="/ui/login";
 }
-
-function resumeHold(){
-    alert("Resume hold logic will be added next");
-}
-
-// ---------------- INIT ----------------
-(async function(){
-    await createCart();
-    await loadMenu();
-    await loadCart();
-})();
 </script>
 
 </body>
