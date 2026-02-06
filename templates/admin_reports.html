@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Reports – Thirupugazh POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{
+    font-family: Arial;
+    background:#f4f6f8;
+    margin:0;
+}
+header{
+    background:#263238;
+    color:white;
+    padding:15px;
+    font-size:20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.container{
+    max-width:600px;
+    margin:30px auto;
+    background:white;
+    padding:20px;
+    border-radius:8px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.2);
+}
+button{
+    width:100%;
+    padding:15px;
+    font-size:16px;
+    margin-top:12px;
+    border:none;
+    cursor:pointer;
+}
+.excel{background:#2e7d32;color:white;}
+.pdf{background:#c62828;color:white;}
+.logout{background:#555;color:white;}
+input{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <span>📊 Admin Reports – Thirupugazh POS</span>
+  <button class="logout" onclick="logout()">Logout</button>
+</header>
+
+<div class="container">
+
+<h3>Daily / Date-wise Reports</h3>
+<input type="date" id="reportDate">
+
+<button class="excel" onclick="downloadExcel()">
+⬇ Download Excel Report
+</button>
+
+<button class="pdf" onclick="downloadPDF()">
+⬇ Download PDF Report
+</button>
+
+<hr>
+
+<h3>All-Time Reports</h3>
+
+<button class="excel" onclick="window.open('/admin/report/excel','_blank')">
+⬇ Download All Excel
+</button>
+
+<button class="pdf" onclick="window.open('/admin/report/pdf','_blank')">
+⬇ Download All PDF
+</button>
+
+</div>
+
+<script>
+const ROLE = localStorage.getItem("role");
+
+if (ROLE !== "admin") {
+    alert("Admin access only");
+    window.location.href = "/ui/login";
+}
+
+function downloadExcel(){
+    const d = document.getElementById("reportDate").value;
+    const url = d
+      ? `/admin/report/excel?date=${d}`
+      : `/admin/report/excel`;
+    window.open(url, "_blank");
+}
+
+function downloadPDF(){
+    const d = document.getElementById("reportDate").value;
+    const url = d
+      ? `/admin/report/pdf?date=${d}`
+      : `/admin/report/pdf`;
+    window.open(url, "_blank");
+}
+
+function logout(){
+    localStorage.clear();
+    window.location.href = "/ui/login";
+}
+</script>
+
+</body>
+</html>
