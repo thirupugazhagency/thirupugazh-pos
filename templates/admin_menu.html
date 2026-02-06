@@ -7,7 +7,7 @@
 <style>
 body{font-family:Arial;background:#f4f6f8;margin:0;}
 header{background:#263238;color:white;padding:15px;font-size:20px;}
-.container{max-width:600px;margin:30px auto;background:white;padding:20px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.2);}
+.container{max-width:600px;margin:30px auto;background:white;padding:20px;border-radius:8px;}
 input,button{width:100%;padding:10px;margin-top:8px;}
 button{cursor:pointer;}
 .add{background:#2e7d32;color:white;}
@@ -19,12 +19,12 @@ button{cursor:pointer;}
 
 <body>
 
-<header>📋 Menu Management – Admin</header>
+<header>📋 Menu Management (Admin)</header>
 
 <div class="container">
 
 <h3>Add New Item</h3>
-<input id="newName" placeholder="Item Name">
+<input id="newName" placeholder="Item name">
 <input id="newPrice" placeholder="Price (₹)">
 <button class="add" onclick="addItem()">Add Item</button>
 
@@ -67,7 +67,12 @@ function addItem(){
             name:document.getElementById("newName").value,
             price:document.getElementById("newPrice").value
         })
-    }).then(()=>{loadMenu();});
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.error) alert(d.error);
+        loadMenu();
+    });
 }
 
 function updateItem(id){
@@ -78,7 +83,12 @@ function updateItem(id){
             id:id,
             price:document.getElementById("p"+id).value
         })
-    }).then(()=>{loadMenu();});
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.error) alert(d.error);
+        loadMenu();
+    });
 }
 
 function deleteItem(id){
@@ -87,7 +97,12 @@ function deleteItem(id){
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({id:id})
-    }).then(()=>{loadMenu();});
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if(d.error) alert(d.error);
+        loadMenu();
+    });
 }
 
 loadMenu();
