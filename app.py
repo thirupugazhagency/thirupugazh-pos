@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
+import re
 
 app = Flask(__name__, static_folder="static")
 
@@ -16,10 +17,9 @@ if DATABASE_URL.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
 db = SQLAlchemy(app)
 
-# ---------------- BUSINESS DAY (3 PM – 3 PM) ----------------
+# ---------------- BUSINESS DAY ----------------
 def get_business_date():
     now = datetime.now()
     if now.hour < 15:
@@ -38,8 +38,8 @@ class User(db.Model):
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    price = db.Column(db.Integer, nullable=False)
+    name = db.Column(db.String(100))
+    price = db.Column(db.Integer)
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -55,11 +55,12 @@ class CartItem(db.Model):
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    total = db.Column(db.Integer, nullable=False)
+    total = db.Column(db.Integer)
     discount = db.Column(db.Integer, default=0)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
+    transaction_id = db.Column(db.String(100))
     staff_id = db.Column(db.Integer)
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -81,59 +82,44 @@ def ui_billing():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
-    user = User.query.filter_by(username=data.get("username")).first()
-    if user and check_password_hash(user.password, data.get("password")):
-        return jsonify({"status": "ok", "role": user.role, "user_id": user.id})
+    user = User.query.filter_by(username=data["username"]).first()
+    if user and check_password_hash(user.password, data["password"]):
+        return jsonify({"status": "ok", "user_id": user.id, "role": user.role})
     return jsonify({"status": "error"}), 401
 
 # ---------------- MENU ----------------
 @app.route("/menu")
 def get_menu():
-    items = Menu.query.all()
-    return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
+    return jsonify([{"id": m.id, "name": m.name, "price": m.price} for m in Menu.query.all()])
 
 # ---------------- CART ----------------
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    cart = Cart(status="ACTIVE")
+    cart = Cart()
     db.session.add(cart)
     db.session.commit()
     return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
-    data = request.json
-    item = CartItem.query.filter_by(
-        cart_id=data.get("cart_id"),
-        menu_id=data.get("menu_id")
-    ).first()
-
+    d = request.json
+    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(
-            cart_id=data.get("cart_id"),
-            menu_id=data.get("menu_id"),
-            quantity=1
-        ))
-
+        db.session.add(CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1))
     db.session.commit()
-    return jsonify({"status": "added"})
+    return jsonify({"status": "ok"})
 
 @app.route("/cart/remove", methods=["POST"])
 def remove_from_cart():
-    data = request.json
-    item = CartItem.query.filter_by(
-        cart_id=data.get("cart_id"),
-        menu_id=data.get("menu_id")
-    ).first()
-
+    d = request.json
+    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
     if item:
         if item.quantity > 1:
             item.quantity -= 1
         else:
             db.session.delete(item)
-
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -141,26 +127,88 @@ def remove_from_cart():
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     total = sum(i.menu.price * i.quantity for i in items)
-
     return jsonify({
         "items": [{
             "menu_id": i.menu.id,
             "name": i.menu.name,
-            "price": i.menu.price,
             "quantity": i.quantity,
             "subtotal": i.menu.price * i.quantity
         } for i in items],
-        "total": total,
-        "final_total": total
+        "total": total
     })
 
 # ---------------- HOLD ----------------
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
-    cart = Cart.query.get(request.json.get("cart_id"))
+    cart = Cart.query.get(request.json["cart_id"])
     cart.status = "HOLD"
     db.session.commit()
-
-    new_cart = Cart(status="ACTIVE")
+    new_cart = Cart()
     db.session.add(new_cart)
-    db.session.commi
+    db.session.commit()
+    return jsonify({"new_cart_id": new_cart.id})
+
+@app.route("/cart/holds")
+def list_holds():
+    return jsonify([{"id": c.id} for c in Cart.query.filter_by(status="HOLD")])
+
+@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
+def resume(cart_id):
+    Cart.query.get(cart_id).status = "ACTIVE"
+    db.session.commit()
+    return jsonify({"status": "resumed"})
+
+# ---------------- CHECKOUT (MANDATORY VALIDATION) ----------------
+@app.route("/checkout", methods=["POST"])
+def checkout():
+    d = request.json
+
+    # Mandatory fields
+    if not d.get("customer_name"):
+        return jsonify({"error": "Customer name required"}), 400
+
+    if not d.get("customer_phone") or not re.fullmatch(r"\d{10}", d["customer_phone"]):
+        return jsonify({"error": "Valid 10-digit mobile required"}), 400
+
+    if d["payment_method"] in ["UPI", "ONLINE", "MIXED"] and not d.get("transaction_id"):
+        return jsonify({"error": "Transaction ID required"}), 400
+
+    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
+    total = sum(i.menu.price * i.quantity for i in items)
+    discount = min(int(d.get("discount", 0)), total)
+    final = total - discount
+
+    sale = Sale(
+        total=final,
+        discount=discount,
+        payment_method=d["payment_method"],
+        customer_name=d["customer_name"],
+        customer_phone=d["customer_phone"],
+        transaction_id=d.get("transaction_id"),
+        staff_id=d["staff_id"],
+        business_date=get_business_date()
+    )
+
+    db.session.add(sale)
+    Cart.query.get(d["cart_id"]).status = "PAID"
+    db.session.commit()
+
+    return jsonify({"status": "success", "total": final})
+
+# ---------------- INIT ----------------
+def init_db():
+    with app.app_context():
+        db.create_all()
+        if not User.query.first():
+            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
+            db.session.add(User(username="agent1", password=generate_password_hash("agent123"), role="staff"))
+        if not Menu.query.first():
+            db.session.add(Menu(name="Full Set", price=580))
+            db.session.add(Menu(name="Half Set", price=300))
+            db.session.add(Menu(name="Three Tickets", price=150))
+        db.session.commit()
+
+init_db()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

@@ -1,269 +1,152 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh POS Billing</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thirupugazh POS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <style>
-        body { font-family: Arial; margin: 0; background: #f5f5f5; }
-
-        header {
-            background: #1e88e5;
-            color: white;
-            padding: 10px;
-            font-size: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        header button {
-            padding: 6px 12px;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-        }
-
-        .container { display: flex; height: calc(100vh - 60px); }
-
-        .menu { width: 50%; padding: 10px; background: white; overflow-y: auto; }
-        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
-
-        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
-
-        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
-
-        .btn { padding: 6px 10px; }
-
-        .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
-
-        select, input {
-            width: 100%;
-            padding: 10px;
-            margin-top: 8px;
-            font-size: 16px;
-        }
-
-        .main {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            margin-top: 10px;
-            border: none;
-            color: white;
-            cursor: pointer;
-        }
-
-        .pay { background: green; }
-        .hold { background: orange; }
-        .resume { background: #444; }
-    </style>
+<style>
+body{font-family:Arial;margin:0;background:#f5f5f5}
+header{background:#1e88e5;color:white;padding:10px;font-size:20px;display:flex;justify-content:space-between}
+.container{display:flex;height:calc(100vh - 60px)}
+.menu,.cart{width:50%;padding:10px}
+.menu button{width:100%;padding:15px;margin-bottom:10px;font-size:18px}
+.cart-item{display:flex;justify-content:space-between;margin-bottom:8px}
+input,select{width:100%;padding:10px;margin-top:8px}
+button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border:none}
+.pay{background:green}
+.hold{background:orange}
+.resume{background:#444}
+</style>
 </head>
 
 <body>
 
 <header>
-    <span>🧾 Thirupugazh POS</span>
-    <div>
-        <button onclick="logout()">Logout</button>
-        <button id="adminBtn" onclick="changePassword()" style="display:none">Change Agent Password</button>
-    </div>
+<span>🧾 Thirupugazh POS</span>
+<button onclick="logout()">Logout</button>
 </header>
 
 <div class="container">
 
-    <div class="menu">
-        <h3>Menu</h3>
-        <div id="menuButtons"></div>
-    </div>
+<div class="menu">
+<h3>Menu</h3>
+<div id="menuButtons"></div>
+</div>
 
-    <div class="cart">
-        <h3>Cart</h3>
-        <div id="cartItems"></div>
+<div class="cart">
+<h3>Customer Details</h3>
+<input id="customerName" placeholder="Customer Name *">
+<input id="customerPhone" placeholder="Mobile Number *">
 
-        <div class="total">
-            Total: ₹<span id="total">0</span>
-        </div>
+<h3>Cart</h3>
+<div id="cartItems"></div>
 
-        <input type="number" id="discount" placeholder="Discount ₹" min="0">
+<div><b>Total: ₹<span id="total">0</span></b></div>
 
-        <select id="paymentMode">
-            <option value="">Select Payment Mode</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="ONLINE">Online</option>
-            <option value="MIXED">Mixed</option>
-        </select>
+<input type="number" id="discount" placeholder="Discount ₹">
 
-        <button class="main hold" onclick="holdBill()">HOLD BILL</button>
-        <button class="main resume" onclick="resumeHold()">RESUME HOLD</button>
-        <button class="main pay" onclick="payNow()">PAY</button>
-    </div>
+<select id="paymentMode" onchange="toggleTxn()">
+<option value="">Select Payment Mode *</option>
+<option value="CASH">Cash</option>
+<option value="UPI">UPI</option>
+<option value="ONLINE">Online</option>
+<option value="MIXED">Mixed</option>
+</select>
+
+<input id="transactionId" placeholder="Transaction ID *" style="display:none">
+
+<button class="hold" onclick="holdBill()">HOLD BILL</button>
+<button class="resume" onclick="resumeHold()">RESUME HOLD</button>
+<button class="pay" onclick="payNow()">PAY</button>
+</div>
 
 </div>
 
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
-let cartId = null;
-const ROLE = localStorage.getItem("role");
+const API="https://thirupugazh-pos.onrender.com";
+let cartId=null;
 
-// Admin-only button
-if (ROLE === "admin") {
-    document.getElementById("adminBtn").style.display = "inline-block";
+function logout(){localStorage.clear();location.href="/ui/login";}
+
+function toggleTxn(){
+const mode=paymentMode.value;
+transactionId.style.display=["UPI","ONLINE","MIXED"].includes(mode)?"block":"none";
 }
 
-// LOGOUT
-function logout() {
-    localStorage.clear();
-    window.location.href = "/ui/login";
+async function createCart(){
+cartId=(await (await fetch(API+"/cart/create",{method:"POST"})).json()).cart_id;
 }
 
-// ADMIN CHANGE PASSWORD
-function changePassword() {
-    const username = prompt("Agent Username:");
-    const newPassword = prompt("New Password:");
-    if (!username || !newPassword) return;
-
-    fetch(API + "/admin/change-password", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-ROLE": "admin"
-        },
-        body: JSON.stringify({
-            username: username,
-            new_password: newPassword
-        })
-    })
-    .then(res => res.json())
-    .then(() => alert("Password updated"));
+async function loadMenu(){
+const menu=await (await fetch(API+"/menu")).json();
+menuButtons.innerHTML="";
+menu.forEach(i=>{
+const b=document.createElement("button");
+b.innerText=`${i.name} - ₹${i.price}`;
+b.onclick=()=>addToCart(i.id);
+menuButtons.appendChild(b);
+});
 }
 
-// CREATE CART
-async function createCart() {
-    const res = await fetch(API + "/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
+async function addToCart(id){
+await fetch(API+"/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
+loadCart();
 }
 
-// LOAD MENU
-async function loadMenu() {
-    const res = await fetch(API + "/menu");
-    const menu = await res.json();
-    const div = document.getElementById("menuButtons");
-    div.innerHTML = "";
-
-    menu.forEach(item => {
-        const btn = document.createElement("button");
-        btn.innerText = `${item.name} - ₹${item.price}`;
-        btn.onclick = () => addToCart(item.id);
-        div.appendChild(btn);
-    });
+async function removeFromCart(id){
+await fetch(API+"/cart/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
+loadCart();
 }
 
-// ADD ITEM
-async function addToCart(id) {
-    await fetch(API + "/cart/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, menu_id: id })
-    });
-    loadCart();
+async function loadCart(){
+const d=await (await fetch(API+`/cart/${cartId}`)).json();
+cartItems.innerHTML="";
+d.items.forEach(i=>{
+cartItems.innerHTML+=`${i.name} 
+<button onclick="removeFromCart(${i.menu_id})">-</button>
+${i.quantity}
+<button onclick="addToCart(${i.menu_id})">+</button>
+= ₹${i.subtotal}<br>`;
+});
+total.innerText=d.total;
 }
 
-// REMOVE ITEM
-async function removeFromCart(id) {
-    await fetch(API + "/cart/remove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, menu_id: id })
-    });
-    loadCart();
+async function holdBill(){
+cartId=(await (await fetch(API+"/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId})})).json()).new_cart_id;
+loadCart();
 }
 
-// LOAD CART
-async function loadCart() {
-    const res = await fetch(API + `/cart/${cartId}`);
-    const data = await res.json();
-
-    const div = document.getElementById("cartItems");
-    div.innerHTML = "";
-
-    data.items.forEach(i => {
-        const row = document.createElement("div");
-        row.className = "cart-item";
-        row.innerHTML = `
-            <span>${i.name}</span>
-            <span>
-                <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
-                ${i.quantity}
-                <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
-            </span>
-            <span>₹${i.subtotal}</span>
-        `;
-        div.appendChild(row);
-    });
-
-    document.getElementById("total").innerText = data.total;
+async function resumeHold(){
+const h=await (await fetch(API+"/cart/holds")).json();
+if(!h.length){alert("No hold bills");return;}
+cartId=h[0].id;
+await fetch(API+`/cart/resume/${cartId}`,{method:"POST"});
+loadCart();
 }
 
-// HOLD
-async function holdBill() {
-    const res = await fetch(API + "/cart/hold", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId })
-    });
-    cartId = (await res.json()).new_cart_id;
-    loadCart();
+async function payNow(){
+if(!customerName.value||!customerPhone.value){alert("Customer details required");return;}
+if(!/^\d{10}$/.test(customerPhone.value)){alert("Invalid mobile");return;}
+if(["UPI","ONLINE","MIXED"].includes(paymentMode.value)&&!transactionId.value){alert("Transaction ID required");return;}
+
+const r=await fetch(API+"/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+cart_id:cartId,
+payment_method:paymentMode.value,
+discount:discount.value||0,
+customer_name:customerName.value,
+customer_phone:customerPhone.value,
+transaction_id:transactionId.value,
+staff_id:localStorage.getItem("user_id")
+})});
+
+const d=await r.json();
+if(d.status==="success"){alert("Paid ₹"+d.total);await createCart();loadCart();}
+else alert(d.error);
 }
 
-// RESUME
-async function resumeHold() {
-    const res = await fetch(API + "/cart/holds");
-    const holds = await res.json();
-    if (holds.length === 0) {
-        alert("No hold bills");
-        return;
-    }
-    cartId = holds[0].id;
-    await fetch(API + `/cart/resume/${cartId}`, { method: "POST" });
-    loadCart();
-}
-
-// PAY
-async function payNow() {
-    const mode = document.getElementById("paymentMode").value;
-    const discount = document.getElementById("discount").value || 0;
-
-    if (!mode) {
-        alert("Select payment mode");
-        return;
-    }
-
-    const res = await fetch(API + "/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: mode,
-            discount: discount,
-            staff_id: localStorage.getItem("user_id")
-        })
-    });
-
-    const data = await res.json();
-    alert("Paid ₹" + data.total);
-    await createCart();
-    await loadCart();
-}
-
-// INIT
-(async function () {
-    await createCart();
-    await loadMenu();
-    await loadCart();
-})();
+(async()=>{await createCart();await loadMenu();await loadCart();})();
 </script>
 
 </body>
 </html>
+s
