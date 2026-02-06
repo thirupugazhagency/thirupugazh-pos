@@ -10,37 +10,73 @@
             margin: 0;
             height: 100vh;
             font-family: Arial, Helvetica, sans-serif;
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+
+            /* 🌿 BACKGROUND IMAGE VIA CSS */
+            background:
+                linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)),
+                url("/static/images/login-bg.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+
             display: flex;
             justify-content: center;
             align-items: center;
         }
+
         .box {
-            width: 340px;
-            background: #fff;
+            width: 360px;
+            background: #ffffff;
             padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        h2 {
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.4);
             text-align: center;
+        }
+
+        .logo {
+            width: 90px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            margin: 10px 0 20px;
             color: #2c5364;
         }
-        input, button {
+
+        input {
             width: 100%;
             padding: 12px;
             margin-top: 12px;
+            font-size: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
         }
+
+        input:focus {
+            outline: none;
+            border-color: #2c5364;
+        }
+
         button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 18px;
+            font-size: 16px;
             background: #2c5364;
-            color: #fff;
+            color: #ffffff;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
+            cursor: pointer;
         }
+
+        button:hover {
+            background: #244655;
+        }
+
         .error {
             color: red;
-            text-align: center;
-            margin-top: 10px;
+            margin-top: 12px;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -48,9 +84,12 @@
 <body>
 
 <div class="box">
+    <!-- LOGO -->
+    <img src="/static/logo.png" alt="Thirupugazh Logo" class="logo">
+
     <h2>POS Login</h2>
 
-    <input id="mobile" placeholder="Mobile Number">
+    <input id="username" placeholder="Username / Mobile Number">
     <input id="password" type="password" placeholder="Password">
 
     <button onclick="login()">Login</button>
@@ -59,29 +98,41 @@
 </div>
 
 <script>
-    const API_BASE = "https://thirupugazh-pos.onrender.com/ui/billing";
+const API = "https://thirupugazh-pos.onrender.com";
 
-    function login() {
-        fetch(API_BASE + "/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                mobile: document.getElementById("mobile").value,
-                password: document.getElementById("password").value
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === "ok") {
-                localStorage.setItem("user_id", data.user_id);
-                localStorage.setItem("name", data.name);
-                localStorage.setItem("role", data.role);
-                window.location.href = "billing.html";
-            } else {
-                document.getElementById("error").innerText = "Invalid login";
-            }
-        });
+function login() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    if (!username || !password) {
+        document.getElementById("error").innerText = "Please enter all fields";
+        return;
     }
+
+    fetch(API + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username: username,
+            password: password
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === "ok") {
+            localStorage.setItem("user_id", data.user_id);
+            localStorage.setItem("role", data.role);
+
+            // Same login page, role handled in backend later
+            window.location.href = "/ui/billing";
+        } else {
+            document.getElementById("error").innerText = "Invalid login";
+        }
+    })
+    .catch(() => {
+        document.getElementById("error").innerText = "Server error";
+    });
+}
 </script>
 
 </body>
