@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh POS</title>
+    <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
@@ -13,6 +13,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 18px;
         }
 
         .container { display: flex; height: calc(100vh - 50px); }
@@ -52,11 +53,43 @@
             margin-top: 10px;
         }
 
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+        }
+
         .btn { padding: 5px 10px; font-size: 16px; }
 
-        .pay-btn { width: 100%; padding: 15px; font-size: 20px; background: green; color: white; border: none; margin-top: 10px; }
-        .hold-btn { width: 100%; padding: 15px; font-size: 18px; background: orange; color: white; border: none; margin-top: 10px; }
-        .resume-btn { width: 100%; padding: 15px; font-size: 18px; background: #555; color: white; border: none; margin-top: 10px; }
+        .pay-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            background: green;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
+
+        .hold-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: orange;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
+
+        .resume-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: #555;
+            color: white;
+            border: none;
+            margin-top: 10px;
+        }
     </style>
 </head>
 
@@ -69,15 +102,19 @@
 
 <div class="container">
 
+    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons">Loading menu…</div>
     </div>
 
+    <!-- CART -->
     <div class="cart">
+
         <h3>Customer Details</h3>
-        <input id="custName" placeholder="Customer Name"><br><br>
-        <input id="custPhone" placeholder="Mobile Number"><br><br>
+        <input id="custName" placeholder="Customer Name *">
+        <input id="custPhone" placeholder="Mobile Number *">
+        <input id="txnId" placeholder="Transaction ID *">
 
         <h3>Cart</h3>
         <div id="cartItems"></div>
@@ -86,9 +123,10 @@
             Total: ₹<span id="total">0</span>
         </div>
 
-        <input id="discount" placeholder="Discount ₹"><br><br>
+        <input id="discount" placeholder="Discount ₹">
 
         <select id="payment">
+            <option value="">Select Payment Mode *</option>
             <option>Cash</option>
             <option>UPI</option>
             <option>Online</option>
@@ -103,7 +141,7 @@
 </div>
 
 <script>
-const API = window.location.origin;   // 🔥 THIS IS THE FIX
+const API = window.location.origin;
 let cartId = null;
 
 function logout(){
@@ -182,10 +220,29 @@ async function loadCart(){
     document.getElementById("total").innerText = d.total;
 }
 
-// ---------------- HOLD / PAY (WIRING READY) ----------------
-function holdBill(){ alert("Hold bill saved"); }
-function resumeHold(){ alert("Resume coming"); }
-function pay(){ alert("Payment processing"); }
+// ---------------- VALIDATION + PAY ----------------
+function pay(){
+    const name = document.getElementById("custName").value.trim();
+    const phone = document.getElementById("custPhone").value.trim();
+    const txn = document.getElementById("txnId").value.trim();
+    const paymode = document.getElementById("payment").value;
+
+    if(!name || !phone || !txn || !paymode){
+        alert("Customer Name, Mobile, Transaction ID and Payment Mode are mandatory");
+        return;
+    }
+
+    alert("Validation OK. Payment will be processed in next step.");
+}
+
+// ---------------- HOLD / RESUME ----------------
+function holdBill(){
+    alert("Hold bill logic will be added next");
+}
+
+function resumeHold(){
+    alert("Resume hold logic will be added next");
+}
 
 // ---------------- INIT ----------------
 (async function(){
