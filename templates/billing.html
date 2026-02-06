@@ -3,50 +3,16 @@
 <head>
     <title>Thirupugazh POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
         header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
-
         .container { display: flex; height: calc(100vh - 60px); }
-
-        .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
+        .menu, .cart { width: 50%; padding: 10px; }
         .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
-
-        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
-
-        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
-
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
         .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
-
-        .btn { padding: 6px 10px; font-size: 16px; }
-
-        .pay-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 20px;
-            background: green;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
-
-        .hold-btn {
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            background: orange;
-            color: white;
-            border: none;
-            margin-top: 10px;
-        }
-
-        select, input {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            margin-top: 8px;
-        }
+        button { padding: 12px; font-size: 18px; width: 100%; margin-top: 10px; }
+        select, input { width: 100%; padding: 10px; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -54,7 +20,6 @@
 <header>🧾 Thirupugazh POS Billing</header>
 
 <div class="container">
-
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons"></div>
@@ -68,7 +33,8 @@
             Total: ₹<span id="total">0</span>
         </div>
 
-        <!-- PAYMENT MODE -->
+        <input type="number" id="discount" placeholder="Discount ₹" min="0">
+
         <select id="paymentMode">
             <option value="">Select Payment Mode</option>
             <option value="CASH">Cash</option>
@@ -77,32 +43,24 @@
             <option value="MIXED">Mixed</option>
         </select>
 
-        <button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
-        <button class="pay-btn" onclick="payNow()">PAY</button>
+        <button onclick="payNow()">PAY</button>
     </div>
-
 </div>
 
 <script>
 const API = "https://thirupugazh-pos.onrender.com";
 let cartId = null;
 
-// ---------------- CREATE CART ----------------
 async function createCart() {
     const res = await fetch(API + "/cart/create", { method: "POST" });
-    const data = await res.json();
-    cartId = data.cart_id;
-    console.log("Cart created:", cartId);
+    cartId = (await res.json()).cart_id;
 }
 
-// ---------------- LOAD MENU ----------------
 async function loadMenu() {
     const res = await fetch(API + "/menu");
     const menu = await res.json();
-
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
-
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
@@ -111,71 +69,29 @@ async function loadMenu() {
     });
 }
 
-// ---------------- ADD ITEM ----------------
-async function addToCart(menuId) {
+async function addToCart(id) {
     await fetch(API + "/cart/add", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId
-        })
+        body: JSON.stringify({ cart_id: cartId, menu_id: id })
     });
-
-    await loadCart();
+    loadCart();
 }
 
-// ---------------- REMOVE ITEM ----------------
-async function removeFromCart(menuId) {
-    await fetch(API + "/cart/remove", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId
-        })
-    });
-
-    await loadCart();
-}
-
-// ---------------- LOAD CART ----------------
 async function loadCart() {
     const res = await fetch(API + `/cart/${cartId}`);
     const data = await res.json();
-
-    const div = document.getElementById("cartItems");
-    div.innerHTML = "";
-
-    data.items.forEach(i => {
-        const row = document.createElement("div");
-        row.className = "cart-item";
-        row.innerHTML = `
-            <span>${i.name}</span>
-            <span>
-                <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
-                ${i.quantity}
-                <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
-            </span>
-            <span>₹${i.subtotal}</span>
-        `;
-        div.appendChild(row);
-    });
-
-    document.getElementById("total").innerText = data.final_total || data.total;
+    document.getElementById("cartItems").innerHTML =
+        data.items.map(i => `${i.name} x ${i.quantity} = ₹${i.subtotal}`).join("<br>");
+    document.getElementById("total").innerText = data.total;
 }
 
-// ---------------- HOLD ----------------
-function holdBill() {
-    alert("Hold system already exists and will be wired next");
-}
-
-// ---------------- PAY ----------------
 async function payNow() {
-    const paymentMode = document.getElementById("paymentMode").value;
+    const mode = document.getElementById("paymentMode").value;
+    const discount = document.getElementById("discount").value || 0;
 
-    if (!paymentMode) {
-        alert("Please select payment mode");
+    if (!mode) {
+        alert("Select payment mode");
         return;
     }
 
@@ -184,26 +100,19 @@ async function payNow() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: paymentMode,
-            customer_name: "",
-            customer_phone: "",
+            payment_method: mode,
+            discount: discount,
             staff_id: 1
         })
     });
 
     const data = await res.json();
-
-    if (data.status === "success") {
-        alert("Payment successful. Total ₹" + data.total);
-        await createCart();
-        await loadCart();
-    } else {
-        alert("Payment failed");
-    }
+    alert("Paid ₹" + data.total);
+    await createCart();
+    await loadCart();
 }
 
-// ---------------- INIT ----------------
-(async function() {
+(async function () {
     await createCart();
     await loadMenu();
     await loadCart();
