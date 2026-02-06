@@ -6,13 +6,27 @@
 
 <style>
 body{font-family:Arial;margin:0;background:#f5f5f5}
-header{background:#1e88e5;color:white;padding:10px;font-size:20px;display:flex;justify-content:space-between}
+header{
+    background:#1e88e5;
+    color:white;
+    padding:10px;
+    font-size:20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+header button{
+    padding:6px 12px;
+    font-size:14px;
+    border:none;
+    cursor:pointer;
+}
 .container{display:flex;height:calc(100vh - 60px)}
 .menu,.cart{width:50%;padding:10px}
 .menu button{width:100%;padding:15px;margin-bottom:10px;font-size:18px}
 .cart-item{display:flex;justify-content:space-between;margin-bottom:8px}
 input,select{width:100%;padding:10px;margin-top:8px}
-button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border:none}
+button.main{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border:none}
 .pay{background:green}
 .hold{background:orange}
 .resume{background:#444}
@@ -22,8 +36,13 @@ button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border
 <body>
 
 <header>
-<span>🧾 Thirupugazh – POS</span>
-<button onclick="logout()">Logout</button>
+  <span>🧾 Thirupugazh – POS</span>
+  <div>
+    <button onclick="logout()">Logout</button>
+    <button id="adminResumeBtn" onclick="adminResume()" style="display:none">
+        Admin Resume
+    </button>
+  </div>
 </header>
 
 <div class="container">
@@ -55,96 +74,12 @@ button{width:100%;padding:15px;margin-top:10px;font-size:18px;color:white;border
 
 <input id="transactionId" placeholder="Transaction ID *" style="display:none">
 
-<button class="hold" onclick="holdBill()">HOLD BILL</button>
-<button class="resume" onclick="resumeHold()">RESUME HOLD</button>
-<button class="pay" onclick="payNow()">PAY</button>
+<button class="main hold" onclick="holdBill()">HOLD BILL</button>
+<button class="main resume" onclick="resumeHold()">RESUME HOLD</button>
+<button class="main pay" onclick="payNow()">PAY</button>
 </div>
 
 </div>
 
 <script>
-const API="https://thirupugazh-pos.onrender.com";
-let cartId=null;
-
-function logout(){localStorage.clear();location.href="/ui/login";}
-
-function toggleTxn(){
-transactionId.style.display=["UPI","ONLINE","MIXED"].includes(paymentMode.value)?"block":"none";
-}
-
-async function createCart(){
-cartId=(await (await fetch(API+"/cart/create",{method:"POST"})).json()).cart_id;
-}
-
-async function loadMenu(){
-const menu=await (await fetch(API+"/menu")).json();
-menuButtons.innerHTML="";
-menu.forEach(i=>{
-const b=document.createElement("button");
-b.innerText=`${i.name} - ₹${i.price}`;
-b.onclick=()=>addToCart(i.id);
-menuButtons.appendChild(b);
-});
-}
-
-async function addToCart(id){
-await fetch(API+"/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
-loadCart();
-}
-
-async function removeFromCart(id){
-await fetch(API+"/cart/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
-loadCart();
-}
-
-async function loadCart(){
-const d=await (await fetch(API+`/cart/${cartId}`)).json();
-cartItems.innerHTML="";
-d.items.forEach(i=>{
-cartItems.innerHTML+=`${i.name}
-<button onclick="removeFromCart(${i.menu_id})">-</button>
-${i.quantity}
-<button onclick="addToCart(${i.menu_id})">+</button>
-= ₹${i.subtotal}<br>`;
-});
-total.innerText=d.total;
-}
-
-async function holdBill(){
-cartId=(await (await fetch(API+"/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId})})).json()).new_cart_id;
-loadCart();
-}
-
-async function resumeHold(){
-const h=await (await fetch(API+"/cart/holds")).json();
-if(!h.length){alert("No hold bills");return;}
-cartId=h[0].id;
-await fetch(API+`/cart/resume/${cartId}`,{method:"POST"});
-loadCart();
-}
-
-async function payNow(){
-if(!customerName.value||!customerPhone.value){alert("Customer details required");return;}
-if(!/^\d{10}$/.test(customerPhone.value)){alert("Invalid mobile");return;}
-if(["UPI","ONLINE","MIXED"].includes(paymentMode.value)&&!transactionId.value){alert("Transaction ID required");return;}
-
-const r=await fetch(API+"/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-cart_id:cartId,
-payment_method:paymentMode.value,
-discount:discount.value||0,
-customer_name:customerName.value,
-customer_phone:customerPhone.value,
-transaction_id:transactionId.value,
-staff_id:localStorage.getItem("user_id")
-})});
-
-const d=await r.json();
-if(d.status==="success"){alert("Paid ₹"+d.total);await createCart();loadCart();}
-else alert(d.error);
-}
-
-(async()=>{await createCart();await loadMenu();await loadCart();})();
-</script>
-
-</body>
-</html>
+const API = "https://thirupugazh-pos.onre
