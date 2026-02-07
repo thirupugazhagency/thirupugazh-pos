@@ -210,26 +210,28 @@ def hold_cart():
 
 @app.route("/cart/holds")
 def list_holds():
-    carts = Cart.query.filter_by(status="HOLD").all()
-    return jsonify([
-        {
-            "id": c.id,
-            "customer_name": c.customer_name or "Unknown",
-            "created_at": c.created_at.strftime("%H:%M")
-        }
-        for c in carts
-    ])
+    now = datetime.now()
 
-@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
-def resume_cart(cart_id):
-    cart = Cart.query.get(cart_id)
-    if not cart or cart.status != "HOLD":
-        return jsonify({"error": "Invalid cart"}), 400
+    # Business cutoff = today 3 PM
+    cutoff = now.replace(hour=15, minute=0, second=0, microsecond=0)
 
-    cart.status = "ACTIVE"
+    holds = Cart.query.filter_by(status="HOLD").all()
+    valid_holds = []
+
+    for c in holds:
+        # If after 3 PM and cart created before cutoff → expire it
+        if now >= cutoff and c.created_at < cutoff:
+            c.status = "EXPIRED"
+            db.session.add(c)
+        else:
+            valid_holds.append({
+                "id": c.id,
+                "customer_name": c.customer_name or "Unknown",
+                "created_at": c.created_at.strftime("%H:%M")
+            })
+
     db.session.commit()
-    return jsonify({"status": "resumed"})
-
+    return jsonify(valid_holds)
 # ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
