@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify, render_template, Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 import os
 
 app = Flask(__name__)
@@ -96,24 +99,6 @@ def login():
             "role": user.role
         })
     return jsonify({"status": "error"}), 401
-
-# ---------------- ADMIN CHANGE PASSWORD ----------------
-
-@app.route("/admin/change-password", methods=["POST"])
-def admin_change_password():
-    data = request.json
-
-    admin = User.query.get(data.get("admin_id"))
-    if not admin or admin.role != "admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    user = User.query.get(data.get("user_id"))
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    user.password = generate_password_hash(data.get("new_password"))
-    db.session.commit()
-    return jsonify({"status": "password_updated"})
 
 # ---------------- MENU ----------------
 
@@ -271,7 +256,7 @@ def checkout():
     db.session.commit()
     return jsonify({"status": "success", "total": total})
 
-# ---------------- ADMIN REPORT APIs ----------------
+# ---------------- ADMIN REPORTS ----------------
 
 @app.route("/admin/report/daily")
 def admin_daily_report():
@@ -281,6 +266,7 @@ def admin_daily_report():
 
     date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
     sales = Sale.query.filter_by(business_date=date_obj).all()
+
     total = sum(s.total for s in sales)
 
     return jsonify({
@@ -288,6 +274,35 @@ def admin_daily_report():
         "total_sales": total,
         "count": len(sales)
     })
+
+# ✅ NEW: AGENT-WISE DAILY REPORT
+@app.route("/admin/report/agent-wise")
+def admin_agent_wise_report():
+    date_str = request.args.get("date")
+    if not date_str:
+        return jsonify({"error": "Date required"}), 400
+
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    sales = Sale.query.filter_by(business_date=date_obj).all()
+
+    summary = {}
+
+    for s in sales:
+        if s.staff_id not in summary:
+            summary[s.staff_id] = {
+                "staff_id": s.staff_id,
+                "total": 0,
+                "count": 0
+            }
+        summary[s.staff_id]["total"] += s.total
+        summary[s.staff_id]["count"] += 1
+
+    return jsonify({
+        "date": date_str,
+        "agents": list(summary.values())
+    })
+
+# ---------------- EXCEL EXPORT ----------------
 
 @app.route("/admin/report/daily/excel")
 def admin_daily_report_excel():
@@ -303,16 +318,55 @@ def admin_daily_report_excel():
         for s in sales:
             yield f"{s.id},{s.total},{s.payment_method},{s.customer_name},{s.customer_phone},{s.transaction_id},{s.staff_id},{s.created_at.strftime('%H:%M')}\n"
 
-    filename = f"daily_sales_{date_str}.csv"
-
     return Response(
         generate(),
         mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename=daily_sales_{date_str}.csv"}
     )
 
-@app.route("/admin/report/monthly")
-def admin_monthly_report():
+# ---------------- PDF EXPORT ----------------
+
+@app.route("/admin/report/daily/pdf")
+def admin_daily_report_pdf():
+    date_str = request.args.get("date")
+    if not date_str:
+        return "Date required", 400
+
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    sales = Sale.query.filter_by(business_date=date_obj).all()
+
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    y = height - 40
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(40, y, f"Daily Sales Report - {date_str}")
+    y -= 30
+    p.setFont("Helvetica", 10)
+
+    total = 0
+    for s in sales:
+        p.drawString(40, y, f"Bill #{s.id} | ₹{s.total} | {s.payment_method} | {s.customer_name}")
+        y -= 18
+        total += s.total
+        if y < 50:
+            p.showPage()
+            y = height - 40
+
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(40, y - 10, f"TOTAL: ₹{total}")
+    p.save()
+    buffer.seek(0)
+
+    return Response(
+        buffer,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=daily_sales_{date_str}.pdf"}
+    )
+
+@app.route("/admin/report/monthly/pdf")
+def admin_monthly_report_pdf():
     year = int(request.args.get("year"))
     month = int(request.args.get("month"))
 
@@ -324,14 +378,35 @@ def admin_monthly_report():
         Sale.created_at < end
     ).all()
 
-    total = sum(s.total for s in sales)
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
 
-    return jsonify({
-        "year": year,
-        "month": month,
-        "total_sales": total,
-        "count": len(sales)
-    })
+    y = height - 40
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(40, y, f"Monthly Sales Report - {month}/{year}")
+    y -= 30
+    p.setFont("Helvetica", 10)
+
+    total = 0
+    for s in sales:
+        p.drawString(40, y, f"{s.created_at.strftime('%d-%m')} | ₹{s.total} | {s.payment_method}")
+        y -= 18
+        total += s.total
+        if y < 50:
+            p.showPage()
+            y = height - 40
+
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(40, y - 10, f"TOTAL: ₹{total}")
+    p.save()
+    buffer.seek(0)
+
+    return Response(
+        buffer,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=monthly_sales_{month}_{year}.pdf"}
+    )
 
 # ---------------- INIT DB ----------------
 
@@ -340,16 +415,8 @@ def init_db():
         db.create_all()
 
         if not User.query.first():
-            db.session.add(User(
-                username="admin",
-                password=generate_password_hash("admin123"),
-                role="admin"
-            ))
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff"
-            ))
+            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
+            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
