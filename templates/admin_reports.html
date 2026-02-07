@@ -13,8 +13,8 @@
         }
 
         h2 {
+            color: #222;
             margin-bottom: 15px;
-            color: #333;
         }
 
         .box {
@@ -33,6 +33,7 @@
 
         button {
             cursor: pointer;
+            margin-right: 8px;
         }
 
         .result {
@@ -47,8 +48,8 @@
             padding: 8px 14px;
         }
 
-        .actions button {
-            margin-right: 10px;
+        .actions {
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -59,7 +60,7 @@
 
 <h2>Admin Sales Reports</h2>
 
-<!-- DAILY REPORT -->
+<!-- ================= DAILY REPORT ================= -->
 <div class="box">
     <h3>Daily Report</h3>
 
@@ -68,12 +69,13 @@
     <div class="actions">
         <button onclick="loadDaily()">Get Daily Report</button>
         <button onclick="downloadExcel()">Download Excel</button>
+        <button onclick="downloadDailyPDF()">Download PDF</button>
     </div>
 
     <div id="dailyResult" class="result"></div>
 </div>
 
-<!-- MONTHLY REPORT -->
+<!-- ================= MONTHLY REPORT ================= -->
 <div class="box">
     <h3>Monthly Report</h3>
 
@@ -82,6 +84,7 @@
 
     <div class="actions">
         <button onclick="loadMonthly()">Get Monthly Report</button>
+        <button onclick="downloadMonthlyPDF()">Download PDF</button>
     </div>
 
     <div id="monthlyResult" class="result"></div>
@@ -92,7 +95,7 @@ function goBack() {
     window.location.href = "/ui/billing";
 }
 
-// DAILY REPORT
+// ---------------- DAILY REPORT ----------------
 async function loadDaily() {
     const date = document.getElementById("dailyDate").value;
     if (!date) {
@@ -112,7 +115,7 @@ async function loadDaily() {
         `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 
-// EXCEL DOWNLOAD
+// ---------------- EXCEL DOWNLOAD ----------------
 function downloadExcel() {
     const date = document.getElementById("dailyDate").value;
     if (!date) {
@@ -123,7 +126,18 @@ function downloadExcel() {
     window.location.href = `/admin/report/daily/excel?date=${date}`;
 }
 
-// MONTHLY REPORT
+// ---------------- DAILY PDF ----------------
+function downloadDailyPDF() {
+    const date = document.getElementById("dailyDate").value;
+    if (!date) {
+        alert("Please select a date");
+        return;
+    }
+
+    window.location.href = `/admin/report/daily/pdf?date=${date}`;
+}
+
+// ---------------- MONTHLY REPORT ----------------
 async function loadMonthly() {
     const year = document.getElementById("year").value;
     const month = document.getElementById("month").value;
@@ -138,6 +152,19 @@ async function loadMonthly() {
 
     document.getElementById("monthlyResult").innerText =
         `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
+}
+
+// ---------------- MONTHLY PDF ----------------
+function downloadMonthlyPDF() {
+    const year = document.getElementById("year").value;
+    const month = document.getElementById("month").value;
+
+    if (!year || !month) {
+        alert("Enter year and month");
+        return;
+    }
+
+    window.location.href = `/admin/report/monthly/pdf?year=${year}&month=${month}`;
 }
 </script>
 
