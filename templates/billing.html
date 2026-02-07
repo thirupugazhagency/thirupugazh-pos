@@ -3,50 +3,44 @@
 <head>
 <title>Thirupugazh – POS</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body{font-family:Arial;margin:0;background:#f5f5f5;}
-header{background:#1976d2;color:white;padding:10px;display:flex;justify-content:space-between;}
-.container{display:flex;height:calc(100vh - 50px);}
-.menu{width:45%;padding:10px;background:white;}
-.menu button{width:100%;padding:15px;margin-bottom:10px;font-size:18px;}
-.cart{width:55%;padding:10px;background:#fafafa;border-left:1px solid #ccc;}
-.cart-item{display:flex;justify-content:space-between;margin-bottom:8px;}
-.total{font-size:22px;font-weight:bold;margin-top:10px;}
-input,select{width:100%;padding:8px;margin-top:6px;}
-.hold-btn{background:orange;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
-.resume-btn{background:#555;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
-.pay-btn{background:green;color:white;padding:15px;width:100%;margin-top:10px;border:none;}
+body { font-family: Arial; margin: 0; background: #f5f5f5; }
+header { background: #1976d2; color: white; padding: 10px; display: flex; justify-content: space-between; }
+.container { display: flex; height: calc(100vh - 50px); }
+.menu { width: 45%; padding: 10px; background: white; }
+.menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
+.cart { width: 55%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
+.cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.total { font-size: 22px; font-weight: bold; margin-top: 10px; }
+input { width: 100%; padding: 8px; margin-top: 6px; }
+button { padding: 12px; width: 100%; margin-top: 10px; }
 </style>
 </head>
 
 <body>
 
 <header>
-<span>Thirupugazh – POS</span>
-<button onclick="logout()">Logout</button>
+  <span>Thirupugazh – POS</span>
+  <button onclick="location.reload()">Reload</button>
 </header>
 
 <div class="container">
 
 <div class="menu">
-<h3>Menu</h3>
-<div id="menuButtons">Loading…</div>
+  <h3>Menu</h3>
+  <div id="menuButtons">Loading…</div>
 </div>
 
 <div class="cart">
-<h3>Customer Details</h3>
-<input id="custName" placeholder="Customer Name">
-<input id="custPhone" placeholder="Mobile Number">
-<input id="txnId" placeholder="Transaction ID">
+  <h3>Customer Details</h3>
+  <input id="custName" placeholder="Customer Name">
+  <input id="custPhone" placeholder="Mobile Number">
+  <input id="txnId" placeholder="Transaction ID">
 
-<h3>Cart</h3>
-<div id="cartItems"></div>
-
-<div class="total">Total: ₹<span id="total">0</span></div>
-
-<button class="hold-btn" onclick="holdBill()">HOLD BILL</button>
-<button class="resume-btn" onclick="showHolds()">RESUME HOLD</button>
-<button class="pay-btn">PAY</button>
+  <h3>Cart</h3>
+  <div id="cartItems"></div>
+  <div class="total">Total: ₹<span id="total">0</span></div>
 </div>
 
 </div>
@@ -55,81 +49,82 @@ input,select{width:100%;padding:8px;margin-top:6px;}
 const API = window.location.origin;
 let cartId = null;
 
-// INIT
-(async()=>{
-    const r = await fetch(API+"/cart/create",{method:"POST"});
-    cartId = (await r.json()).cart_id;
-    loadMenu();
-    loadCart();
-})();
+async function init() {
+    try {
+        const r = await fetch(API + "/cart/create", { method: "POST" });
+
+        if (!r.ok) {
+            const t = await r.text();
+            alert("Cart create failed:\n" + t);
+            return;
+        }
+
+        const data = await r.json();
+        cartId = data.cart_id;
+
+        await loadMenu();
+        await loadCart();
+
+    } catch (e) {
+        alert("Startup error: " + e.message);
+    }
+}
 
 async function loadMenu(){
-    const r = await fetch(API+"/menu");
-    const m = await r.json();
-    const d=document.getElementById("menuButtons");
-    d.innerHTML="";
-    m.forEach(i=>{
-        const b=document.createElement("button");
-        b.innerText=`${i.name} - ₹${i.price}`;
-        b.onclick=()=>add(i.id);
+    const r = await fetch(API + "/menu");
+    const menu = await r.json();
+    const d = document.getElementById("menuButtons");
+    d.innerHTML = "";
+
+    menu.forEach(i=>{
+        const b = document.createElement("button");
+        b.innerText = `${i.name} - ₹${i.price}`;
+        b.onclick = ()=>addItem(i.id);
         d.appendChild(b);
     });
 }
 
-async function add(id){
-    await fetch(API+"/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
+async function addItem(id){
+    await fetch(API + "/cart/add", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ cart_id: cartId, menu_id: id })
+    });
     loadCart();
 }
 
-async function remove(id){
-    await fetch(API+"/cart/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
+async function removeItem(id){
+    await fetch(API + "/cart/remove", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ cart_id: cartId, menu_id: id })
+    });
     loadCart();
 }
 
 async function loadCart(){
-    const r=await fetch(API+`/cart/${cartId}`);
-    const d=await r.json();
-    const c=document.getElementById("cartItems");
-    c.innerHTML="";
+    const r = await fetch(API + `/cart/${cartId}`);
+    const d = await r.json();
+    const c = document.getElementById("cartItems");
+    c.innerHTML = "";
+
     d.items.forEach(i=>{
-        c.innerHTML+=`
+        c.innerHTML += `
         <div class="cart-item">
-        <span>${i.name}</span>
-        <span>
-        <button onclick="remove(${i.menu_id})">-</button>
-        ${i.quantity}
-        <button onclick="add(${i.menu_id})">+</button>
-        </span>
-        <span>₹${i.subtotal}</span>
+          <span>${i.name}</span>
+          <span>
+            <button onclick="removeItem(${i.menu_id})">-</button>
+            ${i.quantity}
+            <button onclick="addItem(${i.menu_id})">+</button>
+          </span>
+          <span>₹${i.subtotal}</span>
         </div>`;
     });
-    document.getElementById("total").innerText=d.total;
+
+    document.getElementById("total").innerText = d.total;
 }
 
-async function holdBill(){
-    const r = await fetch(API+"/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId})});
-    const d = await r.json();
-    cartId = d.new_cart_id;
-    loadCart();
-    alert("Bill held successfully");
-}
-
-async function showHolds(){
-    const r = await fetch(API+"/cart/holds");
-    const h = await r.json();
-    const ids = h.map(x=>x.cart_id).join(", ");
-    const cid = prompt("Enter HOLD Cart ID:\n"+ids);
-    if(cid){
-        await fetch(API+`/cart/resume/${cid}`,{method:"POST"});
-        cartId = cid;
-        loadCart();
-    }
-}
-
-function logout(){
-    localStorage.clear();
-    window.location.href="/ui/login";
-}
+init();
 </script>
 
 </body>
