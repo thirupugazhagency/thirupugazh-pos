@@ -20,11 +20,11 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# ---------------- BUSINESS DAY LOGIC (3 PM – 3 PM) ----------------
+# ---------------- BUSINESS DAY (3 PM – 3 PM) ----------------
 
 def get_business_date():
     now = datetime.now()
-    if now.hour < 15:  # before 3 PM
+    if now.hour < 15:
         return (now - timedelta(days=1)).date()
     return now.date()
 
@@ -34,7 +34,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,10 +59,9 @@ class Sale(db.Model):
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
+    transaction_id = db.Column(db.String(100))
     staff_id = db.Column(db.Integer)
-
-    business_date = db.Column(db.Date)  # ✅ NEW COLUMN
-
+    business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ---------------- UI ----------------
@@ -88,10 +87,34 @@ def login():
     if user and check_password_hash(user.password, data.get("password")):
         return jsonify({
             "status": "ok",
-            "role": user.role,
-            "user_id": user.id
+            "user_id": user.id,
+            "role": user.role
         })
     return jsonify({"status": "error"}), 401
+
+# ---------------- ADMIN CHANGE PASSWORD ----------------
+# 🔐 ADMIN ONLY
+
+@app.route("/admin/change-password", methods=["POST"])
+def admin_change_password():
+    data = request.json
+
+    admin_id = data.get("admin_id")
+    target_user_id = data.get("user_id")
+    new_password = data.get("new_password")
+
+    admin = User.query.get(admin_id)
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user = User.query.get(target_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"status": "password_updated"})
 
 # ---------------- MENU ----------------
 
@@ -122,9 +145,7 @@ def add_to_cart():
     if item:
         item.quantity += 1
     else:
-        db.session.add(
-            CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1)
-        )
+        db.session.add(CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1))
 
     db.session.commit()
     return jsonify({"status": "added"})
@@ -150,9 +171,9 @@ def remove_from_cart():
 @app.route("/cart/<int:cart_id>")
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
-
-    result = []
     total = 0
+    result = []
+
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -164,20 +185,14 @@ def view_cart(cart_id):
             "subtotal": subtotal
         })
 
-    return jsonify({
-        "items": result,
-        "total": total,
-        "final_total": total
-    })
+    return jsonify({"items": result, "total": total})
 
-# ---------------- HOLD SYSTEM ----------------
+# ---------------- HOLD / RESUME ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
     data = request.json
-    cart_id = data.get("cart_id")
-
-    cart = Cart.query.get(cart_id)
+    cart = Cart.query.get(data.get("cart_id"))
     if not cart:
         return jsonify({"error": "Cart not found"}), 404
 
@@ -206,7 +221,7 @@ def resume_cart(cart_id):
 
     cart.status = "ACTIVE"
     db.session.commit()
-    return jsonify({"status": "resumed", "cart_id": cart.id})
+    return jsonify({"status": "resumed"})
 
 # ---------------- CHECKOUT ----------------
 
@@ -226,8 +241,9 @@ def checkout():
         payment_method=data.get("payment_method"),
         customer_name=data.get("customer_name"),
         customer_phone=data.get("customer_phone"),
+        transaction_id=data.get("transaction_id"),
         staff_id=data.get("staff_id"),
-        business_date=get_business_date()  # ✅ BUSINESS DAY SAVED
+        business_date=get_business_date()
     )
 
     db.session.add(sale)
@@ -245,20 +261,16 @@ def init_db():
         db.create_all()
 
         if not User.query.first():
-            db.session.add(
-                User(
-                    username="admin",
-                    password=generate_password_hash("admin123"),
-                    role="admin"
-                )
-            )
-            db.session.add(
-                User(
-                    username="staff1",
-                    password=generate_password_hash("1234"),
-                    role="staff"
-                )
-            )
+            db.session.add(User(
+                username="admin",
+                password=generate_password_hash("admin123"),
+                role="admin"
+            ))
+            db.session.add(User(
+                username="staff1",
+                password=generate_password_hash("1234"),
+                role="staff"
+            ))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
