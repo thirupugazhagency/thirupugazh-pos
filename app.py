@@ -43,8 +43,8 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
-    customer_name = db.Column(db.String(100))            # ✅ HOLD CUSTOMER
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID / EXPIRED
+    customer_name = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -189,7 +189,7 @@ def view_cart(cart_id):
 
     return jsonify({"items": result, "total": total})
 
-# ---------------- HOLD / RESUME ----------------
+# ---------------- HOLD / RESUME + AUTO EXPIRE (3 PM) ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -211,27 +211,34 @@ def hold_cart():
 @app.route("/cart/holds")
 def list_holds():
     now = datetime.now()
-
-    # Business cutoff = today 3 PM
     cutoff = now.replace(hour=15, minute=0, second=0, microsecond=0)
 
-    holds = Cart.query.filter_by(status="HOLD").all()
-    valid_holds = []
+    carts = Cart.query.filter_by(status="HOLD").all()
+    valid = []
 
-    for c in holds:
-        # If after 3 PM and cart created before cutoff → expire it
+    for c in carts:
         if now >= cutoff and c.created_at < cutoff:
             c.status = "EXPIRED"
-            db.session.add(c)
         else:
-            valid_holds.append({
+            valid.append({
                 "id": c.id,
                 "customer_name": c.customer_name or "Unknown",
                 "created_at": c.created_at.strftime("%H:%M")
             })
 
     db.session.commit()
-    return jsonify(valid_holds)
+    return jsonify(valid)
+
+@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
+def resume_cart(cart_id):
+    cart = Cart.query.get(cart_id)
+    if not cart or cart.status != "HOLD":
+        return jsonify({"error": "Invalid cart"}), 400
+
+    cart.status = "ACTIVE"
+    db.session.commit()
+    return jsonify({"status": "resumed"})
+
 # ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
@@ -260,6 +267,57 @@ def checkout():
 
     db.session.commit()
     return jsonify({"status": "success", "total": total})
+
+# ---------------- ADMIN REPORTS ----------------
+
+@app.route("/admin/report/daily")
+def admin_daily_report():
+    date_str = request.args.get("date")
+    if not date_str:
+        return jsonify({"error": "Date required"}), 400
+
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    sales = Sale.query.filter_by(business_date=date_obj).all()
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "date": date_str,
+        "total_sales": total,
+        "count": len(sales),
+        "items": [
+            {
+                "id": s.id,
+                "amount": s.total,
+                "payment_method": s.payment_method,
+                "customer_name": s.customer_name,
+                "staff_id": s.staff_id,
+                "time": s.created_at.strftime("%H:%M")
+            }
+            for s in sales
+        ]
+    })
+
+@app.route("/admin/report/monthly")
+def admin_monthly_report():
+    year = int(request.args.get("year"))
+    month = int(request.args.get("month"))
+
+    start = datetime(year, month, 1)
+    end = (start + timedelta(days=32)).replace(day=1)
+
+    sales = Sale.query.filter(
+        Sale.created_at >= start,
+        Sale.created_at < end
+    ).all()
+
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "year": year,
+        "month": month,
+        "total_sales": total,
+        "count": len(sales)
+    })
 
 # ---------------- INIT DB ----------------
 
