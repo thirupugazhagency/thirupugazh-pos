@@ -38,7 +38,7 @@
 
         .result {
             margin-top: 10px;
-            font-size: 17px;
+            font-size: 16px;
             font-weight: bold;
             color: #222;
         }
@@ -50,6 +50,22 @@
 
         .actions {
             margin-top: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #f0f0f0;
         }
     </style>
 </head>
@@ -90,62 +106,64 @@
     <div id="monthlyResult" class="result"></div>
 </div>
 
+<!-- ================= AGENT-WISE REPORT ================= -->
+<div class="box">
+    <h3>Agent-wise Daily Sales</h3>
+
+    <input type="date" id="agentDate">
+
+    <div class="actions">
+        <button onclick="loadAgentWise()">Get Agent-wise Report</button>
+    </div>
+
+    <table id="agentTable" style="display:none;">
+        <thead>
+            <tr>
+                <th>Agent ID</th>
+                <th>Total Sales (₹)</th>
+                <th>No. of Bills</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
 <script>
 function goBack() {
     window.location.href = "/ui/billing";
 }
 
-// ---------------- DAILY REPORT ----------------
+/* ---------------- DAILY REPORT ---------------- */
 async function loadDaily() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) {
-        alert("Please select a date");
-        return;
-    }
+    if (!date) return alert("Select a date");
 
     const res = await fetch(`/admin/report/daily?date=${date}`);
     const data = await res.json();
-
-    if (data.error) {
-        alert(data.error);
-        return;
-    }
 
     document.getElementById("dailyResult").innerText =
         `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 
-// ---------------- EXCEL DOWNLOAD ----------------
+/* ---------------- EXCEL ---------------- */
 function downloadExcel() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) {
-        alert("Please select a date");
-        return;
-    }
-
+    if (!date) return alert("Select a date");
     window.location.href = `/admin/report/daily/excel?date=${date}`;
 }
 
-// ---------------- DAILY PDF ----------------
+/* ---------------- DAILY PDF ---------------- */
 function downloadDailyPDF() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) {
-        alert("Please select a date");
-        return;
-    }
-
+    if (!date) return alert("Select a date");
     window.location.href = `/admin/report/daily/pdf?date=${date}`;
 }
 
-// ---------------- MONTHLY REPORT ----------------
+/* ---------------- MONTHLY REPORT ---------------- */
 async function loadMonthly() {
     const year = document.getElementById("year").value;
     const month = document.getElementById("month").value;
-
-    if (!year || !month) {
-        alert("Enter year and month");
-        return;
-    }
+    if (!year || !month) return alert("Enter year and month");
 
     const res = await fetch(`/admin/report/monthly?year=${year}&month=${month}`);
     const data = await res.json();
@@ -154,17 +172,38 @@ async function loadMonthly() {
         `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 
-// ---------------- MONTHLY PDF ----------------
+/* ---------------- MONTHLY PDF ---------------- */
 function downloadMonthlyPDF() {
     const year = document.getElementById("year").value;
     const month = document.getElementById("month").value;
-
-    if (!year || !month) {
-        alert("Enter year and month");
-        return;
-    }
+    if (!year || !month) return alert("Enter year and month");
 
     window.location.href = `/admin/report/monthly/pdf?year=${year}&month=${month}`;
+}
+
+/* ---------------- AGENT-WISE REPORT ---------------- */
+async function loadAgentWise() {
+    const date = document.getElementById("agentDate").value;
+    if (!date) return alert("Select a date");
+
+    const res = await fetch(`/admin/report/agent-wise?date=${date}`);
+    const data = await res.json();
+
+    const table = document.getElementById("agentTable");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    data.agents.forEach(a => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${a.staff_id}</td>
+            <td>₹${a.total}</td>
+            <td>${a.count}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    table.style.display = "table";
 }
 </script>
 
