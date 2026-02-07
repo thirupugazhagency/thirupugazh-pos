@@ -156,8 +156,7 @@ let cartId = null;
 
 /* ROLE CHECK */
 document.addEventListener("DOMContentLoaded", () => {
-    const role = localStorage.getItem("role");
-    if (role === "admin") {
+    if (localStorage.getItem("role") === "admin") {
         document.getElementById("adminBtn").style.display = "inline-block";
     }
 });
@@ -183,7 +182,6 @@ async function createCart() {
 async function loadMenu() {
     const res = await fetch(API + "/menu");
     const menu = await res.json();
-
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
 
@@ -241,27 +239,55 @@ async function loadCart() {
     document.getElementById("total").innerText = data.total;
 }
 
-/* HOLD */
+/* 🔒 HOLD BILL — SAVE CUSTOMER NAME */
 async function holdBill() {
+    const customerName = document.getElementById("customerName").value.trim();
+
+    if (!customerName) {
+        alert("Enter Customer Name before holding bill");
+        return;
+    }
+
     const res = await fetch(API + "/cart/hold", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ cart_id: cartId })
+        body: JSON.stringify({
+            cart_id: cartId,
+            customer_name: customerName
+        })
     });
+
     const data = await res.json();
     cartId = data.new_cart_id;
+
+    document.getElementById("customerName").value = "";
+    document.getElementById("mobileNumber").value = "";
+    document.getElementById("transactionId").value = "";
+
     loadCart();
 }
 
-/* RESUME */
+/* 🔁 RESUME HOLD — CLICK BY CUSTOMER NAME */
 async function resumeHold() {
     const res = await fetch(API + "/cart/holds");
     const holds = await res.json();
+
     if (!holds.length) {
         alert("No hold bills");
         return;
     }
-    cartId = holds[0].id;
+
+    let list = "Select customer:\n";
+    holds.forEach((h, i) => {
+        list += `${i + 1}. ${h.customer_name} (${h.created_at})\n`;
+    });
+
+    const choice = prompt(list);
+    const index = parseInt(choice) - 1;
+
+    if (isNaN(index) || !holds[index]) return;
+
+    cartId = holds[index].id;
     await fetch(API + `/cart/resume/${cartId}`, { method: "POST" });
     loadCart();
 }
@@ -299,15 +325,14 @@ async function payNow() {
     });
 
     const data = await res.json();
-
     alert("Payment successful ₹" + data.total);
+
+    await createCart();
+    await loadCart();
 
     document.getElementById("customerName").value = "";
     document.getElementById("mobileNumber").value = "";
     document.getElementById("transactionId").value = "";
-
-    await createCart();
-    await loadCart();
 }
 
 /* INIT */
