@@ -1,107 +1,111 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Admin Panel – Thirupugazh POS</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Reports – Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body{font-family:Arial;background:#f4f6f8;margin:0;}
-header{background:#263238;color:white;padding:15px;font-size:20px;display:flex;justify-content:space-between;}
-.container{max-width:650px;margin:30px auto;background:white;padding:20px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.2);}
-button{width:100%;padding:12px;font-size:15px;margin-top:10px;border:none;cursor:pointer;}
-.excel{background:#2e7d32;color:white;}
-.pdf{background:#c62828;color:white;}
-.admin{background:#1565c0;color:white;}
-.logout{background:#555;color:white;}
-input,select{width:100%;padding:10px;margin-top:8px;}
-hr{margin:25px 0;}
-</style>
+    <style>
+        body {
+            font-family: Arial;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+        }
+
+        .box {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .result {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .back {
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
 
 <body>
 
-<header>
-  <span>🛠 Admin Panel – Thirupugazh POS</span>
-  <button class="logout" onclick="logout()">Logout</button>
-</header>
+<button class="back" onclick="goBack()">⬅ Back to Billing</button>
 
-<div class="container">
+<h2>Admin Sales Reports</h2>
 
-<h3>🔐 Change Agent Password</h3>
+<div class="box">
+    <h3>Daily Report</h3>
+    <input type="date" id="dailyDate">
+    <br>
+    <button onclick="loadDaily()">Get Daily Report</button>
+    <div id="dailyResult" class="result"></div>
+</div>
 
-<select id="agentSelect"></select>
-
-<input type="password" id="newPassword" placeholder="New Password">
-
-<button class="admin" onclick="changePassword()">
-Update Password
-</button>
-
-<hr>
-
-<h3>📆 Monthly Summary</h3>
-<input type="month" id="reportMonth">
-
-<button class="excel" onclick="monthlyExcel()">Monthly Excel</button>
-<button class="pdf" onclick="monthlyPDF()">Monthly PDF</button>
-
+<div class="box">
+    <h3>Monthly Report</h3>
+    <input type="number" id="year" placeholder="Year (e.g. 2026)">
+    <input type="number" id="month" placeholder="Month (1–12)">
+    <br>
+    <button onclick="loadMonthly()">Get Monthly Report</button>
+    <div id="monthlyResult" class="result"></div>
 </div>
 
 <script>
-if(localStorage.getItem("role")!=="admin"){
-    alert("Admin only");
-    window.location.href="/ui/login";
+function goBack() {
+    window.location.href = "/ui/billing";
 }
 
-function logout(){
-    localStorage.clear();
-    window.location.href="/ui/login";
+async function loadDaily() {
+    const date = document.getElementById("dailyDate").value;
+    if (!date) {
+        alert("Select a date");
+        return;
+    }
+
+    const res = await fetch(`/admin/report/daily?date=${date}`);
+    const data = await res.json();
+
+    if (data.error) {
+        alert(data.error);
+        return;
+    }
+
+    document.getElementById("dailyResult").innerText =
+        `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 
-// LOAD AGENTS
-fetch("/admin/agents")
-.then(r=>r.json())
-.then(data=>{
-    const sel=document.getElementById("agentSelect");
-    data.forEach(a=>{
-        const o=document.createElement("option");
-        o.value=a.id;
-        o.text=a.username;
-        sel.appendChild(o);
-    });
-});
+async function loadMonthly() {
+    const year = document.getElementById("year").value;
+    const month = document.getElementById("month").value;
 
-function changePassword(){
-    const uid=document.getElementById("agentSelect").value;
-    const pwd=document.getElementById("newPassword").value;
-    if(!pwd){alert("Enter password");return;}
+    if (!year || !month) {
+        alert("Enter year and month");
+        return;
+    }
 
-    fetch("/admin/change-password",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({user_id:uid,new_password:pwd})
-    })
-    .then(r=>r.json())
-    .then(d=>{
-        if(d.status){
-            alert("Password updated successfully");
-            document.getElementById("newPassword").value="";
-        }else{
-            alert(d.error);
-        }
-    });
-}
+    const res = await fetch(`/admin/report/monthly?year=${year}&month=${month}`);
+    const data = await res.json();
 
-function monthlyExcel(){
-    const m=document.getElementById("reportMonth").value;
-    if(!m){alert("Select month");return;}
-    window.open(`/admin/report/monthly/excel?month=${m}`,"_blank");
-}
-
-function monthlyPDF(){
-    const m=document.getElementById("reportMonth").value;
-    if(!m){alert("Select month");return;}
-    window.open(`/admin/report/monthly/pdf?month=${m}`,"_blank");
+    document.getElementById("monthlyResult").innerText =
+        `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 </script>
 
