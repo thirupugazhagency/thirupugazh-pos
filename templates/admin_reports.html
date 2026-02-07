@@ -6,7 +6,7 @@
 
     <style>
         body {
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             background: #f5f5f5;
             margin: 0;
             padding: 20px;
@@ -14,19 +14,21 @@
 
         h2 {
             margin-bottom: 15px;
+            color: #333;
         }
 
         .box {
-            background: white;
+            background: #ffffff;
             padding: 15px;
             border-radius: 6px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
         input, button {
             padding: 10px;
-            font-size: 16px;
-            margin: 5px 0;
+            font-size: 15px;
+            margin-top: 8px;
         }
 
         button {
@@ -35,12 +37,18 @@
 
         .result {
             margin-top: 10px;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: bold;
+            color: #222;
         }
 
         .back {
             margin-bottom: 15px;
+            padding: 8px 14px;
+        }
+
+        .actions button {
+            margin-right: 10px;
         }
     </style>
 </head>
@@ -51,20 +59,31 @@
 
 <h2>Admin Sales Reports</h2>
 
+<!-- DAILY REPORT -->
 <div class="box">
     <h3>Daily Report</h3>
+
     <input type="date" id="dailyDate">
-    <br>
-    <button onclick="loadDaily()">Get Daily Report</button>
+
+    <div class="actions">
+        <button onclick="loadDaily()">Get Daily Report</button>
+        <button onclick="downloadExcel()">Download Excel</button>
+    </div>
+
     <div id="dailyResult" class="result"></div>
 </div>
 
+<!-- MONTHLY REPORT -->
 <div class="box">
     <h3>Monthly Report</h3>
+
     <input type="number" id="year" placeholder="Year (e.g. 2026)">
     <input type="number" id="month" placeholder="Month (1–12)">
-    <br>
-    <button onclick="loadMonthly()">Get Monthly Report</button>
+
+    <div class="actions">
+        <button onclick="loadMonthly()">Get Monthly Report</button>
+    </div>
+
     <div id="monthlyResult" class="result"></div>
 </div>
 
@@ -73,10 +92,11 @@ function goBack() {
     window.location.href = "/ui/billing";
 }
 
+// DAILY REPORT
 async function loadDaily() {
     const date = document.getElementById("dailyDate").value;
     if (!date) {
-        alert("Select a date");
+        alert("Please select a date");
         return;
     }
 
@@ -92,6 +112,18 @@ async function loadDaily() {
         `Total Sales: ₹${data.total_sales} | Bills: ${data.count}`;
 }
 
+// EXCEL DOWNLOAD
+function downloadExcel() {
+    const date = document.getElementById("dailyDate").value;
+    if (!date) {
+        alert("Please select a date");
+        return;
+    }
+
+    window.location.href = `/admin/report/daily/excel?date=${date}`;
+}
+
+// MONTHLY REPORT
 async function loadMonthly() {
     const year = document.getElementById("year").value;
     const month = document.getElementById("month").value;

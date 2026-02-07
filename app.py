@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -79,7 +79,6 @@ def ui_login():
 def ui_billing():
     return render_template("billing.html")
 
-# ✅ NEW: ADMIN REPORT UI
 @app.route("/ui/admin/reports")
 def admin_reports_ui():
     return render_template("admin_reports.html")
@@ -114,7 +113,6 @@ def admin_change_password():
 
     user.password = generate_password_hash(data.get("new_password"))
     db.session.commit()
-
     return jsonify({"status": "password_updated"})
 
 # ---------------- MENU ----------------
@@ -194,7 +192,7 @@ def view_cart(cart_id):
 
     return jsonify({"items": result, "total": total})
 
-# ---------------- HOLD / RESUME + AUTO EXPIRE ----------------
+# ---------------- HOLD / RESUME ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -290,6 +288,28 @@ def admin_daily_report():
         "total_sales": total,
         "count": len(sales)
     })
+
+@app.route("/admin/report/daily/excel")
+def admin_daily_report_excel():
+    date_str = request.args.get("date")
+    if not date_str:
+        return "Date required", 400
+
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    sales = Sale.query.filter_by(business_date=date_obj).all()
+
+    def generate():
+        yield "Bill ID,Amount,Payment Mode,Customer Name,Mobile,Transaction ID,Staff ID,Time\n"
+        for s in sales:
+            yield f"{s.id},{s.total},{s.payment_method},{s.customer_name},{s.customer_phone},{s.transaction_id},{s.staff_id},{s.created_at.strftime('%H:%M')}\n"
+
+    filename = f"daily_sales_{date_str}.csv"
+
+    return Response(
+        generate(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @app.route("/admin/report/monthly")
 def admin_monthly_report():
