@@ -15,6 +15,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
 
+# ✅ IMPORTANT: correct replace (bug fixed)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -46,7 +47,8 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID / EXPIRED
+    status = db.Column(db.String(20), default="ACTIVE")  
+    # ACTIVE / HOLD / EXPIRED / PAID
     customer_name = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -68,7 +70,7 @@ class Sale(db.Model):
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# ---------------- UI ----------------
+# ---------------- UI ROUTES ----------------
 
 @app.route("/")
 def home():
@@ -83,7 +85,7 @@ def ui_billing():
     return render_template("billing.html")
 
 @app.route("/ui/admin/reports")
-def admin_reports_ui():
+def ui_admin_reports():
     return render_template("admin_reports.html")
 
 # ---------------- AUTH ----------------
@@ -162,22 +164,21 @@ def remove_from_cart():
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     total = 0
-    result = []
+    rows = []
 
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
-        result.append({
+        rows.append({
             "menu_id": i.menu.id,
             "name": i.menu.name,
-            "price": i.menu.price,
             "quantity": i.quantity,
             "subtotal": subtotal
         })
 
-    return jsonify({"items": result, "total": total})
+    return jsonify({"items": rows, "total": total})
 
-# ---------------- HOLD / RESUME ----------------
+# ---------------- HOLD / EXPIRE ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -201,31 +202,47 @@ def list_holds():
     now = datetime.now()
     cutoff = now.replace(hour=15, minute=0, second=0, microsecond=0)
 
-    carts = Cart.query.filter_by(status="HOLD").all()
-    valid = []
+    carts = Cart.query.filter(Cart.status.in_(["HOLD", "EXPIRED"])).all()
+    result = []
 
     for c in carts:
-        if now >= cutoff and c.created_at < cutoff:
+        if c.status == "HOLD" and now >= cutoff and c.created_at < cutoff:
             c.status = "EXPIRED"
-        else:
-            valid.append({
-                "id": c.id,
-                "customer_name": c.customer_name or "Unknown",
-                "created_at": c.created_at.strftime("%H:%M")
-            })
+
+        result.append({
+            "id": c.id,
+            "status": c.status,
+            "customer_name": c.customer_name or "Unknown",
+            "time": c.created_at.strftime("%H:%M")
+        })
 
     db.session.commit()
-    return jsonify(valid)
+    return jsonify(result)
 
-@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
-def resume_cart(cart_id):
+# ---------------- ADMIN OVERRIDE HOLD ----------------
+
+@app.route("/admin/override/hold/<int:cart_id>", methods=["POST"])
+def admin_override_hold(cart_id):
     cart = Cart.query.get(cart_id)
-    if not cart or cart.status != "HOLD":
-        return jsonify({"error": "Invalid cart"}), 400
+    if not cart or cart.status != "EXPIRED":
+        return jsonify({"error": "Invalid or non-expired cart"}), 400
 
-    cart.status = "ACTIVE"
+    new_cart = Cart(status="ACTIVE")
+    db.session.add(new_cart)
     db.session.commit()
-    return jsonify({"status": "resumed"})
+
+    items = CartItem.query.filter_by(cart_id=cart.id).all()
+    for i in items:
+        db.session.add(CartItem(
+            cart_id=new_cart.id,
+            menu_id=i.menu_id,
+            quantity=i.quantity
+        ))
+
+    cart.status = "PAID"
+    db.session.commit()
+
+    return jsonify({"new_cart_id": new_cart.id})
 
 # ---------------- CHECKOUT ----------------
 
@@ -256,158 +273,6 @@ def checkout():
     db.session.commit()
     return jsonify({"status": "success", "total": total})
 
-# ---------------- ADMIN REPORTS ----------------
-
-@app.route("/admin/report/daily")
-def admin_daily_report():
-    date_str = request.args.get("date")
-    if not date_str:
-        return jsonify({"error": "Date required"}), 400
-
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-    sales = Sale.query.filter_by(business_date=date_obj).all()
-
-    total = sum(s.total for s in sales)
-
-    return jsonify({
-        "date": date_str,
-        "total_sales": total,
-        "count": len(sales)
-    })
-
-# ✅ NEW: AGENT-WISE DAILY REPORT
-@app.route("/admin/report/agent-wise")
-def admin_agent_wise_report():
-    date_str = request.args.get("date")
-    if not date_str:
-        return jsonify({"error": "Date required"}), 400
-
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-    sales = Sale.query.filter_by(business_date=date_obj).all()
-
-    summary = {}
-
-    for s in sales:
-        if s.staff_id not in summary:
-            summary[s.staff_id] = {
-                "staff_id": s.staff_id,
-                "total": 0,
-                "count": 0
-            }
-        summary[s.staff_id]["total"] += s.total
-        summary[s.staff_id]["count"] += 1
-
-    return jsonify({
-        "date": date_str,
-        "agents": list(summary.values())
-    })
-
-# ---------------- EXCEL EXPORT ----------------
-
-@app.route("/admin/report/daily/excel")
-def admin_daily_report_excel():
-    date_str = request.args.get("date")
-    if not date_str:
-        return "Date required", 400
-
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-    sales = Sale.query.filter_by(business_date=date_obj).all()
-
-    def generate():
-        yield "Bill ID,Amount,Payment Mode,Customer Name,Mobile,Transaction ID,Staff ID,Time\n"
-        for s in sales:
-            yield f"{s.id},{s.total},{s.payment_method},{s.customer_name},{s.customer_phone},{s.transaction_id},{s.staff_id},{s.created_at.strftime('%H:%M')}\n"
-
-    return Response(
-        generate(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=daily_sales_{date_str}.csv"}
-    )
-
-# ---------------- PDF EXPORT ----------------
-
-@app.route("/admin/report/daily/pdf")
-def admin_daily_report_pdf():
-    date_str = request.args.get("date")
-    if not date_str:
-        return "Date required", 400
-
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-    sales = Sale.query.filter_by(business_date=date_obj).all()
-
-    buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-
-    y = height - 40
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(40, y, f"Daily Sales Report - {date_str}")
-    y -= 30
-    p.setFont("Helvetica", 10)
-
-    total = 0
-    for s in sales:
-        p.drawString(40, y, f"Bill #{s.id} | ₹{s.total} | {s.payment_method} | {s.customer_name}")
-        y -= 18
-        total += s.total
-        if y < 50:
-            p.showPage()
-            y = height - 40
-
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y - 10, f"TOTAL: ₹{total}")
-    p.save()
-    buffer.seek(0)
-
-    return Response(
-        buffer,
-        mimetype="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=daily_sales_{date_str}.pdf"}
-    )
-
-@app.route("/admin/report/monthly/pdf")
-def admin_monthly_report_pdf():
-    year = int(request.args.get("year"))
-    month = int(request.args.get("month"))
-
-    start = datetime(year, month, 1)
-    end = (start + timedelta(days=32)).replace(day=1)
-
-    sales = Sale.query.filter(
-        Sale.created_at >= start,
-        Sale.created_at < end
-    ).all()
-
-    buffer = BytesIO()
-    p = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-
-    y = height - 40
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(40, y, f"Monthly Sales Report - {month}/{year}")
-    y -= 30
-    p.setFont("Helvetica", 10)
-
-    total = 0
-    for s in sales:
-        p.drawString(40, y, f"{s.created_at.strftime('%d-%m')} | ₹{s.total} | {s.payment_method}")
-        y -= 18
-        total += s.total
-        if y < 50:
-            p.showPage()
-            y = height - 40
-
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(40, y - 10, f"TOTAL: ₹{total}")
-    p.save()
-    buffer.seek(0)
-
-    return Response(
-        buffer,
-        mimetype="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=monthly_sales_{month}_{year}.pdf"}
-    )
-
 # ---------------- INIT DB ----------------
 
 def init_db():
@@ -415,8 +280,13 @@ def init_db():
         db.create_all()
 
         if not User.query.first():
-            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
-            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
+            db.session.add(
+                User(
+                    username="admin",
+                    password=generate_password_hash("admin123"),
+                    role="admin"
+                )
+            )
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
