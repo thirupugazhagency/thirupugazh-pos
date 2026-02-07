@@ -79,6 +79,11 @@ def ui_login():
 def ui_billing():
     return render_template("billing.html")
 
+# ✅ NEW: ADMIN REPORT UI
+@app.route("/ui/admin/reports")
+def admin_reports_ui():
+    return render_template("admin_reports.html")
+
 # ---------------- AUTH ----------------
 
 @app.route("/login", methods=["POST"])
@@ -189,7 +194,7 @@ def view_cart(cart_id):
 
     return jsonify({"items": result, "total": total})
 
-# ---------------- HOLD / RESUME + AUTO EXPIRE (3 PM) ----------------
+# ---------------- HOLD / RESUME + AUTO EXPIRE ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -268,7 +273,7 @@ def checkout():
     db.session.commit()
     return jsonify({"status": "success", "total": total})
 
-# ---------------- ADMIN REPORTS ----------------
+# ---------------- ADMIN REPORT APIs ----------------
 
 @app.route("/admin/report/daily")
 def admin_daily_report():
@@ -283,18 +288,7 @@ def admin_daily_report():
     return jsonify({
         "date": date_str,
         "total_sales": total,
-        "count": len(sales),
-        "items": [
-            {
-                "id": s.id,
-                "amount": s.total,
-                "payment_method": s.payment_method,
-                "customer_name": s.customer_name,
-                "staff_id": s.staff_id,
-                "time": s.created_at.strftime("%H:%M")
-            }
-            for s in sales
-        ]
+        "count": len(sales)
     })
 
 @app.route("/admin/report/monthly")
