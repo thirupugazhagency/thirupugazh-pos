@@ -44,6 +44,7 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
+    customer_name = db.Column(db.String(100))            # ✅ HOLD CUSTOMER
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -93,25 +94,20 @@ def login():
     return jsonify({"status": "error"}), 401
 
 # ---------------- ADMIN CHANGE PASSWORD ----------------
-# 🔐 ADMIN ONLY
 
 @app.route("/admin/change-password", methods=["POST"])
 def admin_change_password():
     data = request.json
 
-    admin_id = data.get("admin_id")
-    target_user_id = data.get("user_id")
-    new_password = data.get("new_password")
-
-    admin = User.query.get(admin_id)
+    admin = User.query.get(data.get("admin_id"))
     if not admin or admin.role != "admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    user = User.query.get(target_user_id)
+    user = User.query.get(data.get("user_id"))
     if not user:
         return jsonify({"error": "User not found"}), 404
 
-    user.password = generate_password_hash(new_password)
+    user.password = generate_password_hash(data.get("new_password"))
     db.session.commit()
 
     return jsonify({"status": "password_updated"})
@@ -138,14 +134,19 @@ def create_cart():
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     data = request.json
-    cart_id = data.get("cart_id")
-    menu_id = data.get("menu_id")
+    item = CartItem.query.filter_by(
+        cart_id=data.get("cart_id"),
+        menu_id=data.get("menu_id")
+    ).first()
 
-    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1))
+        db.session.add(CartItem(
+            cart_id=data.get("cart_id"),
+            menu_id=data.get("menu_id"),
+            quantity=1
+        ))
 
     db.session.commit()
     return jsonify({"status": "added"})
@@ -153,10 +154,11 @@ def add_to_cart():
 @app.route("/cart/remove", methods=["POST"])
 def remove_from_cart():
     data = request.json
-    cart_id = data.get("cart_id")
-    menu_id = data.get("menu_id")
+    item = CartItem.query.filter_by(
+        cart_id=data.get("cart_id"),
+        menu_id=data.get("menu_id")
+    ).first()
 
-    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
     if not item:
         return jsonify({"status": "ok"})
 
@@ -197,6 +199,7 @@ def hold_cart():
         return jsonify({"error": "Cart not found"}), 404
 
     cart.status = "HOLD"
+    cart.customer_name = data.get("customer_name")
     db.session.commit()
 
     new_cart = Cart(status="ACTIVE")
@@ -209,7 +212,11 @@ def hold_cart():
 def list_holds():
     carts = Cart.query.filter_by(status="HOLD").all()
     return jsonify([
-        {"id": c.id, "created_at": str(c.created_at)}
+        {
+            "id": c.id,
+            "customer_name": c.customer_name or "Unknown",
+            "created_at": c.created_at.strftime("%H:%M")
+        }
         for c in carts
     ])
 
@@ -228,9 +235,7 @@ def resume_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     data = request.json
-    cart_id = data.get("cart_id")
-
-    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    items = CartItem.query.filter_by(cart_id=data.get("cart_id")).all()
     if not items:
         return jsonify({"error": "Cart empty"}), 400
 
@@ -248,7 +253,7 @@ def checkout():
 
     db.session.add(sale)
 
-    cart = Cart.query.get(cart_id)
+    cart = Cart.query.get(data.get("cart_id"))
     cart.status = "PAID"
 
     db.session.commit()
