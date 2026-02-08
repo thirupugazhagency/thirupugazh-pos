@@ -14,7 +14,7 @@
         header {
             background: #1e88e5;
             color: white;
-            padding: 12px;
+            padding: 12px 16px;
             font-size: 18px;
             display: flex;
             justify-content: space-between;
@@ -32,27 +32,26 @@
         .logout { background: #e53935; color: white; }
 
         .container {
-            padding: 15px;
+            padding: 16px;
         }
 
         .box {
             background: white;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-radius: 5px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border-radius: 6px;
         }
 
-        button.action {
-            padding: 10px 14px;
-            margin: 5px;
-            font-size: 15px;
-            cursor: pointer;
+        input, button {
+            padding: 8px 12px;
+            margin: 6px 4px;
+            font-size: 14px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 12px;
         }
 
         th, td {
@@ -83,9 +82,14 @@
     <div class="box">
         <h3>Daily Sales (3 PM – 3 PM)</h3>
 
-        <button class="action" onclick="loadDaily()">View</button>
-        <button class="action" onclick="downloadDailyExcel()">Excel</button>
-        <button class="action" onclick="downloadDailyPDF()">PDF</button>
+        <label>Select Date:</label>
+        <input type="date" id="dailyDate">
+
+        <br>
+
+        <button onclick="loadDaily()">View</button>
+        <button onclick="downloadDailyExcel()">Excel</button>
+        <button onclick="downloadDailyPDF()">PDF</button>
 
         <table id="dailyTable" style="display:none">
             <thead>
@@ -109,8 +113,13 @@
     <div class="box">
         <h3>Monthly Sales</h3>
 
-        <button class="action" onclick="downloadMonthlyExcel()">Excel</button>
-        <button class="action" onclick="downloadMonthlyPDF()">PDF</button>
+        <label>Select Month:</label>
+        <input type="month" id="monthSelect">
+
+        <br>
+
+        <button onclick="downloadMonthlyExcel()">Excel</button>
+        <button onclick="downloadMonthlyPDF()">PDF</button>
     </div>
 
 </div>
@@ -121,8 +130,15 @@ function logout() {
     window.location.href = "/ui/login";
 }
 
+// -------- DAILY --------
 async function loadDaily() {
-    const res = await fetch("/admin/report/daily");
+    const date = document.getElementById("dailyDate").value;
+    if (!date) {
+        alert("Please select a date");
+        return;
+    }
+
+    const res = await fetch(`/admin/report/daily?date=${date}`);
     const data = await res.json();
 
     document.getElementById("d_date").innerText = data.business_date;
@@ -133,19 +149,28 @@ async function loadDaily() {
 }
 
 function downloadDailyExcel() {
-    window.open("/admin/report/daily/excel", "_blank");
+    const date = document.getElementById("dailyDate").value;
+    if (!date) return alert("Select a date");
+    window.open(`/admin/report/daily/excel?date=${date}`, "_blank");
 }
 
 function downloadDailyPDF() {
-    window.open("/admin/report/daily/pdf", "_blank");
+    const date = document.getElementById("dailyDate").value;
+    if (!date) return alert("Select a date");
+    window.open(`/admin/report/daily/pdf?date=${date}`, "_blank");
 }
 
+// -------- MONTHLY --------
 function downloadMonthlyExcel() {
-    window.open("/admin/report/monthly/excel", "_blank");
+    const month = document.getElementById("monthSelect").value;
+    if (!month) return alert("Select month");
+    window.open(`/admin/report/monthly/excel?month=${month}`, "_blank");
 }
 
 function downloadMonthlyPDF() {
-    window.open("/admin/report/monthly/pdf", "_blank");
+    const month = document.getElementById("monthSelect").value;
+    if (!month) return alert("Select month");
+    window.open(`/admin/report/monthly/pdf?month=${month}`, "_blank");
 }
 </script>
 
