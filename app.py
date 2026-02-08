@@ -226,6 +226,7 @@ def init_db():
         db.session.commit()
 
 init_db()
+
 @app.route("/__bootstrap_admin")
 def bootstrap_admin():
     from werkzeug.security import generate_password_hash
