@@ -72,7 +72,7 @@
             margin-top: 8px;
         }
 
-        /* ---------- Staff Report Modal ---------- */
+        /* Staff daily sales modal */
         .modal {
             display: none;
             position: fixed;
@@ -91,8 +91,6 @@
             border-radius: 6px;
         }
 
-        .modal-box h3 { margin-top: 0; }
-
         .close {
             float: right;
             cursor: pointer;
@@ -109,9 +107,11 @@
         Thirupugazh POS
     </div>
 
+    <!-- HEADER BUTTONS -->
     <div class="header-right">
         <!-- Admin only -->
         <button id="reportsBtn" onclick="goReports()">Reports</button>
+        <button id="staffBtn" onclick="goStaff()">Staff</button>
         <button id="changePwdBtn" onclick="changePassword()">Change Password</button>
 
         <!-- Staff only -->
@@ -157,7 +157,7 @@
 
 </div>
 
-<!-- ---------- STAFF DAILY SALES MODAL ---------- -->
+<!-- STAFF DAILY SALES MODAL -->
 <div class="modal" id="salesModal">
     <div class="modal-box">
         <span class="close" onclick="closeMySales()">✖</span>
@@ -170,14 +170,14 @@
 const API = window.location.origin;
 let cartId = null;
 
-// ---------- INIT ----------
+/* INIT */
 (async function () {
     await createCart();
     await loadMenu();
     await loadCart();
 })();
 
-// ---------- CART ----------
+/* CART */
 async function createCart() {
     const res = await fetch(API + "/cart/create", { method: "POST" });
     cartId = (await res.json()).cart_id;
@@ -239,7 +239,7 @@ async function loadCart() {
     document.getElementById("total").innerText = Math.max(0, total - discount);
 }
 
-// ---------- HOLD / RESUME ----------
+/* HOLD / RESUME */
 async function holdBill() {
     const name = document.getElementById("customerName").value;
     if (!name) return alert("Customer name required");
@@ -264,7 +264,7 @@ async function resumeHold() {
     loadCart();
 }
 
-// ---------- PAY ----------
+/* PAY */
 async function payNow() {
     const mode = document.getElementById("paymentMode").value;
     if (!mode) return alert("Select payment mode");
@@ -287,11 +287,11 @@ async function payNow() {
     loadCart();
 }
 
-// ---------- STAFF DAILY SALES ----------
+/* STAFF DAILY SALES */
 async function openMySales() {
     document.getElementById("salesModal").style.display = "flex";
-
     const staffId = localStorage.getItem("user_id");
+
     const res = await fetch(API + `/staff/report/daily?staff_id=${staffId}`);
     const data = await res.json();
 
@@ -310,7 +310,7 @@ function closeMySales() {
     document.getElementById("salesModal").style.display = "none";
 }
 
-// ---------- HEADER ----------
+/* HEADER ACTIONS */
 function logout() {
     localStorage.clear();
     window.location.href = "/ui/login";
@@ -320,17 +320,22 @@ function goReports() {
     window.location.href = "/ui/admin-reports";
 }
 
+function goStaff() {
+    window.location.href = "/ui/admin-staff";
+}
+
 function changePassword() {
     alert("Admin change password feature");
 }
 
-// ---------- ROLE UI CONTROL ----------
+/* ROLE BASED UI */
 document.addEventListener("DOMContentLoaded", () => {
     const role = localStorage.getItem("role");
 
     if (role !== "admin") {
         document.getElementById("reportsBtn").style.display = "none";
         document.getElementById("changePwdBtn").style.display = "none";
+        document.getElementById("staffBtn").style.display = "none";
     }
 
     if (role !== "staff") {
