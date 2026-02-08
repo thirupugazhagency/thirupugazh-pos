@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Staff Management - Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 0;
+            background: #f5f5f5;
+        }
+
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 12px;
+            font-size: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header button {
+            padding: 6px 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .container {
+            padding: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        input {
+            padding: 6px;
+            width: 120px;
+        }
+
+        button.reset {
+            background: orange;
+            border: none;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    Staff Management
+    <button onclick="goBack()">⬅ Back</button>
+</header>
+
+<div class="container">
+    <table>
+        <thead>
+            <tr>
+                <th>Staff Username</th>
+                <th>New Password</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="staffTable"></tbody>
+    </table>
+</div>
+
+<script>
+const API = window.location.origin;
+
+// 🔒 Protect page (admin only)
+const role = localStorage.getItem("role");
+if (role !== "admin") {
+    alert("Access denied");
+    window.location.href = "/ui/billing";
+}
+
+// Load staff list
+async function loadStaff() {
+    const res = await fetch(API + "/admin/staff/list");
+    const staff = await res.json();
+
+    const tbody = document.getElementById("staffTable");
+    tbody.innerHTML = "";
+
+    staff.forEach(s => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${s.username}</td>
+            <td>
+                <input type="password" id="pwd_${s.id}" placeholder="New password">
+            </td>
+            <td>
+                <button class="reset" onclick="resetPassword(${s.id})">
+                    Change Password
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function resetPassword(staffId) {
+    const pwd = document.getElementById("pwd_" + staffId).value;
+    if (!pwd) {
+        alert("Enter new password");
+        return;
+    }
+
+    const res = await fetch(API + "/admin/staff/change-password", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            staff_id: staffId,
+            new_password: pwd
+        })
+    });
+
+    const data = await res.json();
+    if (data.status) {
+        alert("Password updated successfully");
+        document.getElementById("pwd_" + staffId).value = "";
+    } else {
+        alert("Error updating password");
+    }
+}
+
+function goBack() {
+    window.location.href = "/ui/billing";
+}
+
+// Init
+loadStaff();
+</script>
+
+</body>
+</html>
