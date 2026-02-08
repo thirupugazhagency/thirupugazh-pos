@@ -294,6 +294,35 @@ def admin_monthly_pdf():
     c.save()
     buffer.seek(0)
     return send_file(buffer, download_name="monthly_sales.pdf", as_attachment=True)
+# ---------------- STAFF DAILY REPORT ----------------
+
+@app.route("/staff/report/daily")
+def staff_daily_report():
+    staff_id = request.args.get("staff_id", type=int)
+    if not staff_id:
+        return jsonify({"error": "staff_id required"}), 400
+
+    business_date = get_business_date()
+
+    sales = Sale.query.filter_by(
+        staff_id=staff_id,
+        business_date=business_date
+    ).all()
+
+    total = sum(s.total for s in sales)
+
+    return jsonify({
+        "business_date": str(business_date),
+        "total_sales": total,
+        "bill_count": len(sales),
+        "bills": [
+            {
+                "amount": s.total,
+                "payment": s.payment_method,
+                "time": s.created_at.strftime("%H:%M")
+            } for s in sales
+        ]
+    })
 
 # ---------------- INIT ----------------
 
