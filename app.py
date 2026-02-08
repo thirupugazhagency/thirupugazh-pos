@@ -1,8 +1,12 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import os
+import os, io
+
+import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 
@@ -35,6 +39,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), default="ACTIVE")
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -95,6 +100,9 @@ def login():
     user = User.query.filter_by(username=data.get("username")).first()
 
     if user and check_password_hash(user.password, data.get("password")):
+        if user.status != "ACTIVE":
+            return jsonify({"status": "disabled"}), 403
+
         return jsonify({
             "status": "ok",
             "user_id": user.id,
@@ -228,7 +236,30 @@ def checkout():
 
     return jsonify({"total": total})
 
-# ---------------- STAFF DAILY REPORT ----------------
+# ==================================================
+# ✅ ADMIN DAILY REPORT (WITH DATE PICKER FIX)
+# ==================================================
+
+@app.route("/admin/report/daily")
+def admin_daily_report():
+
+    date_param = request.args.get("date")
+    if date_param:
+        business_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+    else:
+        business_date = get_business_date()
+
+    sales = Sale.query.filter_by(business_date=business_date).all()
+
+    return jsonify({
+        "business_date": str(business_date),
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales)
+    })
+
+# ==================================================
+# STAFF DAILY SALES (3 PM – 3 PM)
+# ==================================================
 
 @app.route("/staff/report/daily")
 def staff_daily_report():
@@ -236,14 +267,15 @@ def staff_daily_report():
     if not staff_id:
         return jsonify({"error": "staff_id required"}), 400
 
-    bd = get_business_date()
+    business_date = get_business_date()
+
     sales = Sale.query.filter_by(
         staff_id=int(staff_id),
-        business_date=bd
+        business_date=business_date
     ).all()
 
     return jsonify({
-        "business_date": str(bd),
+        "business_date": str(business_date),
         "bill_count": len(sales),
         "total_amount": sum(s.total for s in sales)
     })
