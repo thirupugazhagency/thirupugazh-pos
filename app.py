@@ -55,6 +55,9 @@ class CartItem(db.Model):
     menu = db.relationship("Menu")
 
 # ---------------- UI ----------------
+@app.route("/ui/login")
+def ui_login():
+    return render_template("login.html")
 @app.route("/")
 def home():
     return "Thirupugazh POS API Running"
