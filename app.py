@@ -58,6 +58,7 @@ class CartItem(db.Model):
 @app.route("/ui/login")
 def ui_login():
     return render_template("login.html")
+
 @app.route("/")
 def home():
     return "Thirupugazh POS API Running"
@@ -65,6 +66,83 @@ def home():
 @app.route("/ui/billing")
 def ui_billing():
     return render_template("billing.html")
+
+# ============================
+# RESTORE CORE POS ROUTES
+# ============================
+
+@app.route("/menu")
+def get_menu():
+    items = Menu.query.all()
+    return jsonify([
+        {"id": i.id, "name": i.name, "price": i.price}
+        for i in items
+    ])
+
+@app.route("/cart/create", methods=["POST"])
+def create_cart():
+    cart = Cart(status="ACTIVE")
+    db.session.add(cart)
+    db.session.commit()
+    return jsonify({"cart_id": cart.id})
+
+@app.route("/cart/add", methods=["POST"])
+def add_to_cart():
+    data = request.json
+    cart_id = data.get("cart_id")
+    menu_id = data.get("menu_id")
+
+    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
+    if item:
+        item.quantity += 1
+    else:
+        db.session.add(
+            CartItem(cart_id=cart_id, menu_id=menu_id, quantity=1)
+        )
+
+    db.session.commit()
+    return jsonify({"status": "added"})
+
+@app.route("/cart/remove", methods=["POST"])
+def remove_from_cart():
+    data = request.json
+    cart_id = data.get("cart_id")
+    menu_id = data.get("menu_id")
+
+    item = CartItem.query.filter_by(cart_id=cart_id, menu_id=menu_id).first()
+    if not item:
+        return jsonify({"status": "ok"})
+
+    if item.quantity > 1:
+        item.quantity -= 1
+    else:
+        db.session.delete(item)
+
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+@app.route("/cart/<int:cart_id>")
+def view_cart(cart_id):
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+
+    result = []
+    total = 0
+    for i in items:
+        subtotal = i.menu.price * i.quantity
+        total += subtotal
+        result.append({
+            "menu_id": i.menu.id,
+            "name": i.menu.name,
+            "price": i.menu.price,
+            "quantity": i.quantity,
+            "subtotal": subtotal
+        })
+
+    return jsonify({
+        "items": result,
+        "total": total,
+        "final_total": total
+    })
 
 # ---------------- ADMIN OVERRIDE + AUTO PDF ----------------
 @app.route("/admin/override/hold/<int:cart_id>", methods=["POST"])
