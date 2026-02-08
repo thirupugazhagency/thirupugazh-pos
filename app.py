@@ -1,14 +1,17 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
+import io
+
+import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 
-# -------------------------------------------------
-# CONFIG
-# -------------------------------------------------
+# ---------------- CONFIG ----------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
@@ -22,9 +25,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# -------------------------------------------------
-# BUSINESS DAY (3 PM – 3 PM)
-# -------------------------------------------------
+# ---------------- BUSINESS DAY (3 PM – 3 PM) ----------------
 
 def get_business_date():
     now = datetime.now()
@@ -32,15 +33,13 @@ def get_business_date():
         return (now - timedelta(days=1)).date()
     return now.date()
 
-# -------------------------------------------------
-# MODELS
-# -------------------------------------------------
+# ---------------- MODELS ----------------
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # admin / staff
+    role = db.Column(db.String(20), nullable=False)
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -66,14 +65,12 @@ class Sale(db.Model):
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
-    transaction_id = db.Column(db.String(50))
+    transaction_id = db.Column(db.String(100))
     staff_id = db.Column(db.Integer)
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# -------------------------------------------------
-# UI ROUTES
-# -------------------------------------------------
+# ---------------- UI ROUTES ----------------
 
 @app.route("/")
 def home():
@@ -88,46 +85,38 @@ def ui_billing():
     return render_template("billing.html")
 
 @app.route("/ui/admin-reports")
-def admin_reports():
+def ui_admin_reports():
     return render_template("admin_reports.html")
 
 @app.route("/ui/admin-staff")
-def admin_staff():
+def ui_admin_staff():
     return render_template("admin_staff.html")
 
-# -------------------------------------------------
-# AUTH
-# -------------------------------------------------
+# ---------------- AUTH ----------------
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
-
     if user and check_password_hash(user.password, data.get("password")):
         return jsonify({
             "status": "ok",
             "user_id": user.id,
             "role": user.role
         })
-
     return jsonify({"status": "error"}), 401
 
-# -------------------------------------------------
-# MENU
-# -------------------------------------------------
+# ---------------- MENU ----------------
 
 @app.route("/menu")
 def get_menu():
+    items = Menu.query.all()
     return jsonify([
         {"id": i.id, "name": i.name, "price": i.price}
-        for i in Menu.query.all()
+        for i in items
     ])
 
-# -------------------------------------------------
-# CART / HOLD / CHECKOUT
-# (UNCHANGED – already working)
-# -------------------------------------------------
+# ---------------- CART ----------------
 
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
@@ -139,24 +128,39 @@ def create_cart():
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     data = request.json
-    item = CartItem.query.filter_by(cart_id=data["cart_id"], menu_id=data["menu_id"]).first()
+    item = CartItem.query.filter_by(
+        cart_id=data["cart_id"],
+        menu_id=data["menu_id"]
+    ).first()
+
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(cart_id=data["cart_id"], menu_id=data["menu_id"], quantity=1))
+        db.session.add(CartItem(
+            cart_id=data["cart_id"],
+            menu_id=data["menu_id"],
+            quantity=1
+        ))
+
     db.session.commit()
     return jsonify({"status": "ok"})
 
 @app.route("/cart/remove", methods=["POST"])
 def remove_from_cart():
     data = request.json
-    item = CartItem.query.filter_by(cart_id=data["cart_id"], menu_id=data["menu_id"]).first()
+    item = CartItem.query.filter_by(
+        cart_id=data["cart_id"],
+        menu_id=data["menu_id"]
+    ).first()
+
     if not item:
         return jsonify({"status": "ok"})
+
     if item.quantity > 1:
         item.quantity -= 1
     else:
         db.session.delete(item)
+
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -165,6 +169,7 @@ def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     total = 0
     result = []
+
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -175,7 +180,10 @@ def view_cart(cart_id):
             "quantity": i.quantity,
             "subtotal": subtotal
         })
+
     return jsonify({"items": result, "total": total})
+
+# ---------------- HOLD / RESUME ----------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -184,16 +192,19 @@ def hold_cart():
     cart.status = "HOLD"
     cart.customer_name = data.get("customer_name")
     db.session.commit()
+
     new_cart = Cart(status="ACTIVE")
     db.session.add(new_cart)
     db.session.commit()
+
     return jsonify({"new_cart_id": new_cart.id})
 
 @app.route("/cart/holds")
 def list_holds():
+    holds = Cart.query.filter_by(status="HOLD").all()
     return jsonify([
-        {"id": c.id, "customer_name": c.customer_name}
-        for c in Cart.query.filter_by(status="HOLD").all()
+        {"id": h.id, "customer_name": h.customer_name}
+        for h in holds
     ])
 
 @app.route("/cart/resume/<int:cart_id>", methods=["POST"])
@@ -201,7 +212,9 @@ def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
     cart.status = "ACTIVE"
     db.session.commit()
-    return jsonify({"status": "resumed"})
+    return jsonify({"status": "ok"})
+
+# ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -211,7 +224,7 @@ def checkout():
 
     sale = Sale(
         total=total,
-        payment_method=data.get("payment_method"),
+        payment_method=data["payment_method"],
         customer_name=data.get("customer_name"),
         customer_phone=data.get("customer_phone"),
         transaction_id=data.get("transaction_id"),
@@ -220,52 +233,84 @@ def checkout():
     )
 
     db.session.add(sale)
+
     Cart.query.get(data["cart_id"]).status = "PAID"
     db.session.commit()
-    return jsonify({"status": "success", "total": total})
 
-# -------------------------------------------------
-# ✅ ADMIN STAFF MANAGEMENT (NEW)
-# -------------------------------------------------
+    return jsonify({"total": total})
 
-@app.route("/admin/staff/list")
-def admin_list_staff():
-    staff = User.query.filter_by(role="staff").all()
-    return jsonify([
-        {"id": s.id, "username": s.username}
-        for s in staff
-    ])
+# =========================================================
+# ✅ ADMIN REPORT ROUTES (THIS FIXES YOUR 404)
+# =========================================================
 
-@app.route("/admin/staff/change-password", methods=["POST"])
-def admin_change_staff_password():
-    data = request.json
-    staff_id = data.get("staff_id")
-    new_password = data.get("new_password")
+def sales_df(query):
+    return pd.DataFrame([{
+        "Date": s.business_date,
+        "Amount": s.total,
+        "Payment": s.payment_method,
+        "Staff": s.staff_id
+    } for s in query])
 
-    if not staff_id or not new_password:
-        return jsonify({"error": "Missing data"}), 400
+@app.route("/admin/report/daily/excel")
+def admin_daily_excel():
+    df = sales_df(Sale.query.filter_by(business_date=get_business_date()).all())
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+    return send_file(output, download_name="daily_sales.xlsx", as_attachment=True)
 
-    staff = User.query.get(staff_id)
-    if not staff or staff.role != "staff":
-        return jsonify({"error": "Invalid staff"}), 400
+@app.route("/admin/report/daily/pdf")
+def admin_daily_pdf():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
 
-    staff.password = generate_password_hash(new_password)
-    db.session.commit()
-    return jsonify({"status": "password updated"})
+    for s in Sale.query.filter_by(business_date=get_business_date()).all():
+        c.drawString(40, y, f"₹{s.total} - {s.payment_method} - Staff {s.staff_id}")
+        y -= 20
 
-# -------------------------------------------------
-# INIT DB
-# -------------------------------------------------
+    c.save()
+    buffer.seek(0)
+    return send_file(buffer, download_name="daily_sales.pdf", as_attachment=True)
+
+@app.route("/admin/report/monthly/excel")
+def admin_monthly_excel():
+    df = sales_df(Sale.query.all())
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+    return send_file(output, download_name="monthly_sales.xlsx", as_attachment=True)
+
+@app.route("/admin/report/monthly/pdf")
+def admin_monthly_pdf():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    for s in Sale.query.all():
+        c.drawString(40, y, f"{s.business_date} ₹{s.total}")
+        y -= 20
+
+    c.save()
+    buffer.seek(0)
+    return send_file(buffer, download_name="monthly_sales.pdf", as_attachment=True)
+
+# ---------------- INIT ----------------
 
 def init_db():
     with app.app_context():
         db.create_all()
 
-        if not User.query.filter_by(username="admin").first():
+        if not User.query.first():
             db.session.add(User(
                 username="admin",
                 password=generate_password_hash("admin123"),
                 role="admin"
+            ))
+            db.session.add(User(
+                username="staff1",
+                password=generate_password_hash("1234"),
+                role="staff"
             ))
 
         if not Menu.query.first():
@@ -276,10 +321,6 @@ def init_db():
         db.session.commit()
 
 init_db()
-
-# -------------------------------------------------
-# RUN
-# -------------------------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
