@@ -226,12 +226,12 @@ def init_db():
         db.session.commit()
 
 init_db()
-@app.route("/__create_admin_once")
-def create_admin_once():
+@app.route("/__bootstrap_admin")
+def bootstrap_admin():
     from werkzeug.security import generate_password_hash
 
-    existing = User.query.filter_by(username="admin").first()
-    if existing:
+    admin = User.query.filter_by(username="admin").first()
+    if admin:
         return "Admin already exists"
 
     admin = User(
@@ -242,7 +242,8 @@ def create_admin_once():
     db.session.add(admin)
     db.session.commit()
 
-    return "Admin created successfully"
+    return "Admin created"
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
