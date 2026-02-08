@@ -2,35 +2,40 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Thirupugazh POS – Login</title>
+    <title>Thirupugazh – POS Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             height: 100vh;
             font-family: Arial, Helvetica, sans-serif;
-            background: #eef2f5;
+            background: linear-gradient(135deg, #e3f2fd, #f5f5f5);
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
         }
 
-        .box {
-            width: 340px;
+        .login-box {
+            width: 100%;
+            max-width: 360px;
             background: #ffffff;
-            padding: 25px;
+            padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .login-box h2 {
             text-align: center;
-        }
-
-        h2 {
-            color: #2c5364;
             margin-bottom: 20px;
+            color: #1e88e5;
         }
 
-        input {
+        .login-box input {
             width: 100%;
             padding: 12px;
             margin-top: 12px;
@@ -39,21 +44,31 @@
             border-radius: 5px;
         }
 
-        button {
+        .login-box input:focus {
+            outline: none;
+            border-color: #1e88e5;
+        }
+
+        .login-box button {
             width: 100%;
             padding: 12px;
             margin-top: 18px;
+            background: #1e88e5;
+            color: white;
             font-size: 16px;
-            background: #2c5364;
-            color: #fff;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
 
+        .login-box button:hover {
+            background: #1565c0;
+        }
+
         .error {
-            color: red;
             margin-top: 12px;
+            text-align: center;
+            color: red;
             font-size: 14px;
         }
     </style>
@@ -61,8 +76,8 @@
 
 <body>
 
-<div class="box">
-    <h2>POS Login</h2>
+<div class="login-box">
+    <h2>Thirupugazh – POS</h2>
 
     <input id="username" placeholder="Username">
     <input id="password" type="password" placeholder="Password">
@@ -76,20 +91,12 @@
 const API = "https://thirupugazh-pos.onrender.com";
 
 function login() {
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!username || !password) {
-        document.getElementById("error").innerText = "Enter username and password";
-        return;
-    }
-
     fetch(API + "/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            username: username,
-            password: password
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
         })
     })
     .then(res => res.json())
@@ -101,9 +108,6 @@ function login() {
         } else {
             document.getElementById("error").innerText = "Invalid login";
         }
-    })
-    .catch(() => {
-        document.getElementById("error").innerText = "Server error";
     });
 }
 </script>
