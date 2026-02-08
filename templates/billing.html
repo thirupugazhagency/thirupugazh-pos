@@ -17,10 +17,10 @@
             align-items: center;
         }
 
-        header .left {
+        header .left, header .right {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         header button {
@@ -31,7 +31,9 @@
             border-radius: 4px;
         }
 
-        .logout { background: #fff; color: #1e88e5; }
+        .btn-admin { background: #ffffff; color: #1e88e5; }
+        .btn-staff { background: #ffffff; color: #1e88e5; }
+        .btn-logout { background: #e53935; color: white; }
 
         .container {
             display: flex;
@@ -100,7 +102,7 @@
         .hold { background: orange; }
         .resume { background: #444; }
 
-        /* Staff daily report box */
+        /* Staff report */
         #staffReportBox {
             display: none;
             margin-top: 15px;
@@ -128,15 +130,32 @@
     <div class="left">
         <strong>Thirupugazh POS</strong>
 
-        <!-- STAFF DAILY SALES BUTTON (STAFF ONLY) -->
-        <button id="staffReportBtn"
-                style="display:none;"
+        <!-- ADMIN BUTTONS -->
+        <button id="btnReports" class="btn-admin" style="display:none"
+                onclick="window.location.href='/ui/admin-reports'">
+            📊 Reports
+        </button>
+
+        <button id="btnStaff" class="btn-admin" style="display:none"
+                onclick="window.location.href='/ui/admin-staff'">
+            👥 Staff
+        </button>
+
+        <button id="btnChangePwd" class="btn-admin" style="display:none"
+                onclick="changePassword()">
+            🔐 Change Password
+        </button>
+
+        <!-- STAFF BUTTON -->
+        <button id="staffReportBtn" class="btn-staff" style="display:none"
                 onclick="loadStaffDailyReport()">
             📊 My Daily Sales
         </button>
     </div>
 
-    <button class="logout" onclick="logout()">Logout</button>
+    <div class="right">
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
 </header>
 
 <div class="container">
@@ -172,7 +191,7 @@
         <button class="main resume" onclick="resumeHold()">RESUME HOLD</button>
         <button class="main pay" onclick="payNow()">PAY</button>
 
-        <!-- STAFF DAILY REPORT TABLE -->
+        <!-- STAFF DAILY REPORT -->
         <div id="staffReportBox">
             <h4>My Daily Sales (3 PM – 3 PM)</h4>
             <table>
@@ -196,15 +215,34 @@
 const API = window.location.origin;
 let cartId = null;
 
-/* ---------- AUTH ---------- */
+/* ---------- ROLE BASED UI ---------- */
+function setupRoleUI() {
+    const role = localStorage.getItem("role");
 
+    if (role === "admin") {
+        document.getElementById("btnReports").style.display = "inline-block";
+        document.getElementById("btnStaff").style.display = "inline-block";
+        document.getElementById("btnChangePwd").style.display = "inline-block";
+    }
+
+    if (role === "staff") {
+        document.getElementById("staffReportBtn").style.display = "inline-block";
+    }
+}
+
+/* ---------- AUTH ---------- */
 function logout() {
     localStorage.clear();
     window.location.href = "/ui/login";
 }
 
-/* ---------- CART ---------- */
+function changePassword() {
+    const newPwd = prompt("Enter new password:");
+    if (!newPwd) return;
+    alert("Change password API will be added next (backend safe step)");
+}
 
+/* ---------- CART ---------- */
 async function createCart() {
     const res = await fetch(API + "/cart/create", { method: "POST" });
     cartId = (await res.json()).cart_id;
@@ -213,7 +251,6 @@ async function createCart() {
 async function loadMenu() {
     const res = await fetch(API + "/menu");
     const menu = await res.json();
-
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
 
@@ -269,7 +306,6 @@ async function loadCart() {
 }
 
 /* ---------- HOLD / RESUME ---------- */
-
 async function holdBill() {
     await fetch(API + "/cart/hold", {
         method: "POST",
@@ -286,23 +322,19 @@ async function holdBill() {
 async function resumeHold() {
     const res = await fetch(API + "/cart/holds");
     const holds = await res.json();
-
     if (holds.length === 0) {
         alert("No hold bills");
         return;
     }
-
     cartId = holds[0].id;
     await fetch(API + `/cart/resume/${cartId}`, { method: "POST" });
     loadCart();
 }
 
 /* ---------- PAY ---------- */
-
 async function payNow() {
-    const paymentMode = document.getElementById("paymentMode").value;
-
-    if (!paymentMode) {
+    const mode = document.getElementById("paymentMode").value;
+    if (!mode) {
         alert("Select payment mode");
         return;
     }
@@ -312,7 +344,7 @@ async function payNow() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: paymentMode,
+            payment_method: mode,
             customer_name: document.getElementById("customerName").value,
             customer_phone: document.getElementById("customerPhone").value,
             transaction_id: document.getElementById("transactionId").value,
@@ -327,13 +359,6 @@ async function payNow() {
 }
 
 /* ---------- STAFF DAILY REPORT ---------- */
-
-function setupStaffReportUI() {
-    if (localStorage.getItem("role") === "staff") {
-        document.getElementById("staffReportBtn").style.display = "inline-block";
-    }
-}
-
 async function loadStaffDailyReport() {
     const staffId = localStorage.getItem("user_id");
     const res = await fetch(`/staff/report/daily?staff_id=${staffId}`);
@@ -347,12 +372,11 @@ async function loadStaffDailyReport() {
 }
 
 /* ---------- INIT ---------- */
-
 (async function () {
     await createCart();
     await loadMenu();
     await loadCart();
-    setupStaffReportUI();
+    setupRoleUI();
 })();
 </script>
 
