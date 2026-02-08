@@ -39,7 +39,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / DISABLED
+    status = db.Column(db.String(20), default="ACTIVE")
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -236,119 +236,29 @@ def checkout():
 
     return jsonify({"total": total})
 
-# ---------------- STAFF DAILY REPORT ----------------
+# ==================================================
+# ✅ STAFF DAILY SALES REPORT (3 PM – 3 PM)
+# ==================================================
 
 @app.route("/staff/report/daily")
 def staff_daily_report():
-    staff_id = request.args.get("staff_id", type=int)
+    staff_id = request.args.get("staff_id")
+
     if not staff_id:
         return jsonify({"error": "staff_id required"}), 400
 
-    bd = get_business_date()
-    sales = Sale.query.filter_by(staff_id=staff_id, business_date=bd).all()
+    business_date = get_business_date()
+
+    sales = Sale.query.filter_by(
+        staff_id=int(staff_id),
+        business_date=business_date
+    ).all()
 
     return jsonify({
-        "business_date": str(bd),
-        "total_sales": sum(s.total for s in sales),
+        "business_date": str(business_date),
         "bill_count": len(sales),
-        "bills": [
-            {
-                "amount": s.total,
-                "payment": s.payment_method,
-                "time": s.created_at.strftime("%H:%M")
-            } for s in sales
-        ]
+        "total_amount": sum(s.total for s in sales)
     })
-
-# ==================================================
-# ADMIN STAFF MANAGEMENT APIS (WHAT YOU ASKED)
-# ==================================================
-
-@app.route("/admin/staff/list")
-def admin_staff_list():
-    staff = User.query.filter_by(role="staff").all()
-    return jsonify([
-        {
-            "id": s.id,
-            "username": s.username,
-            "status": s.status
-        } for s in staff
-    ])
-
-@app.route("/admin/staff/change-password", methods=["POST"])
-def admin_change_staff_password():
-    d = request.json
-    staff = User.query.get(d["staff_id"])
-
-    if not staff or staff.role != "staff":
-        return jsonify({"error": "Invalid staff"}), 400
-
-    staff.password = generate_password_hash(d["new_password"])
-    db.session.commit()
-    return jsonify({"status": "ok"})
-
-@app.route("/admin/staff/toggle-status", methods=["POST"])
-def toggle_staff_status():
-    d = request.json
-    staff = User.query.get(d["staff_id"])
-
-    if not staff or staff.role != "staff":
-        return jsonify({"error": "Invalid staff"}), 400
-
-    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
-    db.session.commit()
-
-    return jsonify({"status": staff.status})
-
-# ---------------- REPORT HELPERS ----------------
-
-def sales_df(query):
-    return pd.DataFrame([{
-        "Date": s.business_date,
-        "Amount": s.total,
-        "Payment": s.payment_method,
-        "Staff": s.staff_id
-    } for s in query])
-
-@app.route("/admin/report/daily/excel")
-def admin_daily_excel():
-    df = sales_df(Sale.query.filter_by(business_date=get_business_date()).all())
-    out = io.BytesIO()
-    df.to_excel(out, index=False)
-    out.seek(0)
-    return send_file(out, download_name="daily_sales.xlsx", as_attachment=True)
-
-@app.route("/admin/report/daily/pdf")
-def admin_daily_pdf():
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    y = 800
-    for s in Sale.query.filter_by(business_date=get_business_date()).all():
-        c.drawString(40, y, f"₹{s.total} - {s.payment_method} - Staff {s.staff_id}")
-        y -= 20
-    c.save()
-    buf.seek(0)
-    return send_file(buf, download_name="daily_sales.pdf", as_attachment=True)
-
-@app.route("/admin/report/monthly/excel")
-def admin_monthly_excel():
-    df = sales_df(Sale.query.all())
-    out = io.BytesIO()
-    df.to_excel(out, index=False)
-    out.seek(0)
-    return send_file(out, download_name="monthly_sales.xlsx", as_attachment=True)
-
-@app.route("/admin/report/monthly/pdf")
-def admin_monthly_pdf():
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    y = 800
-    for s in Sale.query.all():
-        c.drawString(40, y, f"{s.business_date} ₹{s.total}")
-        y -= 20
-    c.save()
-    buf.seek(0)
-    return send_file(buf, download_name="monthly_sales.pdf", as_attachment=True)
 
 # ---------------- INIT ----------------
 
@@ -376,18 +286,6 @@ def init_db():
         db.session.commit()
 
 init_db()
-
-@app.route("/__fix_add_user_status")
-def fix_add_user_status():
-    try:
-        db.session.execute("""
-            ALTER TABLE "user"
-            ADD COLUMN status VARCHAR(20) DEFAULT 'ACTIVE';
-        """)
-        db.session.commit()
-        return "✅ SUCCESS: user.status column added"
-    except Exception as e:
-        return f"⚠️ ERROR or ALREADY EXISTS: {str(e)}"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
