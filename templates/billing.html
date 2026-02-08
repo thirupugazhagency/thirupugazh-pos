@@ -23,9 +23,7 @@
             gap: 10px;
         }
 
-        header img {
-            height: 40px;
-        }
+        header img { height: 40px; }
 
         .header-right button {
             margin-left: 6px;
@@ -73,6 +71,33 @@
             font-size: 16px;
             margin-top: 8px;
         }
+
+        /* ---------- Staff Report Modal ---------- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-box {
+            background: white;
+            width: 90%;
+            max-width: 400px;
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .modal-box h3 { margin-top: 0; }
+
+        .close {
+            float: right;
+            cursor: pointer;
+            font-size: 18px;
+        }
     </style>
 </head>
 
@@ -80,14 +105,18 @@
 
 <header>
     <div class="header-left">
-        <img src="/static/logo.png" alt="Logo" onerror="this.style.display='none'">
+        <img src="/static/logo.png" onerror="this.style.display='none'">
         Thirupugazh POS
     </div>
 
-    <!-- STEP 2A + 2B : Buttons with IDs -->
     <div class="header-right">
+        <!-- Admin only -->
         <button id="reportsBtn" onclick="goReports()">Reports</button>
         <button id="changePwdBtn" onclick="changePassword()">Change Password</button>
+
+        <!-- Staff only -->
+        <button id="mySalesBtn" onclick="openMySales()">My Daily Sales</button>
+
         <button onclick="logout()">Logout</button>
     </div>
 </header>
@@ -128,9 +157,25 @@
 
 </div>
 
+<!-- ---------- STAFF DAILY SALES MODAL ---------- -->
+<div class="modal" id="salesModal">
+    <div class="modal-box">
+        <span class="close" onclick="closeMySales()">✖</span>
+        <h3>My Daily Sales</h3>
+        <div id="salesContent">Loading...</div>
+    </div>
+</div>
+
 <script>
 const API = window.location.origin;
 let cartId = null;
+
+// ---------- INIT ----------
+(async function () {
+    await createCart();
+    await loadMenu();
+    await loadCart();
+})();
 
 // ---------- CART ----------
 async function createCart() {
@@ -143,7 +188,6 @@ async function loadMenu() {
     const menu = await res.json();
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
-
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
@@ -179,18 +223,16 @@ async function loadCart() {
 
     data.items.forEach(i => {
         total += i.subtotal;
-        const row = document.createElement("div");
-        row.className = "cart-item";
-        row.innerHTML = `
-            <span>${i.name}</span>
-            <span>
-                <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
-                ${i.quantity}
-                <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
-            </span>
-            <span>₹${i.subtotal}</span>
-        `;
-        div.appendChild(row);
+        div.innerHTML += `
+            <div class="cart-item">
+                <span>${i.name}</span>
+                <span>
+                    <button class="btn" onclick="removeFromCart(${i.menu_id})">-</button>
+                    ${i.quantity}
+                    <button class="btn" onclick="addToCart(${i.menu_id})">+</button>
+                </span>
+                <span>₹${i.subtotal}</span>
+            </div>`;
     });
 
     const discount = Number(document.getElementById("discount").value || 0);
@@ -200,22 +242,22 @@ async function loadCart() {
 // ---------- HOLD / RESUME ----------
 async function holdBill() {
     const name = document.getElementById("customerName").value;
-    if (!name) { alert("Customer name required"); return; }
+    if (!name) return alert("Customer name required");
 
     const res = await fetch(API + "/cart/hold", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ cart_id: cartId, customer_name: name })
     });
-    const data = await res.json();
-    cartId = data.new_cart_id;
+
+    cartId = (await res.json()).new_cart_id;
     loadCart();
 }
 
 async function resumeHold() {
     const res = await fetch(API + "/cart/holds");
     const holds = await res.json();
-    if (!holds.length) { alert("No hold bills"); return; }
+    if (!holds.length) return alert("No hold bills");
 
     cartId = holds[0].id;
     await fetch(API + `/cart/resume/${cartId}`, { method: "POST" });
@@ -225,7 +267,7 @@ async function resumeHold() {
 // ---------- PAY ----------
 async function payNow() {
     const mode = document.getElementById("paymentMode").value;
-    if (!mode) { alert("Select payment mode"); return; }
+    if (!mode) return alert("Select payment mode");
 
     const res = await fetch(API + "/checkout", {
         method: "POST",
@@ -239,13 +281,36 @@ async function payNow() {
             staff_id: localStorage.getItem("user_id")
         })
     });
-    const data = await res.json();
-    alert("Paid ₹" + data.total);
+
+    alert("Paid ₹" + (await res.json()).total);
     await createCart();
     loadCart();
 }
 
-// ---------- HEADER ACTIONS ----------
+// ---------- STAFF DAILY SALES ----------
+async function openMySales() {
+    document.getElementById("salesModal").style.display = "flex";
+
+    const staffId = localStorage.getItem("user_id");
+    const res = await fetch(API + `/staff/report/daily?staff_id=${staffId}`);
+    const data = await res.json();
+
+    let html = `<b>Date:</b> ${data.business_date}<br>
+                <b>Total:</b> ₹${data.total_sales}<br>
+                <b>Bills:</b> ${data.bill_count}<hr>`;
+
+    data.bills.forEach(b => {
+        html += `₹${b.amount} (${b.payment}) - ${b.time}<br>`;
+    });
+
+    document.getElementById("salesContent").innerHTML = html;
+}
+
+function closeMySales() {
+    document.getElementById("salesModal").style.display = "none";
+}
+
+// ---------- HEADER ----------
 function logout() {
     localStorage.clear();
     window.location.href = "/ui/login";
@@ -256,24 +321,22 @@ function goReports() {
 }
 
 function changePassword() {
-    alert("Change password feature (admin)");
+    alert("Admin change password feature");
 }
 
-// ---------- STEP 2C : ROLE RESTRICTION ----------
+// ---------- ROLE UI CONTROL ----------
 document.addEventListener("DOMContentLoaded", () => {
     const role = localStorage.getItem("role");
+
     if (role !== "admin") {
         document.getElementById("reportsBtn").style.display = "none";
         document.getElementById("changePwdBtn").style.display = "none";
     }
-});
 
-// ---------- INIT ----------
-(async function () {
-    await createCart();
-    await loadMenu();
-    await loadCart();
-})();
+    if (role !== "staff") {
+        document.getElementById("mySalesBtn").style.display = "none";
+    }
+});
 </script>
 
 </body>
