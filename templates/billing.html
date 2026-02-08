@@ -5,54 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f6f8;
-        }
+        body { font-family: Arial; margin: 0; background: #f5f5f5; }
 
         header {
             background: #1e88e5;
             color: white;
-            padding: 12px 16px;
+            padding: 10px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 18px;
         }
 
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            height: calc(100vh - 55px);
-        }
-
-        .panel {
-            padding: 12px;
-            overflow-y: auto;
-            background: white;
-            border-right: 1px solid #ddd;
-        }
-
-        .panel:last-child {
-            border-right: none;
-        }
-
-        h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-        }
-
-        /* MENU */
-        .menu-btn {
-            width: 100%;
-            padding: 14px;
-            margin-bottom: 10px;
-            font-size: 16px;
+        header button {
+            margin-left: 8px;
+            padding: 6px 10px;
+            border: none;
             cursor: pointer;
         }
 
-        /* CART */
+        .container { display: flex; height: calc(100vh - 50px); }
+
+        .menu, .cart, .holds {
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .menu { width: 33%; background: white; }
+        .cart { width: 34%; background: #fafafa; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
+        .holds { width: 33%; background: white; }
+
+        .menu button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
         .cart-item {
             display: flex;
             justify-content: space-between;
@@ -62,15 +51,13 @@
 
         .cart-item button {
             padding: 4px 8px;
-            margin: 0 4px;
         }
 
         input, select {
             width: 100%;
-            padding: 8px;
-            margin-top: 6px;
+            padding: 10px;
             margin-bottom: 8px;
-            font-size: 14px;
+            font-size: 15px;
         }
 
         .total {
@@ -79,29 +66,27 @@
             margin: 10px 0;
         }
 
-        .btn-main {
+        .btn-hold { background: orange; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
+        .btn-resume { background: #555; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
+        .btn-pay { background: green; color: white; padding: 12px; border: none; width: 100%; }
+
+        /* Resume popup */
+        #resumeModal {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 35%;
+            width: 30%;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,.4);
+            z-index: 1000;
+        }
+
+        #resumeModal button {
             width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            border: none;
-            color: white;
-            margin-top: 8px;
-            cursor: pointer;
-        }
-
-        .hold-btn { background: orange; }
-        .pay-btn { background: green; }
-
-        /* HOLD LIST */
-        .hold-item {
-            padding: 8px;
-            background: #f0f0f0;
             margin-bottom: 6px;
-            cursor: pointer;
-        }
-
-        .hold-item:hover {
-            background: #ddd;
         }
     </style>
 </head>
@@ -110,18 +95,22 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
+    <div>
+        <button id="changePwdBtn" onclick="goChangePassword()" style="display:none;">Change Password</button>
+        <button onclick="logout()">Logout</button>
+    </div>
 </header>
 
 <div class="container">
 
     <!-- MENU -->
-    <div class="panel">
+    <div class="menu">
         <h3>Menu</h3>
-        <div id="menuButtons">Loading menu…</div>
+        <div id="menuButtons">Loading...</div>
     </div>
 
     <!-- CART -->
-    <div class="panel">
+    <div class="cart">
         <h3>Cart</h3>
 
         <input id="customerName" placeholder="Customer Name">
@@ -138,77 +127,84 @@
 
         <div id="cartItems"></div>
 
-        <div class="total">
-            Total: ₹<span id="total">0</span>
-        </div>
+        <div class="total">Total: ₹<span id="total">0</span></div>
 
-        <button class="btn-main hold-btn" onclick="holdBill()">HOLD</button>
-        <button class="btn-main pay-btn" onclick="payNow()">PAY</button>
+        <button class="btn-hold" onclick="holdBill()">HOLD</button>
+        <button class="btn-resume" onclick="showResume()">RESUME</button>
+        <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
-    <!-- HOLD BILLS -->
-    <div class="panel">
+    <!-- HOLDS -->
+    <div class="holds">
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
     </div>
 
 </div>
 
+<!-- RESUME MODAL -->
+<div id="resumeModal">
+    <h3>Select Hold Bill</h3>
+    <div id="resumeList"></div>
+    <button onclick="closeResume()">Close</button>
+</div>
+
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
+const API = "";
 let cartId = null;
 
-/* ---------- INIT ---------- */
+/* INIT */
 (async function () {
     await createCart();
     await loadMenu();
     await loadCart();
-    await loadHoldBills();
+    await loadHolds();
+    checkAdmin();
 })();
 
-/* ---------- CART ---------- */
+/* CART */
 async function createCart() {
-    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const res = await fetch("/cart/create", { method: "POST" });
     const data = await res.json();
     cartId = data.cart_id;
 }
 
 async function loadMenu() {
-    const res = await fetch(API + "/menu");
+    const res = await fetch("/menu");
     const menu = await res.json();
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
 
     menu.forEach(item => {
         const btn = document.createElement("button");
-        btn.className = "menu-btn";
-        btn.innerText = `${item.name} – ₹${item.price}`;
+        btn.innerText = `${item.name} - ₹${item.price}`;
         btn.onclick = () => addToCart(item.id);
         div.appendChild(btn);
     });
 }
 
 async function addToCart(menuId) {
-    await fetch(API + "/cart/add", {
+    await fetch("/cart/add", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
 
 async function removeFromCart(menuId) {
-    await fetch(API + "/cart/remove", {
+    await fetch("/cart/remove", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
 
 async function loadCart() {
-    const res = await fetch(API + `/cart/${cartId}`);
+    const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
+
     const div = document.getElementById("cartItems");
     div.innerHTML = "";
 
@@ -230,66 +226,79 @@ async function loadCart() {
     document.getElementById("total").innerText = data.total;
 }
 
-/* ---------- HOLD ---------- */
+/* HOLD */
 async function holdBill() {
-    await fetch(API + "/cart/hold", {
+    const name = document.getElementById("customerName").value;
+    if (!name) return alert("Customer name required");
+
+    const res = await fetch("/cart/hold", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            customer_name: document.getElementById("customerName").value
-        })
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId, customer_name: name })
     });
-    await createCart();
+
+    const data = await res.json();
+    cartId = data.new_cart_id;
     loadCart();
-    loadHoldBills();
+    loadHolds();
 }
 
-async function loadHoldBills() {
-    const res = await fetch(API + "/cart/holds");
+/* HOLDS */
+async function loadHolds() {
+    const res = await fetch("/cart/holds");
     const holds = await res.json();
     const div = document.getElementById("holdList");
-    div.innerHTML = "";
-
-    if (holds.length === 0) {
-        div.innerText = "No holds";
-        return;
-    }
+    div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
-        const item = document.createElement("div");
-        item.className = "hold-item";
-        item.innerText = h.customer_name || ("Hold #" + h.id);
-        item.onclick = () => resumeHold(h.id);
-        div.appendChild(item);
+        const p = document.createElement("p");
+        p.innerText = h.customer_name || ("Hold #" + h.id);
+        div.appendChild(p);
     });
+}
+
+/* RESUME */
+async function showResume() {
+    const res = await fetch("/cart/holds");
+    const holds = await res.json();
+    const list = document.getElementById("resumeList");
+    list.innerHTML = "";
+
+    holds.forEach(h => {
+        const btn = document.createElement("button");
+        btn.innerText = h.customer_name || ("Hold #" + h.id);
+        btn.onclick = () => resumeHold(h.id);
+        list.appendChild(btn);
+    });
+
+    document.getElementById("resumeModal").style.display = "block";
+}
+
+function closeResume() {
+    document.getElementById("resumeModal").style.display = "none";
 }
 
 async function resumeHold(id) {
-    await fetch(API + `/cart/resume/${id}`, { method: "POST" });
+    await fetch(`/cart/resume/${id}`, { method: "POST" });
     cartId = id;
+    closeResume();
     loadCart();
-    loadHoldBills();
 }
 
-/* ---------- PAY ---------- */
+/* PAY */
 async function payNow() {
-    const paymentMode = document.getElementById("paymentMode").value;
-    if (!paymentMode) {
-        alert("Select payment mode");
-        return;
-    }
+    const payment = document.getElementById("paymentMode").value;
+    if (!payment) return alert("Select payment mode");
 
-    const res = await fetch(API + "/checkout", {
+    const res = await fetch("/checkout", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: paymentMode,
+            payment_method: payment,
             customer_name: document.getElementById("customerName").value,
             customer_phone: document.getElementById("mobileNumber").value,
-            transaction_id: document.getElementById("transactionId").value,
-            staff_id: 1
+            transaction_id: document.getElementById("transactionId").value
         })
     });
 
@@ -297,7 +306,23 @@ async function payNow() {
     alert("Paid ₹" + data.total);
     await createCart();
     loadCart();
-    loadHoldBills();
+    loadHolds();
+}
+
+/* HEADER */
+function logout() {
+    localStorage.clear();
+    window.location.href = "/ui/login";
+}
+
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
+}
+
+function checkAdmin() {
+    if (localStorage.getItem("role") === "admin") {
+        document.getElementById("changePwdBtn").style.display = "inline-block";
+    }
 }
 </script>
 
