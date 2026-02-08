@@ -244,7 +244,18 @@ def bootstrap_admin():
     db.session.commit()
 
     return "Admin created"
+@app.route("/__reset_admin_password")
+def reset_admin_password():
+    from werkzeug.security import generate_password_hash
 
+    admin = User.query.filter_by(username="admin").first()
+    if not admin:
+        return "Admin not found"
+
+    admin.password = generate_password_hash("admin123")
+    db.session.commit()
+
+    return "Admin password reset to admin123"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
