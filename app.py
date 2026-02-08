@@ -376,7 +376,6 @@ def init_db():
         db.session.commit()
 
 init_db()
-# ---------------- TEMP DB FIX (REMOVE AFTER USE) ----------------
 
 @app.route("/__fix_add_user_status")
 def fix_add_user_status():
