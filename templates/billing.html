@@ -1,146 +1,204 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh POS</title>
+    <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
-        body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f6f8;
+        }
+
         header {
             background: #1e88e5;
             color: white;
-            padding: 10px;
-            font-size: 18px;
+            padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-        .container { display: flex; height: calc(100vh - 50px); }
-
-        .menu, .cart, .holds {
-            width: 33.3%;
-            padding: 10px;
-            overflow-y: auto;
+            font-size: 18px;
         }
 
-        .menu button {
-            width: 100%;
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: calc(100vh - 55px);
+        }
+
+        .panel {
             padding: 12px;
-            margin-bottom: 8px;
-            font-size: 16px;
+            overflow-y: auto;
+            background: white;
+            border-right: 1px solid #ddd;
         }
 
+        .panel:last-child {
+            border-right: none;
+        }
+
+        h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        /* MENU */
+        .menu-btn {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* CART */
         .cart-item {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
+            align-items: center;
+            margin-bottom: 8px;
         }
 
-        .btn {
+        .cart-item button {
             padding: 4px 8px;
+            margin: 0 4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            margin-bottom: 8px;
             font-size: 14px;
         }
 
-        .hold-box {
-            background: #fff;
-            padding: 8px;
-            margin-bottom: 6px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
+        .total {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 10px 0;
         }
 
-        .expired {
-            background: #ffe5e5;
-        }
-
-        button.main {
+        .btn-main {
             width: 100%;
-            padding: 12px;
-            margin-top: 8px;
+            padding: 14px;
             font-size: 16px;
             border: none;
             color: white;
+            margin-top: 8px;
+            cursor: pointer;
         }
 
-        .pay { background: green; }
-        .hold { background: orange; }
-        .override { background: red; }
+        .hold-btn { background: orange; }
+        .pay-btn { background: green; }
+
+        /* HOLD LIST */
+        .hold-item {
+            padding: 8px;
+            background: #f0f0f0;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+
+        .hold-item:hover {
+            background: #ddd;
+        }
     </style>
 </head>
 
 <body>
 
 <header>
-    <span>🧾 Thirupugazh POS</span>
-    <span id="roleText"></span>
+    <span>🧾 Thirupugazh – POS</span>
 </header>
 
 <div class="container">
 
     <!-- MENU -->
-    <div class="menu">
+    <div class="panel">
         <h3>Menu</h3>
-        <div id="menuButtons"></div>
+        <div id="menuButtons">Loading menu…</div>
     </div>
 
     <!-- CART -->
-    <div class="cart">
+    <div class="panel">
         <h3>Cart</h3>
-        <div id="cartItems"></div>
-        <h3>Total: ₹<span id="total">0</span></h3>
 
         <input id="customerName" placeholder="Customer Name">
-        <input id="customerPhone" placeholder="Mobile Number">
+        <input id="mobileNumber" placeholder="Mobile Number">
         <input id="transactionId" placeholder="Transaction ID">
 
         <select id="paymentMode">
-            <option value="">Payment Mode</option>
+            <option value="">Select Payment Mode</option>
             <option value="CASH">Cash</option>
             <option value="UPI">UPI</option>
             <option value="ONLINE">Online</option>
             <option value="MIXED">Mixed</option>
         </select>
 
-        <button class="main hold" onclick="holdBill()">HOLD</button>
-        <button class="main pay" onclick="payNow()">PAY</button>
+        <div id="cartItems"></div>
+
+        <div class="total">
+            Total: ₹<span id="total">0</span>
+        </div>
+
+        <button class="btn-main hold-btn" onclick="holdBill()">HOLD</button>
+        <button class="btn-main pay-btn" onclick="payNow()">PAY</button>
     </div>
 
-    <!-- HOLDS -->
-    <div class="holds">
+    <!-- HOLD BILLS -->
+    <div class="panel">
         <h3>Hold Bills</h3>
-        <div id="holdList"></div>
+        <div id="holdList">No holds</div>
     </div>
 
 </div>
 
 <script>
-const API = "";
+const API = "https://thirupugazh-pos.onrender.com";
 let cartId = null;
-const role = localStorage.getItem("role") || "staff";
-document.getElementById("roleText").innerText = role.toUpperCase();
 
-// ---------------- CART ----------------
+/* ---------- INIT ---------- */
+(async function () {
+    await createCart();
+    await loadMenu();
+    await loadCart();
+    await loadHoldBills();
+})();
+
+/* ---------- CART ---------- */
 async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
+    const res = await fetch(API + "/cart/create", { method: "POST" });
+    const data = await res.json();
+    cartId = data.cart_id;
 }
 
 async function loadMenu() {
-    const res = await fetch("/menu");
+    const res = await fetch(API + "/menu");
     const menu = await res.json();
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
 
-    menu.forEach(m => {
+    menu.forEach(item => {
         const btn = document.createElement("button");
-        btn.innerText = `${m.name} - ₹${m.price}`;
-        btn.onclick = () => addToCart(m.id);
+        btn.className = "menu-btn";
+        btn.innerText = `${item.name} – ₹${item.price}`;
+        btn.onclick = () => addToCart(item.id);
         div.appendChild(btn);
     });
 }
 
 async function addToCart(menuId) {
-    await fetch("/cart/add", {
+    await fetch(API + "/cart/add", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+    });
+    loadCart();
+}
+
+async function removeFromCart(menuId) {
+    await fetch(API + "/cart/remove", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
@@ -149,7 +207,7 @@ async function addToCart(menuId) {
 }
 
 async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
+    const res = await fetch(API + `/cart/${cartId}`);
     const data = await res.json();
     const div = document.getElementById("cartItems");
     div.innerHTML = "";
@@ -157,102 +215,90 @@ async function loadCart() {
     data.items.forEach(i => {
         const row = document.createElement("div");
         row.className = "cart-item";
-        row.innerHTML = `${i.name} x ${i.quantity} <span>₹${i.subtotal}</span>`;
+        row.innerHTML = `
+            <span>${i.name}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">-</button>
+                ${i.quantity}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+            <span>₹${i.subtotal}</span>
+        `;
         div.appendChild(row);
     });
 
     document.getElementById("total").innerText = data.total;
 }
 
-// ---------------- HOLD ----------------
+/* ---------- HOLD ---------- */
 async function holdBill() {
-    const name = document.getElementById("customerName").value;
-    await fetch("/cart/hold", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ cart_id: cartId, customer_name: name })
-    });
-    await createCart();
-    loadCart();
-    loadHolds();
-}
-
-// ---------------- LOAD HOLDS ----------------
-async function loadHolds() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    const div = document.getElementById("holdList");
-    div.innerHTML = "";
-
-    holds.forEach(h => {
-        const box = document.createElement("div");
-        box.className = "hold-box" + (h.status === "EXPIRED" ? " expired" : "");
-        box.innerHTML = `
-            <b>${h.customer_name}</b> (${h.time})<br>
-            Status: ${h.status}
-        `;
-
-        if (h.status === "HOLD") {
-            const btn = document.createElement("button");
-            btn.className = "btn";
-            btn.innerText = "Resume";
-            btn.onclick = () => resumeHold(h.id);
-            box.appendChild(btn);
-        }
-
-        if (h.status === "EXPIRED" && role === "admin") {
-            const btn = document.createElement("button");
-            btn.className = "btn override";
-            btn.innerText = "Override Resume";
-            btn.onclick = () => overrideHold(h.id);
-            box.appendChild(btn);
-        }
-
-        div.appendChild(box);
-    });
-}
-
-async function resumeHold(id) {
-    await fetch(`/cart/resume/${id}`, { method: "POST" });
-    cartId = id;
-    loadCart();
-}
-
-async function overrideHold(id) {
-    const res = await fetch(`/admin/override/hold/${id}`, { method: "POST" });
-    const data = await res.json();
-    cartId = data.new_cart_id;
-    loadCart();
-    loadHolds();
-}
-
-// ---------------- PAY ----------------
-async function payNow() {
-    const res = await fetch("/checkout", {
+    await fetch(API + "/cart/hold", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: document.getElementById("paymentMode").value,
+            customer_name: document.getElementById("customerName").value
+        })
+    });
+    await createCart();
+    loadCart();
+    loadHoldBills();
+}
+
+async function loadHoldBills() {
+    const res = await fetch(API + "/cart/holds");
+    const holds = await res.json();
+    const div = document.getElementById("holdList");
+    div.innerHTML = "";
+
+    if (holds.length === 0) {
+        div.innerText = "No holds";
+        return;
+    }
+
+    holds.forEach(h => {
+        const item = document.createElement("div");
+        item.className = "hold-item";
+        item.innerText = h.customer_name || ("Hold #" + h.id);
+        item.onclick = () => resumeHold(h.id);
+        div.appendChild(item);
+    });
+}
+
+async function resumeHold(id) {
+    await fetch(API + `/cart/resume/${id}`, { method: "POST" });
+    cartId = id;
+    loadCart();
+    loadHoldBills();
+}
+
+/* ---------- PAY ---------- */
+async function payNow() {
+    const paymentMode = document.getElementById("paymentMode").value;
+    if (!paymentMode) {
+        alert("Select payment mode");
+        return;
+    }
+
+    const res = await fetch(API + "/checkout", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            payment_method: paymentMode,
             customer_name: document.getElementById("customerName").value,
-            customer_phone: document.getElementById("customerPhone").value,
+            customer_phone: document.getElementById("mobileNumber").value,
             transaction_id: document.getElementById("transactionId").value,
             staff_id: 1
         })
     });
+
     const data = await res.json();
     alert("Paid ₹" + data.total);
     await createCart();
     loadCart();
+    loadHoldBills();
 }
-
-// ---------------- INIT ----------------
-(async function () {
-    await createCart();
-    await loadMenu();
-    await loadCart();
-    await loadHolds();
-})();
 </script>
 
 </body>
