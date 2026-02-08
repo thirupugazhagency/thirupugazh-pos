@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Staff Management - Thirupugazh POS</title>
+    <title>Staff Management – Thirupugazh POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body {
-            font-family: Arial;
+            font-family: Arial, sans-serif;
             margin: 0;
             background: #f5f5f5;
         }
@@ -24,8 +24,11 @@
         header button {
             padding: 6px 12px;
             border: none;
-            cursor: pointer;
             font-size: 14px;
+            cursor: pointer;
+            background: white;
+            color: #1e88e5;
+            border-radius: 4px;
         }
 
         .container {
@@ -42,22 +45,51 @@
             border: 1px solid #ccc;
             padding: 10px;
             text-align: left;
+            font-size: 14px;
         }
 
         th {
-            background: #eee;
+            background: #f0f0f0;
         }
 
         input {
             padding: 6px;
+            font-size: 14px;
             width: 120px;
         }
 
-        button.reset {
-            background: orange;
-            border: none;
+        button.action {
             padding: 6px 10px;
+            font-size: 13px;
+            border: none;
             cursor: pointer;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
+
+        .reset {
+            background: orange;
+            color: white;
+        }
+
+        .enable {
+            background: green;
+            color: white;
+        }
+
+        .disable {
+            background: red;
+            color: white;
+        }
+
+        .status-active {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-disabled {
+            color: red;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -70,29 +102,34 @@
 </header>
 
 <div class="container">
+
     <table>
         <thead>
             <tr>
-                <th>Staff Username</th>
+                <th>Username</th>
+                <th>Status</th>
                 <th>New Password</th>
-                <th>Action</th>
+                <th>Actions</th>
             </tr>
         </thead>
-        <tbody id="staffTable"></tbody>
+        <tbody id="staffTable">
+            <!-- Staff rows -->
+        </tbody>
     </table>
+
 </div>
 
 <script>
 const API = window.location.origin;
 
-// 🔒 Protect page (admin only)
+/* 🔒 Admin-only protection */
 const role = localStorage.getItem("role");
 if (role !== "admin") {
     alert("Access denied");
     window.location.href = "/ui/billing";
 }
 
-// Load staff list
+/* Load staff list */
 async function loadStaff() {
     const res = await fetch(API + "/admin/staff/list");
     const staff = await res.json();
@@ -102,21 +139,43 @@ async function loadStaff() {
 
     staff.forEach(s => {
         const row = document.createElement("tr");
+
+        const statusClass = s.status === "ACTIVE"
+            ? "status-active"
+            : "status-disabled";
+
+        const toggleBtnClass = s.status === "ACTIVE"
+            ? "disable"
+            : "enable";
+
+        const toggleBtnText = s.status === "ACTIVE"
+            ? "Disable"
+            : "Enable";
+
         row.innerHTML = `
             <td>${s.username}</td>
+            <td class="${statusClass}">${s.status}</td>
             <td>
                 <input type="password" id="pwd_${s.id}" placeholder="New password">
             </td>
             <td>
-                <button class="reset" onclick="resetPassword(${s.id})">
-                    Change Password
+                <button class="action reset"
+                    onclick="resetPassword(${s.id})">
+                    Reset Password
+                </button>
+
+                <button class="action ${toggleBtnClass}"
+                    onclick="toggleStatus(${s.id})">
+                    ${toggleBtnText}
                 </button>
             </td>
         `;
+
         tbody.appendChild(row);
     });
 }
 
+/* Reset staff password */
 async function resetPassword(staffId) {
     const pwd = document.getElementById("pwd_" + staffId).value;
     if (!pwd) {
@@ -126,7 +185,7 @@ async function resetPassword(staffId) {
 
     const res = await fetch(API + "/admin/staff/change-password", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             staff_id: staffId,
             new_password: pwd
@@ -134,19 +193,33 @@ async function resetPassword(staffId) {
     });
 
     const data = await res.json();
-    if (data.status) {
-        alert("Password updated successfully");
+    if (data.status === "ok") {
+        alert("Password updated");
         document.getElementById("pwd_" + staffId).value = "";
     } else {
         alert("Error updating password");
     }
 }
 
+/* Enable / Disable staff */
+async function toggleStatus(staffId) {
+    const res = await fetch(API + "/admin/staff/toggle-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staff_id: staffId })
+    });
+
+    const data = await res.json();
+    alert("Staff status updated to: " + data.status);
+    loadStaff();
+}
+
+/* Navigation */
 function goBack() {
     window.location.href = "/ui/billing";
 }
 
-// Init
+/* Init */
 loadStaff();
 </script>
 
