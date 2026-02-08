@@ -288,20 +288,7 @@ def init_db():
         db.session.commit()
 
 init_db()
-@app.route("/_create_staffs_once")
-def create_staffs_once():
-    for i in range(1, 11):
-        username = f"staff{i}"
-        if not User.query.filter_by(username=username).first():
-            db.session.add(
-                User(
-                    username=username,
-                    password=generate_password_hash("1234"),
-                    role="staff"
-                )
-            )
-    db.session.commit()
-    return "Staff users created"
+
 # -------------------------------------------------
 # RUN
 # -------------------------------------------------
