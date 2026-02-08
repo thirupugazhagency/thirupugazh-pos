@@ -376,6 +376,19 @@ def init_db():
         db.session.commit()
 
 init_db()
+# ---------------- TEMP DB FIX (REMOVE AFTER USE) ----------------
+
+@app.route("/__fix_add_user_status")
+def fix_add_user_status():
+    try:
+        db.session.execute("""
+            ALTER TABLE "user"
+            ADD COLUMN status VARCHAR(20) DEFAULT 'ACTIVE';
+        """)
+        db.session.commit()
+        return "✅ SUCCESS: user.status column added"
+    except Exception as e:
+        return f"⚠️ ERROR or ALREADY EXISTS: {str(e)}"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
