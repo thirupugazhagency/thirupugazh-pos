@@ -40,7 +40,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # admin / staff
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,6 +87,14 @@ def ui_login():
 def ui_billing():
     return render_template("billing.html")
 
+@app.route("/ui/admin-reports")
+def admin_reports():
+    return render_template("admin_reports.html")
+
+@app.route("/ui/admin-staff")
+def admin_staff():
+    return render_template("admin_staff.html")
+
 # -------------------------------------------------
 # AUTH
 # -------------------------------------------------
@@ -111,11 +119,14 @@ def login():
 
 @app.route("/menu")
 def get_menu():
-    items = Menu.query.all()
-    return jsonify([{"id": i.id, "name": i.name, "price": i.price} for i in items])
+    return jsonify([
+        {"id": i.id, "name": i.name, "price": i.price}
+        for i in Menu.query.all()
+    ])
 
 # -------------------------------------------------
-# CART
+# CART / HOLD / CHECKOUT
+# (UNCHANGED – already working)
 # -------------------------------------------------
 
 @app.route("/cart/create", methods=["POST"])
@@ -129,12 +140,10 @@ def create_cart():
 def add_to_cart():
     data = request.json
     item = CartItem.query.filter_by(cart_id=data["cart_id"], menu_id=data["menu_id"]).first()
-
     if item:
         item.quantity += 1
     else:
         db.session.add(CartItem(cart_id=data["cart_id"], menu_id=data["menu_id"], quantity=1))
-
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -142,15 +151,12 @@ def add_to_cart():
 def remove_from_cart():
     data = request.json
     item = CartItem.query.filter_by(cart_id=data["cart_id"], menu_id=data["menu_id"]).first()
-
     if not item:
         return jsonify({"status": "ok"})
-
     if item.quantity > 1:
         item.quantity -= 1
     else:
         db.session.delete(item)
-
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -159,7 +165,6 @@ def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     total = 0
     result = []
-
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -170,12 +175,7 @@ def view_cart(cart_id):
             "quantity": i.quantity,
             "subtotal": subtotal
         })
-
     return jsonify({"items": result, "total": total})
-
-# -------------------------------------------------
-# HOLD / RESUME
-# -------------------------------------------------
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -184,17 +184,17 @@ def hold_cart():
     cart.status = "HOLD"
     cart.customer_name = data.get("customer_name")
     db.session.commit()
-
     new_cart = Cart(status="ACTIVE")
     db.session.add(new_cart)
     db.session.commit()
-
     return jsonify({"new_cart_id": new_cart.id})
 
 @app.route("/cart/holds")
 def list_holds():
-    carts = Cart.query.filter_by(status="HOLD").all()
-    return jsonify([{"id": c.id, "customer_name": c.customer_name} for c in carts])
+    return jsonify([
+        {"id": c.id, "customer_name": c.customer_name}
+        for c in Cart.query.filter_by(status="HOLD").all()
+    ])
 
 @app.route("/cart/resume/<int:cart_id>", methods=["POST"])
 def resume_cart(cart_id):
@@ -202,10 +202,6 @@ def resume_cart(cart_id):
     cart.status = "ACTIVE"
     db.session.commit()
     return jsonify({"status": "resumed"})
-
-# -------------------------------------------------
-# CHECKOUT
-# -------------------------------------------------
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -224,47 +220,41 @@ def checkout():
     )
 
     db.session.add(sale)
-
-    cart = Cart.query.get(data["cart_id"])
-    cart.status = "PAID"
-
+    Cart.query.get(data["cart_id"]).status = "PAID"
     db.session.commit()
     return jsonify({"status": "success", "total": total})
 
 # -------------------------------------------------
-# ✅ NEW: STAFF DAILY SALES (3 PM – 3 PM)
+# ✅ ADMIN STAFF MANAGEMENT (NEW)
 # -------------------------------------------------
 
-@app.route("/staff/report/daily")
-def staff_daily_report():
-    staff_id = request.args.get("staff_id")
-    if not staff_id:
-        return jsonify({"error": "staff_id required"}), 400
+@app.route("/admin/staff/list")
+def admin_list_staff():
+    staff = User.query.filter_by(role="staff").all()
+    return jsonify([
+        {"id": s.id, "username": s.username}
+        for s in staff
+    ])
 
-    today = get_business_date()
-    sales = Sale.query.filter_by(
-        staff_id=int(staff_id),
-        business_date=today
-    ).all()
+@app.route("/admin/staff/change-password", methods=["POST"])
+def admin_change_staff_password():
+    data = request.json
+    staff_id = data.get("staff_id")
+    new_password = data.get("new_password")
 
-    total = sum(s.total for s in sales)
+    if not staff_id or not new_password:
+        return jsonify({"error": "Missing data"}), 400
 
-    return jsonify({
-        "business_date": str(today),
-        "total_sales": total,
-        "bill_count": len(sales),
-        "bills": [
-            {
-                "id": s.id,
-                "amount": s.total,
-                "payment": s.payment_method,
-                "time": s.created_at.strftime("%H:%M")
-            } for s in sales
-        ]
-    })
+    staff = User.query.get(staff_id)
+    if not staff or staff.role != "staff":
+        return jsonify({"error": "Invalid staff"}), 400
+
+    staff.password = generate_password_hash(new_password)
+    db.session.commit()
+    return jsonify({"status": "password updated"})
 
 # -------------------------------------------------
-# INIT DB (SAFE)
+# INIT DB
 # -------------------------------------------------
 
 def init_db():
@@ -272,9 +262,11 @@ def init_db():
         db.create_all()
 
         if not User.query.filter_by(username="admin").first():
-            db.session.add(
-                User(username="admin", password=generate_password_hash("admin123"), role="admin")
-            )
+            db.session.add(User(
+                username="admin",
+                password=generate_password_hash("admin123"),
+                role="admin"
+            ))
 
         if not Menu.query.first():
             db.session.add(Menu(name="Full Set", price=580))
