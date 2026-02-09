@@ -55,7 +55,14 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
+
+    # ✅ FULL CONTEXT FOR HOLD / RESUME
     customer_name = db.Column(db.String(100))
+    customer_phone = db.Column(db.String(20))
+    transaction_id = db.Column(db.String(100))
+    discount = db.Column(db.Integer, default=0)
+    staff_id = db.Column(db.Integer)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -72,6 +79,7 @@ class Sale(db.Model):
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
+    discount = db.Column(db.Integer, default=0)
     staff_id = db.Column(db.Integer)
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -196,17 +204,24 @@ def view_cart(cart_id):
     return jsonify({"items": result, "total": total})
 
 # ==================================================
-# HOLD / RESUME
+# HOLD / RESUME (ENHANCED)
 # ==================================================
 
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
     d = request.json
     cart = Cart.query.get(d["cart_id"])
+
     cart.status = "HOLD"
     cart.customer_name = d.get("customer_name")
+    cart.customer_phone = d.get("customer_phone")
+    cart.transaction_id = d.get("transaction_id")
+    cart.discount = d.get("discount", 0)
+    cart.staff_id = d.get("staff_id")
+
     db.session.commit()
 
+    # ✅ NEW CLEAN CART FOR NEXT BILL
     new_cart = Cart(status="ACTIVE")
     db.session.add(new_cart)
     db.session.commit()
@@ -217,7 +232,13 @@ def hold_cart():
 def list_holds():
     holds = Cart.query.filter_by(status="HOLD").all()
     return jsonify([
-        {"id": h.id, "customer_name": h.customer_name}
+        {
+            "id": h.id,
+            "customer_name": h.customer_name,
+            "customer_phone": h.customer_phone,
+            "transaction_id": h.transaction_id,
+            "discount": h.discount
+        }
         for h in holds
     ])
 
@@ -226,24 +247,34 @@ def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
     cart.status = "ACTIVE"
     db.session.commit()
-    return jsonify({"status": "ok"})
+
+    return jsonify({
+        "status": "ok",
+        "customer_name": cart.customer_name,
+        "customer_phone": cart.customer_phone,
+        "transaction_id": cart.transaction_id,
+        "discount": cart.discount
+    })
 
 # ==================================================
-# CHECKOUT
+# CHECKOUT (ENHANCED)
 # ==================================================
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
     items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
-    total = sum(i.menu.price * i.quantity for i in items)
+    gross = sum(i.menu.price * i.quantity for i in items)
+    discount = d.get("discount", 0)
+    final_total = max(gross - discount, 0)
 
     sale = Sale(
-        total=total,
+        total=final_total,
         payment_method=d["payment_method"],
         customer_name=d.get("customer_name"),
         customer_phone=d.get("customer_phone"),
         transaction_id=d.get("transaction_id"),
+        discount=discount,
         staff_id=d.get("staff_id"),
         business_date=get_business_date()
     )
@@ -252,10 +283,10 @@ def checkout():
     Cart.query.get(d["cart_id"]).status = "PAID"
     db.session.commit()
 
-    return jsonify({"total": total})
+    return jsonify({"total": final_total})
 
 # ==================================================
-# STAFF DAILY REPORT (3 PM – 3 PM)
+# STAFF DAILY REPORT
 # ==================================================
 
 @app.route("/staff/report/daily")
@@ -275,7 +306,7 @@ def staff_daily_report():
     })
 
 # ==================================================
-# ADMIN — STAFF MANAGEMENT (NEW)
+# ADMIN — STAFF MANAGEMENT
 # ==================================================
 
 @app.route("/admin/staff/list")
