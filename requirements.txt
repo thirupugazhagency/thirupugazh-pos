@@ -1,8 +1,4 @@
 Flask
 Flask-SQLAlchemy
-Werkzeug
-psycopg2-binary
 pandas
-openpyxl
 reportlab
-gunicorn
