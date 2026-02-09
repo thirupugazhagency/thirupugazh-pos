@@ -318,7 +318,8 @@ def fix_user_status_column_once():
     except Exception as e:
         return f"ℹ️ Already fixed or error: {e}"
 
-def ensure_user_status_column():
+def with app.app_context():
+    ensure_user_status_column()
     with db.engine.connect() as conn:
         try:
             conn.execute(
