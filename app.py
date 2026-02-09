@@ -318,5 +318,16 @@ def fix_user_status_column_once():
     except Exception as e:
         return f"ℹ️ Already fixed or error: {e}"
 
+def ensure_user_status_column():
+    with db.engine.connect() as conn:
+        try:
+            conn.execute(
+                db.text('ALTER TABLE "user" ADD COLUMN status VARCHAR(20) DEFAULT \'ACTIVE\';')
+            )
+        except Exception:
+            pass  # column already exists
+
+ensure_user_status_column()
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
