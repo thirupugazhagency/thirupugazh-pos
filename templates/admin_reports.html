@@ -1,67 +1,86 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Admin Reports – Thirupugazh POS</title>
+    <meta charset="UTF-8">
+    <title>Admin Reports - Thirupugazh POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body {
-            font-family: Arial;
-            background: #f5f5f5;
+            font-family: Arial, sans-serif;
             margin: 0;
+            background: #f4f6f8;
         }
 
         header {
             background: #1e88e5;
             color: white;
             padding: 12px 16px;
-            font-size: 18px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
         }
 
-        header button {
+        header .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        header img {
+            height: 32px;
+        }
+
+        header .right button {
+            margin-left: 8px;
             padding: 6px 12px;
             border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-blue { background: #1976d2; color: white; }
+        .btn-red { background: #e53935; color: white; }
+
+        .container {
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            margin-top: 0;
+        }
+
+        input, select {
+            padding: 8px;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        button.action {
+            padding: 8px 14px;
+            margin-right: 6px;
+            border: 1px solid #ccc;
+            background: #f5f5f5;
             cursor: pointer;
             border-radius: 4px;
         }
 
-        .back { background: white; color: #1e88e5; }
-        .logout { background: #e53935; color: white; }
-
-        .container {
-            padding: 16px;
+        button.action:hover {
+            background: #e0e0e0;
         }
 
-        .box {
-            background: white;
-            padding: 16px;
-            margin-bottom: 16px;
-            border-radius: 6px;
-        }
-
-        input, button {
-            padding: 8px 12px;
-            margin: 6px 4px;
-            font-size: 14px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background: #eeeeee;
+        .result {
+            margin-top: 10px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -69,108 +88,118 @@
 <body>
 
 <header>
-    <div>📊 Admin Reports</div>
-    <div>
-        <button class="back" onclick="location.href='/ui/billing'">⬅ Billing</button>
-        <button class="logout" onclick="logout()">Logout</button>
+    <div class="left">
+        <img src="/static/logo.png" alt="Logo">
+        Admin Reports
+    </div>
+    <div class="right">
+        <button class="btn-blue" onclick="goBilling()">Billing</button>
+        <button class="btn-red" onclick="logout()">Logout</button>
     </div>
 </header>
 
 <div class="container">
 
-    <!-- DAILY REPORT -->
-    <div class="box">
+    <!-- ================= DAILY REPORT ================= -->
+    <div class="card">
         <h3>Daily Sales (3 PM – 3 PM)</h3>
 
-        <label>Select Date:</label>
+        <!-- RESTORED DATE PICKER -->
         <input type="date" id="dailyDate">
 
-        <br>
+        <button class="action" onclick="viewDaily()">View</button>
+        <button class="action" onclick="downloadDailyExcel()">Excel</button>
+        <button class="action" onclick="downloadDailyPDF()">PDF</button>
 
-        <button onclick="loadDaily()">View</button>
-        <button onclick="downloadDailyExcel()">Excel</button>
-        <button onclick="downloadDailyPDF()">PDF</button>
-
-        <table id="dailyTable" style="display:none">
-            <thead>
-                <tr>
-                    <th>Business Date</th>
-                    <th>Total Bills</th>
-                    <th>Total Amount (₹)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td id="d_date"></td>
-                    <td id="d_count"></td>
-                    <td id="d_total"></td>
-                </tr>
-            </tbody>
-        </table>
+        <div id="dailyResult" class="result"></div>
     </div>
 
-    <!-- MONTHLY REPORT -->
-    <div class="box">
+    <!-- ================= MONTHLY REPORT ================= -->
+    <div class="card">
         <h3>Monthly Sales</h3>
 
-        <label>Select Month:</label>
-        <input type="month" id="monthSelect">
+        <!-- RESTORED MONTH + YEAR -->
+        <select id="month">
+            <option value="">Month</option>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select>
 
-        <br>
+        <select id="year">
+            <option value="">Year</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+        </select>
 
-        <button onclick="downloadMonthlyExcel()">Excel</button>
-        <button onclick="downloadMonthlyPDF()">PDF</button>
+        <button class="action" onclick="downloadMonthlyExcel()">Excel</button>
+        <button class="action" onclick="downloadMonthlyPDF()">PDF</button>
     </div>
 
 </div>
 
 <script>
-function logout() {
-    localStorage.clear();
-    window.location.href = "/ui/login";
-}
+/* ================= DAILY ================= */
 
-// -------- DAILY --------
-async function loadDaily() {
+async function viewDaily() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) {
-        alert("Please select a date");
-        return;
-    }
+    const url = date
+        ? `/admin/report/daily?date=${date}`
+        : `/admin/report/daily`;
 
-    const res = await fetch(`/admin/report/daily?date=${date}`);
+    const res = await fetch(url);
     const data = await res.json();
 
-    document.getElementById("d_date").innerText = data.business_date;
-    document.getElementById("d_count").innerText = data.bill_count;
-    document.getElementById("d_total").innerText = data.total_amount;
-
-    document.getElementById("dailyTable").style.display = "table";
+    document.getElementById("dailyResult").innerText =
+        `Bills: ${data.bill_count}, Total: ₹${data.total_amount}`;
 }
 
 function downloadDailyExcel() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) return alert("Select a date");
-    window.open(`/admin/report/daily/excel?date=${date}`, "_blank");
+    window.location = date
+        ? `/admin/report/daily/excel?date=${date}`
+        : `/admin/report/daily/excel`;
 }
 
 function downloadDailyPDF() {
     const date = document.getElementById("dailyDate").value;
-    if (!date) return alert("Select a date");
-    window.open(`/admin/report/daily/pdf?date=${date}`, "_blank");
+    window.location = date
+        ? `/admin/report/daily/pdf?date=${date}`
+        : `/admin/report/daily/pdf`;
 }
 
-// -------- MONTHLY --------
+/* ================= MONTHLY ================= */
+
 function downloadMonthlyExcel() {
-    const month = document.getElementById("monthSelect").value;
-    if (!month) return alert("Select month");
-    window.open(`/admin/report/monthly/excel?month=${month}`, "_blank");
+    const m = document.getElementById("month").value;
+    const y = document.getElementById("year").value;
+    window.location = `/admin/report/monthly/excel?month=${m}&year=${y}`;
 }
 
 function downloadMonthlyPDF() {
-    const month = document.getElementById("monthSelect").value;
-    if (!month) return alert("Select month");
-    window.open(`/admin/report/monthly/pdf?month=${month}`, "_blank");
+    const m = document.getElementById("month").value;
+    const y = document.getElementById("year").value;
+    window.location = `/admin/report/monthly/pdf?month=${m}&year=${y}`;
+}
+
+/* ================= NAV ================= */
+
+function goBilling() {
+    window.location = "/ui/billing";
+}
+
+function logout() {
+    localStorage.clear();
+    window.location = "/ui/login";
 }
 </script>
 
