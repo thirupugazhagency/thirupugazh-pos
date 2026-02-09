@@ -1,13 +1,6 @@
-flask
-flask_sqlalchemy
+Flask
+Flask-SQLAlchemy
 gunicorn
 psycopg2-binary
-werkzeug
-openpyxl
+pandas
 reportlab
-flask
-flask_sqlalchemy
-werkzeug
-openpyxl
-reportlab
-psycopg2-binary
