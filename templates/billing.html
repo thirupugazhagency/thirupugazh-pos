@@ -98,8 +98,6 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-
-    <!-- ✅ STEP 2: ADMIN / STAFF HEADER CONTROLS -->
     <div id="headerButtons">
         <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
@@ -118,7 +116,7 @@
         <h3>Cart</h3>
 
         <input id="customerName" placeholder="Customer Name">
-        <input id="mobileNumber" placeholder="Mobile Number">
+        <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
         <input id="transactionId" placeholder="Transaction ID">
 
         <select id="paymentMode">
@@ -160,34 +158,7 @@
 let cartId = null;
 let currentTotal = 0;
 
-/* ================= AUTH / HEADER (STEP 2) ================= */
-
-const role = localStorage.getItem("role");
-const headerDiv = document.getElementById("headerButtons");
-
-if (role === "admin") {
-    headerDiv.innerHTML = `
-        <button class="btn-admin" onclick="goReports()">Reports</button>
-        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    `;
-}
-
-function goReports() {
-    window.location.href = "/ui/admin-reports";
-}
-
-function goChangePassword() {
-    window.location.href = "/ui/change-password";
-}
-
-function logout() {
-    localStorage.clear();
-    window.location.href = "/ui/login";
-}
-
-/* ================= INIT ================= */
-
+/* INIT */
 (async function () {
     await createCart();
     await loadMenu();
@@ -195,12 +166,10 @@ function logout() {
     await loadHolds();
 })();
 
-/* ================= CART ================= */
-
+/* CART */
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
-    const data = await res.json();
-    cartId = data.cart_id;
+    cartId = (await res.json()).cart_id;
 }
 
 async function loadMenu() {
@@ -208,7 +177,6 @@ async function loadMenu() {
     const menu = await res.json();
     const div = document.getElementById("menuButtons");
     div.innerHTML = "";
-
     menu.forEach(item => {
         const btn = document.createElement("button");
         btn.innerText = `${item.name} - ₹${item.price}`;
@@ -238,7 +206,6 @@ async function removeFromCart(menuId) {
 async function loadCart() {
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
-
     const div = document.getElementById("cartItems");
     div.innerHTML = "";
     currentTotal = data.total;
@@ -262,19 +229,19 @@ async function loadCart() {
     recalculateTotal();
 }
 
-/* ================= DISCOUNT ================= */
-
+/* DISCOUNT */
 function recalculateTotal() {
     const discount = Number(document.getElementById("discount").value || 0);
-    const final = Math.max(currentTotal - discount, 0);
-    document.getElementById("finalTotal").innerText = final;
+    document.getElementById("finalTotal").innerText = Math.max(currentTotal - discount, 0);
 }
 
-/* ================= HOLD ================= */
-
+/* HOLD */
 async function holdBill() {
-    const name = document.getElementById("customerName").value;
+    const name = document.getElementById("customerName").value.trim();
+    const mobile = document.getElementById("mobileNumber").value.trim();
+
     if (!name) return alert("Customer name required");
+    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
 
     const res = await fetch("/cart/hold", {
         method: "POST",
@@ -282,14 +249,13 @@ async function holdBill() {
         body: JSON.stringify({ cart_id: cartId, customer_name: name })
     });
 
-    const data = await res.json();
-    cartId = data.new_cart_id;
+    cartId = (await res.json()).new_cart_id;
+    resetFields();
     loadCart();
     loadHolds();
 }
 
-/* ================= HOLDS ================= */
-
+/* HOLDS */
 async function loadHolds() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
@@ -298,13 +264,12 @@ async function loadHolds() {
 
     holds.forEach(h => {
         const p = document.createElement("p");
-        p.innerText = h.customer_name || ("Hold #" + h.id);
+        p.innerText = h.customer_name;
         div.appendChild(p);
     });
 }
 
-/* ================= RESUME ================= */
-
+/* RESUME */
 async function showResume() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
@@ -313,7 +278,7 @@ async function showResume() {
 
     holds.forEach(h => {
         const btn = document.createElement("button");
-        btn.innerText = h.customer_name || ("Hold #" + h.id);
+        btn.innerText = h.customer_name;
         btn.onclick = () => resumeHold(h.id);
         list.appendChild(btn);
     });
@@ -332,13 +297,18 @@ async function resumeHold(id) {
     loadCart();
 }
 
-/* ================= PAY ================= */
-
+/* PAY — FULL VALIDATION */
 async function payNow() {
-    const payment = document.getElementById("paymentMode").value;
-    if (!payment) return alert("Select payment mode");
-
+    const payment = paymentMode.value;
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
+    const txn = transactionId.value.trim();
     const discount = Number(document.getElementById("discount").value || 0);
+
+    if (!payment) return alert("Select payment mode");
+    if (!name) return alert("Customer name required");
+    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
+    if (payment !== "CASH" && !txn) return alert("Transaction ID required");
 
     const res = await fetch("/checkout", {
         method: "POST",
@@ -346,18 +316,33 @@ async function payNow() {
         body: JSON.stringify({
             cart_id: cartId,
             payment_method: payment,
-            customer_name: document.getElementById("customerName").value,
-            customer_phone: document.getElementById("mobileNumber").value,
-            transaction_id: document.getElementById("transactionId").value,
+            customer_name: name,
+            customer_phone: mobile,
+            transaction_id: txn,
             discount: discount
         })
     });
 
     const data = await res.json();
     alert("Paid ₹" + data.total);
+    resetFields();
     await createCart();
     loadCart();
     loadHolds();
+}
+
+/* UTIL */
+function resetFields() {
+    customerName.value = "";
+    mobileNumber.value = "";
+    transactionId.value = "";
+    discount.value = "";
+    paymentMode.value = "";
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = "/ui/login";
 }
 </script>
 
