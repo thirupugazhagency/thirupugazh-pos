@@ -1,75 +1,53 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Staff Management – Thirupugazh POS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Admin – Staff Management | Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f6f8;
             margin: 0;
-            background: #f5f5f5;
+            padding: 15px;
         }
 
         header {
             background: #1e88e5;
             color: white;
             padding: 12px;
+            text-align: center;
             font-size: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        header button {
-            padding: 6px 12px;
-            border: none;
-            font-size: 14px;
-            cursor: pointer;
-            background: white;
-            color: #1e88e5;
-            border-radius: 4px;
-        }
-
-        .container {
-            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
         }
 
         table {
             width: 100%;
-            border-collapse: collapse;
             background: white;
+            border-collapse: collapse;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
         th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
-            font-size: 14px;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+            font-size: 15px;
         }
 
         th {
-            background: #f0f0f0;
+            background: #f1f1f1;
         }
 
-        input {
-            padding: 6px;
-            font-size: 14px;
-            width: 120px;
-        }
-
-        button.action {
+        button {
             padding: 6px 10px;
-            font-size: 13px;
             border: none;
-            cursor: pointer;
             border-radius: 4px;
-            margin-right: 5px;
-        }
-
-        .reset {
-            background: orange;
-            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 2px;
         }
 
         .enable {
@@ -78,148 +56,118 @@
         }
 
         .disable {
-            background: red;
+            background: orange;
             color: white;
         }
 
-        .status-active {
-            color: green;
-            font-weight: bold;
+        .reset {
+            background: #444;
+            color: white;
         }
 
-        .status-disabled {
-            color: red;
-            font-weight: bold;
+        .back {
+            background: #555;
+            color: white;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 
 <body>
 
-<header>
-    Staff Management
-    <button onclick="goBack()">⬅ Back</button>
-</header>
+<header>👥 Staff Management (Admin Only)</header>
 
-<div class="container">
+<button class="back" onclick="goBack()">⬅ Back to Billing</button>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>Status</th>
-                <th>New Password</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="staffTable">
-            <!-- Staff rows -->
-        </tbody>
-    </table>
-
-</div>
+<table>
+    <thead>
+        <tr>
+            <th>Staff ID</th>
+            <th>Username</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="staffTable"></tbody>
+</table>
 
 <script>
-const API = window.location.origin;
+const API = "https://thirupugazh-pos.onrender.com";
 
-/* 🔒 Admin-only protection */
-const role = localStorage.getItem("role");
-if (role !== "admin") {
+/* 🔐 HARD ADMIN CHECK — SAME LOGIC AS BILLING */
+if (localStorage.getItem("role") !== "admin") {
     alert("Access denied");
     window.location.href = "/ui/billing";
 }
 
-/* Load staff list */
-async function loadStaff() {
-    const res = await fetch(API + "/admin/staff/list");
-    const staff = await res.json();
-
-    const tbody = document.getElementById("staffTable");
-    tbody.innerHTML = "";
-
-    staff.forEach(s => {
-        const row = document.createElement("tr");
-
-        const statusClass = s.status === "ACTIVE"
-            ? "status-active"
-            : "status-disabled";
-
-        const toggleBtnClass = s.status === "ACTIVE"
-            ? "disable"
-            : "enable";
-
-        const toggleBtnText = s.status === "ACTIVE"
-            ? "Disable"
-            : "Enable";
-
-        row.innerHTML = `
-            <td>${s.username}</td>
-            <td class="${statusClass}">${s.status}</td>
-            <td>
-                <input type="password" id="pwd_${s.id}" placeholder="New password">
-            </td>
-            <td>
-                <button class="action reset"
-                    onclick="resetPassword(${s.id})">
-                    Reset Password
-                </button>
-
-                <button class="action ${toggleBtnClass}"
-                    onclick="toggleStatus(${s.id})">
-                    ${toggleBtnText}
-                </button>
-            </td>
-        `;
-
-        tbody.appendChild(row);
-    });
-}
-
-/* Reset staff password */
-async function resetPassword(staffId) {
-    const pwd = document.getElementById("pwd_" + staffId).value;
-    if (!pwd) {
-        alert("Enter new password");
-        return;
-    }
-
-    const res = await fetch(API + "/admin/staff/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            staff_id: staffId,
-            new_password: pwd
-        })
-    });
-
-    const data = await res.json();
-    if (data.status === "ok") {
-        alert("Password updated");
-        document.getElementById("pwd_" + staffId).value = "";
-    } else {
-        alert("Error updating password");
-    }
-}
-
-/* Enable / Disable staff */
-async function toggleStatus(staffId) {
-    const res = await fetch(API + "/admin/staff/toggle-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staff_id: staffId })
-    });
-
-    const data = await res.json();
-    alert("Staff status updated to: " + data.status);
-    loadStaff();
-}
-
-/* Navigation */
+/* 🔙 BACK */
 function goBack() {
     window.location.href = "/ui/billing";
 }
 
-/* Init */
+/* 📥 LOAD STAFF */
+async function loadStaff() {
+    try {
+        const res = await fetch(API + "/admin/staff/list");
+        const staff = await res.json();
+
+        const tbody = document.getElementById("staffTable");
+        tbody.innerHTML = "";
+
+        staff.forEach(s => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${s.id}</td>
+                <td>${s.username}</td>
+                <td>${s.status}</td>
+                <td>
+                    <button class="${s.status === 'ACTIVE' ? 'disable' : 'enable'}"
+                        onclick="toggleStaff(${s.id})">
+                        ${s.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                    </button>
+
+                    <button class="reset"
+                        onclick="resetPassword(${s.id})">
+                        Reset Password
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        alert("Failed to load staff");
+    }
+}
+
+/* 🔄 ENABLE / DISABLE */
+async function toggleStaff(id) {
+    await fetch(API + "/admin/staff/toggle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staff_id: id })
+    });
+    loadStaff();
+}
+
+/* 🔑 RESET PASSWORD */
+async function resetPassword(id) {
+    const pwd = prompt("Enter new password for staff:");
+    if (!pwd) return;
+
+    await fetch(API + "/admin/staff/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            staff_id: id,
+            new_password: pwd
+        })
+    });
+
+    alert("Password updated");
+}
+
 loadStaff();
 </script>
 
