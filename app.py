@@ -307,5 +307,16 @@ def init_db():
 
 init_db()
 
+@app.route("/__fix_user_status_column_once")
+def fix_user_status_column_once():
+    try:
+        db.session.execute(
+            'ALTER TABLE "user" ADD COLUMN status VARCHAR(20) DEFAULT \'ACTIVE\';'
+        )
+        db.session.commit()
+        return "✅ user.status column added successfully"
+    except Exception as e:
+        return f"ℹ️ Already fixed or error: {e}"
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
