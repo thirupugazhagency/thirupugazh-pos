@@ -282,7 +282,8 @@ def staff_daily_report():
 
 # ---------------- INIT ----------------
 
-def init_db():
+def with app.app_context():
+    init_db():
     with app.app_context():
         db.create_all()
 
