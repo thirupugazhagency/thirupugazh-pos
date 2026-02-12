@@ -96,9 +96,7 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-    <div id="headerButtons">
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    </div>
+    <div id="headerButtons"></div>
 </header>
 
 <div class="container">
@@ -153,16 +151,31 @@
 </div>
 
 <script>
-/* ================= HEADER ================= */
-if (localStorage.getItem("role") === "admin") {
-    document.getElementById("headerButtons").innerHTML = `
-        <button class="btn-admin" onclick="goReports()">Reports</button>
+/* ================= HEADER (ADMIN + STAFF) ================= */
+const role = localStorage.getItem("role");
+const userId = localStorage.getItem("user_id");
+const header = document.getElementById("headerButtons");
+
+if (role === "admin") {
+    header.innerHTML = `
+        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
 
-function goReports() {
+if (role === "staff") {
+    header.innerHTML = `
+        <button class="btn-admin" onclick="goStaffReport()">My Daily Report</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    `;
+}
+
+function goAdminReports() {
     window.location.href = "/ui/admin-reports";
+}
+
+function goStaffReport() {
+    window.open(`/staff/report/daily?staff_id=${userId}`, "_blank");
 }
 
 function logout() {
@@ -199,8 +212,7 @@ async function loadMenu() {
 
 /* ================= CART ================= */
 async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
+    cartId = (await (await fetch("/cart/create", { method: "POST" })).json()).cart_id;
 }
 
 async function addToCart(menuId) {
@@ -222,28 +234,23 @@ async function removeFromCart(menuId) {
 }
 
 async function loadCart() {
-    if (!cartId) return;
-
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
-
-    const cartDiv = document.getElementById("cartItems");
-    cartDiv.innerHTML = "";
+    const div = document.getElementById("cartItems");
+    div.innerHTML = "";
     currentTotal = data.total;
 
     data.items.forEach(i => {
-        const row = document.createElement("div");
-        row.className = "cart-item";
-        row.innerHTML = `
-            <span>${i.name}</span>
-            <span>
-                <button onclick="removeFromCart(${i.menu_id})">-</button>
-                ${i.quantity}
-                <button onclick="addToCart(${i.menu_id})">+</button>
-            </span>
-            <span>₹${i.subtotal}</span>
-        `;
-        cartDiv.appendChild(row);
+        div.innerHTML += `
+            <div class="cart-item">
+                <span>${i.name}</span>
+                <span>
+                    <button onclick="removeFromCart(${i.menu_id})">-</button>
+                    ${i.quantity}
+                    <button onclick="addToCart(${i.menu_id})">+</button>
+                </span>
+                <span>₹${i.subtotal}</span>
+            </div>`;
     });
 
     document.getElementById("subTotal").innerText = currentTotal;
@@ -252,17 +259,15 @@ async function loadCart() {
 
 /* ================= TOTAL ================= */
 function recalculateTotal() {
-    const discountValue =
-        Number(document.getElementById("discount").value || 0);
-
+    const discount = Number(document.getElementById("discount").value || 0);
     document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discountValue, 0);
+        Math.max(currentTotal - discount, 0);
 }
 
 /* ================= HOLD ================= */
 async function holdBill() {
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
 
     if (!name) return alert("Customer name required");
     if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
@@ -281,8 +286,7 @@ async function holdBill() {
 
 /* ================= HOLDS ================= */
 async function loadHolds() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
+    const holds = await (await fetch("/cart/holds")).json();
     const div = document.getElementById("holdList");
     div.innerHTML = holds.length ? "" : "No holds";
 
@@ -293,8 +297,7 @@ async function loadHolds() {
 
 /* ================= RESUME ================= */
 async function showResume() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
+    const holds = await (await fetch("/cart/holds")).json();
     const list = document.getElementById("resumeList");
     list.innerHTML = "";
 
@@ -318,10 +321,10 @@ async function resumeHold(id) {
 
 /* ================= PAY ================= */
 async function payNow() {
-    const payment = document.getElementById("paymentMode").value;
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
-    const txn = document.getElementById("transactionId").value.trim();
+    const payment = paymentMode.value;
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
+    const txn = transactionId.value.trim();
 
     if (!payment) return alert("Select payment mode");
     if (!name) return alert("Customer name required");
@@ -349,11 +352,11 @@ async function payNow() {
 
 /* ================= UTIL ================= */
 function resetFields() {
-    document.getElementById("customerName").value = "";
-    document.getElementById("mobileNumber").value = "";
-    document.getElementById("transactionId").value = "";
-    document.getElementById("discount").value = "";
-    document.getElementById("paymentMode").value = "";
+    customerName.value = "";
+    mobileNumber.value = "";
+    transactionId.value = "";
+    discount.value = "";
+    paymentMode.value = "";
 }
 </script>
 
