@@ -19,14 +19,13 @@
 
         header button {
             margin-left: 8px;
-            padding: 6px 12px;
+            padding: 6px 10px;
             border: none;
             cursor: pointer;
             border-radius: 4px;
         }
 
         .btn-admin { background: #0d47a1; color: white; }
-        .btn-staff { background: #1565c0; color: white; }
         .btn-logout { background: #444; color: white; }
 
         .container { display: flex; height: calc(100vh - 50px); }
@@ -97,9 +96,9 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-
-    <!-- HEADER BUTTONS -->
-    <div id="headerButtons"></div>
+    <div id="headerButtons">
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
 </header>
 
 <div class="container">
@@ -154,33 +153,29 @@
 </div>
 
 <script>
-/* ================= HEADER ROLE BUTTONS ================= */
+/* ================= HEADER ================= */
 const role = localStorage.getItem("role");
-const header = document.getElementById("headerButtons");
 
 if (role === "admin") {
-    header.innerHTML = `
-        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    `;
-} else {
-    header.innerHTML = `
-        <button class="btn-staff" onclick="goStaffDashboard()">My Dashboard</button>
+    document.getElementById("headerButtons").innerHTML = `
+        <button class="btn-admin" onclick="goReports()">Reports</button>
+        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
 
-function goAdminReports() {
-    location.href = "/ui/admin-reports";
+/* NAVIGATION */
+function goReports() {
+    window.location.href = "/ui/admin-reports";
 }
 
-function goStaffDashboard() {
-    location.href = "/ui/staff-dashboard";
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
 }
 
 function logout() {
     localStorage.clear();
-    location.href = "/ui/login";
+    window.location.href = "/ui/login";
 }
 
 /* ================= STATE ================= */
@@ -235,6 +230,8 @@ async function removeFromCart(menuId) {
 }
 
 async function loadCart() {
+    if (!cartId) return;
+
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
@@ -267,7 +264,7 @@ function recalculateTotal() {
         Math.max(currentTotal - discount, 0);
 }
 
-/* ================= HOLD / RESUME ================= */
+/* ================= HOLD ================= */
 async function holdBill() {
     const name = customerName.value.trim();
     const mobile = mobileNumber.value.trim();
@@ -287,24 +284,34 @@ async function holdBill() {
     loadHolds();
 }
 
+/* ================= HOLDS ================= */
 async function loadHolds() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
-    holdList.innerHTML = holds.length ? "" : "No holds";
-    holds.forEach(h => holdList.innerHTML += `<p>${h.customer_name}</p>`);
+    const div = document.getElementById("holdList");
+    div.innerHTML = holds.length ? "" : "No holds";
+
+    holds.forEach(h => {
+        div.innerHTML += `<p>${h.customer_name}</p>`;
+    });
 }
 
+/* ================= RESUME ================= */
 async function showResume() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
-    resumeList.innerHTML = "";
-    holds.forEach(h => resumeList.innerHTML +=
-        `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`);
-    resumeModal.style.display = "block";
+    const list = document.getElementById("resumeList");
+    list.innerHTML = "";
+
+    holds.forEach(h => {
+        list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
+    });
+
+    document.getElementById("resumeModal").style.display = "block";
 }
 
 function closeResume() {
-    resumeModal.style.display = "none";
+    document.getElementById("resumeModal").style.display = "none";
 }
 
 async function resumeHold(id) {
