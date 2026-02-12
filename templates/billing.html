@@ -6,7 +6,6 @@
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-
         header {
             background: #1e88e5;
             color: white;
@@ -16,7 +15,6 @@
             align-items: center;
             font-size: 18px;
         }
-
         header button {
             margin-left: 8px;
             padding: 6px 10px;
@@ -24,27 +22,16 @@
             cursor: pointer;
             border-radius: 4px;
         }
-
         .btn-admin { background: #0d47a1; color: white; }
         .btn-logout { background: #444; color: white; }
 
         .container { display: flex; height: calc(100vh - 50px); }
-
-        .menu, .cart, .holds {
-            padding: 10px;
-            overflow-y: auto;
-        }
-
+        .menu, .cart, .holds { padding: 10px; overflow-y: auto; }
         .menu { width: 33%; background: white; }
         .cart { width: 34%; background: #fafafa; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
         .holds { width: 33%; background: white; }
 
-        .menu button {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
+        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 16px; }
 
         .cart-item {
             display: flex;
@@ -52,10 +39,7 @@
             align-items: center;
             margin-bottom: 8px;
         }
-
-        .cart-item button {
-            padding: 4px 8px;
-        }
+        .cart-item button { padding: 4px 8px; }
 
         input, select {
             width: 100%;
@@ -64,11 +48,7 @@
             font-size: 15px;
         }
 
-        .total {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 6px 0;
-        }
+        .total { font-size: 18px; font-weight: bold; margin: 6px 0; }
 
         .btn-hold { background: orange; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
         .btn-resume { background: #555; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
@@ -86,11 +66,7 @@
             box-shadow: 0 0 10px rgba(0,0,0,.4);
             z-index: 1000;
         }
-
-        #resumeModal button {
-            width: 100%;
-            margin-bottom: 6px;
-        }
+        #resumeModal button { width: 100%; margin-bottom: 6px; }
     </style>
 </head>
 
@@ -105,13 +81,11 @@
 
 <div class="container">
 
-    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons">Loading...</div>
     </div>
 
-    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
 
@@ -129,7 +103,7 @@
 
         <div id="cartItems"></div>
 
-        <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
+        <input id="discount" type="number" min="0" placeholder="Discount ₹">
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
@@ -139,15 +113,12 @@
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
-    <!-- HOLDS -->
     <div class="holds">
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
     </div>
-
 </div>
 
-<!-- RESUME MODAL -->
 <div id="resumeModal">
     <h3>Select Hold Bill</h3>
     <div id="resumeList"></div>
@@ -155,23 +126,40 @@
 </div>
 
 <script>
+/* ===== SAFE DOM BINDS (FIX) ===== */
+const customerName = document.getElementById("customerName");
+const mobileNumber = document.getElementById("mobileNumber");
+const transactionId = document.getElementById("transactionId");
+const paymentMode = document.getElementById("paymentMode");
+const discountInput = document.getElementById("discount");
+const subTotal = document.getElementById("subTotal");
+const finalTotal = document.getElementById("finalTotal");
+const holdList = document.getElementById("holdList");
+const resumeList = document.getElementById("resumeList");
+const resumeModal = document.getElementById("resumeModal");
+
 let cartId = null;
 let currentTotal = 0;
 
-/* INIT */
-(async function () {
+/* ===== ADMIN HEADER ===== */
+if (localStorage.getItem("role") === "admin") {
+    document.getElementById("headerButtons").innerHTML = `
+        <button class="btn-admin" onclick="goReports()">Reports</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    `;
+}
+function goReports(){ location.href="/ui/admin-reports"; }
+function logout(){ localStorage.clear(); location.href="/ui/login"; }
+
+/* ===== INIT ===== */
+window.onload = async () => {
     await createCart();
     await loadMenu();
     await loadCart();
     await loadHolds();
-})();
+};
 
-/* CART */
-async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
-}
-
+/* ===== MENU ===== */
 async function loadMenu() {
     const res = await fetch("/menu");
     const menu = await res.json();
@@ -179,41 +167,31 @@ async function loadMenu() {
     div.innerHTML = "";
     menu.forEach(item => {
         const btn = document.createElement("button");
-        btn.innerText = `${item.name} - ₹${item.price}`;
+        btn.textContent = `${item.name} - ₹${item.price}`;
         btn.onclick = () => addToCart(item.id);
         div.appendChild(btn);
     });
 }
 
-async function addToCart(menuId) {
-    await fetch("/cart/add", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
-    });
+/* ===== CART ===== */
+async function createCart(){
+    cartId = (await (await fetch("/cart/create",{method:"POST"})).json()).cart_id;
+}
+async function addToCart(id){
+    await fetch("/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
     loadCart();
 }
-
-async function removeFromCart(menuId) {
-    await fetch("/cart/remove", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
-    });
+async function removeFromCart(id){
+    await fetch("/cart/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
     loadCart();
 }
-
-async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
-    const data = await res.json();
-    const div = document.getElementById("cartItems");
-    div.innerHTML = "";
-    currentTotal = data.total;
-
-    data.items.forEach(i => {
-        const row = document.createElement("div");
-        row.className = "cart-item";
-        row.innerHTML = `
+async function loadCart(){
+    const data = await (await fetch(`/cart/${cartId}`)).json();
+    cartItems.innerHTML="";
+    currentTotal=data.total;
+    data.items.forEach(i=>{
+        cartItems.innerHTML+=`
+        <div class="cart-item">
             <span>${i.name}</span>
             <span>
                 <button onclick="removeFromCart(${i.menu_id})">-</button>
@@ -221,130 +199,58 @@ async function loadCart() {
                 <button onclick="addToCart(${i.menu_id})">+</button>
             </span>
             <span>₹${i.subtotal}</span>
-        `;
-        div.appendChild(row);
+        </div>`;
     });
-
-    document.getElementById("subTotal").innerText = currentTotal;
-    recalculateTotal();
+    subTotal.innerText=currentTotal;
+    finalTotal.innerText=Math.max(currentTotal-(+discountInput.value||0),0);
 }
 
-/* DISCOUNT */
-function recalculateTotal() {
-    const discount = Number(document.getElementById("discount").value || 0);
-    document.getElementById("finalTotal").innerText = Math.max(currentTotal - discount, 0);
-}
-
-/* HOLD */
-async function holdBill() {
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
-
-    if (!name) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
-
-    const res = await fetch("/cart/hold", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, customer_name: name })
-    });
-
-    cartId = (await res.json()).new_cart_id;
+/* ===== HOLD / RESUME ===== */
+async function holdBill(){
+    if(!customerName.value) return alert("Customer name required");
+    const r=await fetch("/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,customer_name:customerName.value})});
+    cartId=(await r.json()).new_cart_id;
     resetFields();
-    loadCart();
-    loadHolds();
+    loadCart();loadHolds();
+}
+async function loadHolds(){
+    const holds=await (await fetch("/cart/holds")).json();
+    holdList.innerHTML=holds.length?"":"No holds";
+    holds.forEach(h=>holdList.innerHTML+=`<p>${h.customer_name}</p>`);
+}
+function showResume(){ resumeModal.style.display="block"; loadResume(); }
+function closeResume(){ resumeModal.style.display="none"; }
+async function loadResume(){
+    const holds=await (await fetch("/cart/holds")).json();
+    resumeList.innerHTML="";
+    holds.forEach(h=>resumeList.innerHTML+=`<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`);
+}
+async function resumeHold(id){
+    await fetch(`/cart/resume/${id}`,{method:"POST"});
+    cartId=id;closeResume();loadCart();
 }
 
-/* HOLDS */
-async function loadHolds() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    const div = document.getElementById("holdList");
-    div.innerHTML = holds.length ? "" : "No holds";
+/* ===== PAY ===== */
+async function payNow(){
+    if(!paymentMode.value) return alert("Select payment mode");
+    if(!customerName.value) return alert("Customer name required");
+    if(!/^\d{10}$/.test(mobileNumber.value)) return alert("Valid 10-digit mobile required");
+    if(paymentMode.value!=="CASH"&&!transactionId.value) return alert("Transaction ID required");
 
-    holds.forEach(h => {
-        const p = document.createElement("p");
-        p.innerText = h.customer_name;
-        div.appendChild(p);
-    });
+    const r=await fetch("/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        cart_id:cartId,payment_method:paymentMode.value,
+        customer_name:customerName.value,customer_phone:mobileNumber.value,
+        transaction_id:transactionId.value
+    })});
+    alert("Paid ₹"+(await r.json()).total);
+    resetFields();createCart();loadCart();loadHolds();
 }
 
-/* RESUME */
-async function showResume() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    const list = document.getElementById("resumeList");
-    list.innerHTML = "";
-
-    holds.forEach(h => {
-        const btn = document.createElement("button");
-        btn.innerText = h.customer_name;
-        btn.onclick = () => resumeHold(h.id);
-        list.appendChild(btn);
-    });
-
-    document.getElementById("resumeModal").style.display = "block";
-}
-
-function closeResume() {
-    document.getElementById("resumeModal").style.display = "none";
-}
-
-async function resumeHold(id) {
-    await fetch(`/cart/resume/${id}`, { method: "POST" });
-    cartId = id;
-    closeResume();
-    loadCart();
-}
-
-/* PAY — FULL VALIDATION */
-async function payNow() {
-    const payment = paymentMode.value;
-    const name = customerName.value.trim();
-    const mobile = mobileNumber.value.trim();
-    const txn = transactionId.value.trim();
-    const discount = Number(document.getElementById("discount").value || 0);
-
-    if (!payment) return alert("Select payment mode");
-    if (!name) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
-    if (payment !== "CASH" && !txn) return alert("Transaction ID required");
-
-    const res = await fetch("/checkout", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: payment,
-            customer_name: name,
-            customer_phone: mobile,
-            transaction_id: txn,
-            discount: discount
-        })
-    });
-
-    const data = await res.json();
-    alert("Paid ₹" + data.total);
-    resetFields();
-    await createCart();
-    loadCart();
-    loadHolds();
-}
-
-/* UTIL */
-function resetFields() {
-    customerName.value = "";
-    mobileNumber.value = "";
-    transactionId.value = "";
-    discount.value = "";
-    paymentMode.value = "";
-}
-
-function logout() {
-    localStorage.clear();
-    window.location.href = "/ui/login";
+/* ===== UTIL ===== */
+function resetFields(){
+    customerName.value=mobileNumber.value=transactionId.value=discountInput.value="";
+    paymentMode.value="";
 }
 </script>
-
 </body>
 </html>
