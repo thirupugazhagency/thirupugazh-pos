@@ -358,6 +358,14 @@ def init_db():
                 role="admin",
                 status="ACTIVE"
             ))
+
+        if Menu.query.count() == 0:
+            db.session.add_all([
+                Menu(name="Full Set", price=580),
+                Menu(name="Half Set", price=300),
+                Menu(name="Three Tickets", price=150)
+            ])
+
             db.session.add(User(
                 username="staff1",
                 password=generate_password_hash("1234"),
