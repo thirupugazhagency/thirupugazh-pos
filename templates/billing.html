@@ -19,13 +19,14 @@
 
         header button {
             margin-left: 8px;
-            padding: 6px 10px;
+            padding: 6px 12px;
             border: none;
             cursor: pointer;
             border-radius: 4px;
         }
 
         .btn-admin { background: #0d47a1; color: white; }
+        .btn-staff { background: #1565c0; color: white; }
         .btn-logout { background: #444; color: white; }
 
         .container { display: flex; height: calc(100vh - 50px); }
@@ -85,7 +86,10 @@
             z-index: 1000;
         }
 
-        #resumeModal button { width: 100%; margin-bottom: 6px; }
+        #resumeModal button {
+            width: 100%;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 
@@ -93,9 +97,9 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-    <div id="headerButtons">
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    </div>
+
+    <!-- HEADER BUTTONS -->
+    <div id="headerButtons"></div>
 </header>
 
 <div class="container">
@@ -139,6 +143,7 @@
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
     </div>
+
 </div>
 
 <!-- RESUME MODAL -->
@@ -149,27 +154,33 @@
 </div>
 
 <script>
-/* ================= HEADER (STEP 2 – FIXED) ================= */
-if (localStorage.getItem("role") === "admin") {
-    document.getElementById("headerButtons").innerHTML = `
-        <button class="btn-admin" onclick="goReports()">Admin Reports</button>
-        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
+/* ================= HEADER ROLE BUTTONS ================= */
+const role = localStorage.getItem("role");
+const header = document.getElementById("headerButtons");
+
+if (role === "admin") {
+    header.innerHTML = `
+        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    `;
+} else {
+    header.innerHTML = `
+        <button class="btn-staff" onclick="goStaffDashboard()">My Dashboard</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
 
-function goReports() {
-    window.location.href = "/ui/admin-reports";
+function goAdminReports() {
+    location.href = "/ui/admin-reports";
 }
 
-/* ✅ STEP ADDED (CORRECT PLACE) */
-function goChangePassword() {
-    window.location.href = "/ui/change-password";
+function goStaffDashboard() {
+    location.href = "/ui/staff-dashboard";
 }
 
 function logout() {
     localStorage.clear();
-    window.location.href = "/ui/login";
+    location.href = "/ui/login";
 }
 
 /* ================= STATE ================= */
@@ -224,7 +235,6 @@ async function removeFromCart(menuId) {
 }
 
 async function loadCart() {
-    if (!cartId) return;
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
@@ -242,7 +252,8 @@ async function loadCart() {
                     <button onclick="addToCart(${i.menu_id})">+</button>
                 </span>
                 <span>₹${i.subtotal}</span>
-            </div>`;
+            </div>
+        `;
     });
 
     document.getElementById("subTotal").innerText = currentTotal;
@@ -251,9 +262,9 @@ async function loadCart() {
 
 /* ================= TOTAL ================= */
 function recalculateTotal() {
-    const discountValue = Number(document.getElementById("discount").value || 0);
+    const discount = Number(document.getElementById("discount").value || 0);
     document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discountValue, 0);
+        Math.max(currentTotal - discount, 0);
 }
 
 /* ================= HOLD / RESUME ================= */
@@ -279,22 +290,16 @@ async function holdBill() {
 async function loadHolds() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
-    const div = document.getElementById("holdList");
-    div.innerHTML = holds.length ? "" : "No holds";
-
-    holds.forEach(h => div.innerHTML += `<p>${h.customer_name}</p>`);
+    holdList.innerHTML = holds.length ? "" : "No holds";
+    holds.forEach(h => holdList.innerHTML += `<p>${h.customer_name}</p>`);
 }
 
 async function showResume() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
-    const list = document.getElementById("resumeList");
-    list.innerHTML = "";
-
-    holds.forEach(h => {
-        list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
-    });
-
+    resumeList.innerHTML = "";
+    holds.forEach(h => resumeList.innerHTML +=
+        `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`);
     resumeModal.style.display = "block";
 }
 
