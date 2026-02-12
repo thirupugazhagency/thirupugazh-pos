@@ -1,12 +1,8 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import os, io
-
-import pandas as pd
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+import os
 
 app = Flask(__name__)
 
@@ -55,13 +51,11 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
-
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
     staff_id = db.Column(db.Integer)
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -107,10 +101,9 @@ def ui_admin_reports():
 def ui_admin_staff():
     return render_template("admin_staff.html")
 
-# ✅ STEP 1 — CHANGE PASSWORD UI (ADDED)
-@app.route("/ui/change-password")
-def ui_change_password():
-    return render_template("change_password.html")
+@app.route("/ui/staff-dashboard")
+def ui_staff_dashboard():
+    return render_template("staff_dashboard.html")
 
 # ==================================================
 # AUTH
@@ -132,26 +125,6 @@ def login():
         })
 
     return jsonify({"status": "error"}), 401
-
-# ✅ STEP 2 — CHANGE PASSWORD API (ADDED)
-@app.route("/change-password", methods=["POST"])
-def change_password():
-    data = request.json
-    user_id = data.get("user_id")
-    old_password = data.get("old_password")
-    new_password = data.get("new_password")
-
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
-    if not check_password_hash(user.password, old_password):
-        return jsonify({"error": "Old password incorrect"}), 400
-
-    user.password = generate_password_hash(new_password)
-    db.session.commit()
-
-    return jsonify({"status": "ok"})
 
 # ==================================================
 # MENU
@@ -186,7 +159,9 @@ def add_to_cart():
         item.quantity += 1
     else:
         db.session.add(CartItem(
-            cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1
+            cart_id=d["cart_id"],
+            menu_id=d["menu_id"],
+            quantity=1
         ))
 
     db.session.commit()
@@ -270,14 +245,7 @@ def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
     cart.status = "ACTIVE"
     db.session.commit()
-
-    return jsonify({
-        "status": "ok",
-        "customer_name": cart.customer_name,
-        "customer_phone": cart.customer_phone,
-        "transaction_id": cart.transaction_id,
-        "discount": cart.discount
-    })
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # CHECKOUT
@@ -287,6 +255,7 @@ def resume_cart(cart_id):
 def checkout():
     d = request.json
     items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
+
     gross = sum(i.menu.price * i.quantity for i in items)
     discount = d.get("discount", 0)
     final_total = max(gross - discount, 0)
@@ -309,6 +278,80 @@ def checkout():
     return jsonify({"total": final_total})
 
 # ==================================================
+# STAFF DAILY REPORT (EXISTING)
+# ==================================================
+
+@app.route("/staff/report/daily")
+def staff_daily_report():
+    staff_id = request.args.get("staff_id")
+    business_date = get_business_date()
+
+    sales = Sale.query.filter_by(
+        staff_id=int(staff_id),
+        business_date=business_date
+    ).all()
+
+    return jsonify({
+        "business_date": str(business_date),
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales)
+    })
+
+# ==================================================
+# STAFF PERFORMANCE DASHBOARD (NEW)
+# ==================================================
+
+@app.route("/staff/dashboard/daily")
+def staff_dashboard_daily():
+    staff_id = request.args.get("staff_id")
+    business_date = get_business_date()
+
+    sales = Sale.query.filter_by(
+        staff_id=int(staff_id),
+        business_date=business_date
+    ).all()
+
+    payment_summary = {"CASH":0,"UPI":0,"ONLINE":0,"MIXED":0}
+    for s in sales:
+        if s.payment_method in payment_summary:
+            payment_summary[s.payment_method] += s.total
+
+    return jsonify({
+        "business_date": str(business_date),
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales),
+        "payment_summary": payment_summary
+    })
+
+# ==================================================
+# ADMIN STAFF MANAGEMENT
+# ==================================================
+
+@app.route("/admin/staff/list")
+def admin_staff_list():
+    staff = User.query.filter_by(role="staff").all()
+    return jsonify([
+        {"id": s.id, "username": s.username, "status": s.status}
+        for s in staff
+    ])
+
+@app.route("/admin/staff/toggle", methods=["POST"])
+def admin_staff_toggle():
+    data = request.json
+    staff = User.query.get(data.get("staff_id"))
+    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
+    db.session.commit()
+    return jsonify({"status": staff.status})
+
+@app.route("/admin/staff/reset-password", methods=["POST"])
+def admin_staff_reset_password():
+    data = request.json
+    staff = User.query.get(data.get("staff_id"))
+    staff.password = generate_password_hash(data.get("new_password"))
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+# ==================================================
 # INIT DB (SAFE)
 # ==================================================
 
@@ -323,6 +366,12 @@ def init_db():
                 role="admin",
                 status="ACTIVE"
             ))
+            db.session.add(User(
+                username="staff1",
+                password=generate_password_hash("1234"),
+                role="staff",
+                status="ACTIVE"
+            ))
 
         if Menu.query.count() == 0:
             db.session.add_all([
@@ -330,13 +379,6 @@ def init_db():
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
             ])
-
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff",
-                status="ACTIVE"
-            ))
 
         db.session.commit()
 
