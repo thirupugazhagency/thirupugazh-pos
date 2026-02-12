@@ -1,8 +1,12 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-import os
+import os, io
+
+import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 
@@ -101,10 +105,6 @@ def ui_admin_reports():
 def ui_admin_staff():
     return render_template("admin_staff.html")
 
-@app.route("/ui/staff-dashboard")
-def ui_staff_dashboard():
-    return render_template("staff_dashboard.html")
-
 # ==================================================
 # AUTH
 # ==================================================
@@ -159,9 +159,7 @@ def add_to_cart():
         item.quantity += 1
     else:
         db.session.add(CartItem(
-            cart_id=d["cart_id"],
-            menu_id=d["menu_id"],
-            quantity=1
+            cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1
         ))
 
     db.session.commit()
@@ -245,7 +243,14 @@ def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
     cart.status = "ACTIVE"
     db.session.commit()
-    return jsonify({"status": "ok"})
+
+    return jsonify({
+        "status": "ok",
+        "customer_name": cart.customer_name,
+        "customer_phone": cart.customer_phone,
+        "transaction_id": cart.transaction_id,
+        "discount": cart.discount
+    })
 
 # ==================================================
 # CHECKOUT
@@ -255,7 +260,6 @@ def resume_cart(cart_id):
 def checkout():
     d = request.json
     items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
-
     gross = sum(i.menu.price * i.quantity for i in items)
     discount = d.get("discount", 0)
     final_total = max(gross - discount, 0)
@@ -278,7 +282,7 @@ def checkout():
     return jsonify({"total": final_total})
 
 # ==================================================
-# STAFF DAILY REPORT (EXISTING)
+# STAFF DAILY REPORT
 # ==================================================
 
 @app.route("/staff/report/daily")
@@ -298,61 +302,78 @@ def staff_daily_report():
     })
 
 # ==================================================
-# STAFF PERFORMANCE DASHBOARD (NEW)
+# ✅ ADMIN DAILY REPORT — EXCEL
 # ==================================================
 
-@app.route("/staff/dashboard/daily")
-def staff_dashboard_daily():
-    staff_id = request.args.get("staff_id")
-    business_date = get_business_date()
+@app.route("/admin/report/daily/excel")
+def admin_daily_report_excel():
+    date_str = request.args.get("date")
+    if not date_str:
+        return "Date required", 400
 
-    sales = Sale.query.filter_by(
-        staff_id=int(staff_id),
-        business_date=business_date
-    ).all()
+    report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
 
-    payment_summary = {"CASH":0,"UPI":0,"ONLINE":0,"MIXED":0}
+    sales = Sale.query.filter_by(business_date=report_date).all()
+
+    data = [{
+        "Bill ID": s.id,
+        "Customer": s.customer_name,
+        "Mobile": s.customer_phone,
+        "Amount": s.total,
+        "Payment": s.payment_method
+    } for s in sales]
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        download_name=f"daily_report_{report_date}.xlsx",
+        as_attachment=True
+    )
+
+# ==================================================
+# ✅ ADMIN DAILY REPORT — PDF
+# ==================================================
+
+@app.route("/admin/report/daily/pdf")
+def admin_daily_report_pdf():
+    date_str = request.args.get("date")
+    if not date_str:
+        return "Date required", 400
+
+    report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    sales = Sale.query.filter_by(business_date=report_date).all()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(50, y, f"Daily Report - {report_date}")
+    y -= 30
+
     for s in sales:
-        if s.payment_method in payment_summary:
-            payment_summary[s.payment_method] += s.total
+        pdf.drawString(50, y, f"{s.customer_name} | {s.customer_phone} | ₹{s.total}")
+        y -= 20
+        if y < 50:
+            pdf.showPage()
+            y = 800
 
-    return jsonify({
-        "business_date": str(business_date),
-        "bill_count": len(sales),
-        "total_amount": sum(s.total for s in sales),
-        "payment_summary": payment_summary
-    })
+    pdf.save()
+    buffer.seek(0)
 
-# ==================================================
-# ADMIN STAFF MANAGEMENT
-# ==================================================
-
-@app.route("/admin/staff/list")
-def admin_staff_list():
-    staff = User.query.filter_by(role="staff").all()
-    return jsonify([
-        {"id": s.id, "username": s.username, "status": s.status}
-        for s in staff
-    ])
-
-@app.route("/admin/staff/toggle", methods=["POST"])
-def admin_staff_toggle():
-    data = request.json
-    staff = User.query.get(data.get("staff_id"))
-    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
-    db.session.commit()
-    return jsonify({"status": staff.status})
-
-@app.route("/admin/staff/reset-password", methods=["POST"])
-def admin_staff_reset_password():
-    data = request.json
-    staff = User.query.get(data.get("staff_id"))
-    staff.password = generate_password_hash(data.get("new_password"))
-    db.session.commit()
-    return jsonify({"status": "ok"})
+    return send_file(
+        buffer,
+        download_name=f"daily_report_{report_date}.pdf",
+        as_attachment=True
+    )
 
 # ==================================================
-# INIT DB (SAFE)
+# INIT DB
 # ==================================================
 
 def init_db():
@@ -364,12 +385,6 @@ def init_db():
                 username="admin",
                 password=generate_password_hash("admin123"),
                 role="admin",
-                status="ACTIVE"
-            ))
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff",
                 status="ACTIVE"
             ))
 
