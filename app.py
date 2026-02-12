@@ -107,10 +107,10 @@ def ui_admin_reports():
 def ui_admin_staff():
     return render_template("admin_staff.html")
 
-# ✅ STEP 2 — NEW STAFF PERFORMANCE PAGE (ADD ONLY)
-@app.route("/ui/staff-performance")
-def ui_staff_performance():
-    return render_template("staff_performance.html")
+# ✅ STEP 1 — CHANGE PASSWORD UI (ADDED)
+@app.route("/ui/change-password")
+def ui_change_password():
+    return render_template("change_password.html")
 
 # ==================================================
 # AUTH
@@ -132,6 +132,26 @@ def login():
         })
 
     return jsonify({"status": "error"}), 401
+
+# ✅ STEP 2 — CHANGE PASSWORD API (ADDED)
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    data = request.json
+    user_id = data.get("user_id")
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if not check_password_hash(user.password, old_password):
+        return jsonify({"error": "Old password incorrect"}), 400
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # MENU
@@ -289,65 +309,7 @@ def checkout():
     return jsonify({"total": final_total})
 
 # ==================================================
-# ✅ STEP 1 — STAFF DAILY PERFORMANCE API (KEEP)
-# ==================================================
-
-@app.route("/staff/report/daily")
-def staff_daily_report():
-    staff_id = request.args.get("staff_id")
-    business_date = get_business_date()
-
-    sales = Sale.query.filter_by(
-        staff_id=int(staff_id),
-        business_date=business_date
-    ).all()
-
-    return jsonify({
-        "business_date": str(business_date),
-        "bill_count": len(sales),
-        "total_amount": sum(s.total for s in sales)
-    })
-
-# ==================================================
-# ADMIN — STAFF MANAGEMENT
-# ==================================================
-
-@app.route("/admin/staff/list")
-def admin_staff_list():
-    staff = User.query.filter_by(role="staff").all()
-    return jsonify([
-        {"id": s.id, "username": s.username, "status": s.status}
-        for s in staff
-    ])
-
-@app.route("/admin/staff/toggle", methods=["POST"])
-def admin_staff_toggle():
-    data = request.json
-    staff = User.query.get(data.get("staff_id"))
-
-    if not staff or staff.role != "staff":
-        return jsonify({"error": "Invalid staff"}), 400
-
-    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
-    db.session.commit()
-
-    return jsonify({"status": "ok", "new_status": staff.status})
-
-@app.route("/admin/staff/reset-password", methods=["POST"])
-def admin_staff_reset_password():
-    data = request.json
-    staff = User.query.get(data.get("staff_id"))
-
-    if not staff or staff.role != "staff":
-        return jsonify({"error": "Invalid staff"}), 400
-
-    staff.password = generate_password_hash(data.get("new_password"))
-    db.session.commit()
-
-    return jsonify({"status": "ok"})
-
-# ==================================================
-# INIT DB
+# INIT DB (SAFE)
 # ==================================================
 
 def init_db():
@@ -361,12 +323,6 @@ def init_db():
                 role="admin",
                 status="ACTIVE"
             ))
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff",
-                status="ACTIVE"
-            ))
 
         if Menu.query.count() == 0:
             db.session.add_all([
@@ -374,6 +330,13 @@ def init_db():
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
             ])
+
+            db.session.add(User(
+                username="staff1",
+                password=generate_password_hash("1234"),
+                role="staff",
+                status="ACTIVE"
+            ))
 
         db.session.commit()
 
