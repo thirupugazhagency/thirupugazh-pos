@@ -85,10 +85,7 @@
             z-index: 1000;
         }
 
-        #resumeModal button {
-            width: 100%;
-            margin-bottom: 6px;
-        }
+        #resumeModal button { width: 100%; margin-bottom: 6px; }
     </style>
 </head>
 
@@ -96,7 +93,9 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-    <div id="headerButtons"></div>
+    <div id="headerButtons">
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
 </header>
 
 <div class="container">
@@ -140,7 +139,6 @@
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
     </div>
-
 </div>
 
 <!-- RESUME MODAL -->
@@ -151,31 +149,22 @@
 </div>
 
 <script>
-/* ================= HEADER (ADMIN + STAFF) ================= */
-const role = localStorage.getItem("role");
-const userId = localStorage.getItem("user_id");
-const header = document.getElementById("headerButtons");
-
-if (role === "admin") {
-    header.innerHTML = `
-        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+/* ================= HEADER (STEP 2 – FIXED) ================= */
+if (localStorage.getItem("role") === "admin") {
+    document.getElementById("headerButtons").innerHTML = `
+        <button class="btn-admin" onclick="goReports()">Admin Reports</button>
+        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
 
-if (role === "staff") {
-    header.innerHTML = `
-        <button class="btn-admin" onclick="goStaffReport()">My Daily Report</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    `;
-}
-
-function goAdminReports() {
+function goReports() {
     window.location.href = "/ui/admin-reports";
 }
 
-function goStaffReport() {
-    window.open(`/staff/report/daily?staff_id=${userId}`, "_blank");
+/* ✅ STEP ADDED (CORRECT PLACE) */
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
 }
 
 function logout() {
@@ -212,7 +201,8 @@ async function loadMenu() {
 
 /* ================= CART ================= */
 async function createCart() {
-    cartId = (await (await fetch("/cart/create", { method: "POST" })).json()).cart_id;
+    const res = await fetch("/cart/create", { method: "POST" });
+    cartId = (await res.json()).cart_id;
 }
 
 async function addToCart(menuId) {
@@ -234,14 +224,16 @@ async function removeFromCart(menuId) {
 }
 
 async function loadCart() {
+    if (!cartId) return;
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
-    const div = document.getElementById("cartItems");
-    div.innerHTML = "";
+
+    const cartDiv = document.getElementById("cartItems");
+    cartDiv.innerHTML = "";
     currentTotal = data.total;
 
     data.items.forEach(i => {
-        div.innerHTML += `
+        cartDiv.innerHTML += `
             <div class="cart-item">
                 <span>${i.name}</span>
                 <span>
@@ -259,12 +251,12 @@ async function loadCart() {
 
 /* ================= TOTAL ================= */
 function recalculateTotal() {
-    const discount = Number(document.getElementById("discount").value || 0);
+    const discountValue = Number(document.getElementById("discount").value || 0);
     document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discount, 0);
+        Math.max(currentTotal - discountValue, 0);
 }
 
-/* ================= HOLD ================= */
+/* ================= HOLD / RESUME ================= */
 async function holdBill() {
     const name = customerName.value.trim();
     const mobile = mobileNumber.value.trim();
@@ -284,20 +276,18 @@ async function holdBill() {
     loadHolds();
 }
 
-/* ================= HOLDS ================= */
 async function loadHolds() {
-    const holds = await (await fetch("/cart/holds")).json();
+    const res = await fetch("/cart/holds");
+    const holds = await res.json();
     const div = document.getElementById("holdList");
     div.innerHTML = holds.length ? "" : "No holds";
 
-    holds.forEach(h => {
-        div.innerHTML += `<p>${h.customer_name}</p>`;
-    });
+    holds.forEach(h => div.innerHTML += `<p>${h.customer_name}</p>`);
 }
 
-/* ================= RESUME ================= */
 async function showResume() {
-    const holds = await (await fetch("/cart/holds")).json();
+    const res = await fetch("/cart/holds");
+    const holds = await res.json();
     const list = document.getElementById("resumeList");
     list.innerHTML = "";
 
@@ -305,11 +295,11 @@ async function showResume() {
         list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
     });
 
-    document.getElementById("resumeModal").style.display = "block";
+    resumeModal.style.display = "block";
 }
 
 function closeResume() {
-    document.getElementById("resumeModal").style.display = "none";
+    resumeModal.style.display = "none";
 }
 
 async function resumeHold(id) {
