@@ -53,9 +53,7 @@
             margin-bottom: 8px;
         }
 
-        .cart-item button {
-            padding: 4px 8px;
-        }
+        .cart-item button { padding: 4px 8px; }
 
         input, select {
             width: 100%;
@@ -129,7 +127,7 @@
 
         <div id="cartItems"></div>
 
-        <input id="discount" type="number" min="0" placeholder="Discount ₹">
+        <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
@@ -155,39 +153,28 @@
 </div>
 
 <script>
-/* ===== SAFE DOM BINDS ===== */
-const customerName = document.getElementById("customerName");
-const mobileNumber = document.getElementById("mobileNumber");
-const transactionId = document.getElementById("transactionId");
-const paymentMode = document.getElementById("paymentMode");
-const discountInput = document.getElementById("discount");
-const subTotal = document.getElementById("subTotal");
-const finalTotal = document.getElementById("finalTotal");
-const cartItems = document.getElementById("cartItems");
-const holdList = document.getElementById("holdList");
-const resumeList = document.getElementById("resumeList");
-const resumeModal = document.getElementById("resumeModal");
-
-let cartId = null;
-let currentTotal = 0;
-
-/* ===== ADMIN HEADER (WORKING) ===== */
+/* ================= HEADER ================= */
 if (localStorage.getItem("role") === "admin") {
     document.getElementById("headerButtons").innerHTML = `
         <button class="btn-admin" onclick="goReports()">Reports</button>
-        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
 
-function goReports() { location.href = "/ui/admin-reports"; }
-function goChangePassword() { location.href = "/ui/change-password"; }
-function logout() {
-    localStorage.clear();
-    location.href = "/ui/login";
+function goReports() {
+    window.location.href = "/ui/admin-reports";
 }
 
-/* ===== INIT ===== */
+function logout() {
+    localStorage.clear();
+    window.location.href = "/ui/login";
+}
+
+/* ================= STATE ================= */
+let cartId = null;
+let currentTotal = 0;
+
+/* ================= INIT ================= */
 window.onload = async () => {
     await createCart();
     await loadMenu();
@@ -195,7 +182,7 @@ window.onload = async () => {
     await loadHolds();
 };
 
-/* ===== MENU (FIXED) ===== */
+/* ================= MENU ================= */
 async function loadMenu() {
     const res = await fetch("/menu");
     const menu = await res.json();
@@ -210,70 +197,80 @@ async function loadMenu() {
     });
 }
 
-/* ===== CART ===== */
+/* ================= CART ================= */
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
     cartId = (await res.json()).cart_id;
 }
 
-async function addToCart(id) {
+async function addToCart(menuId) {
     await fetch("/cart/add", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: id })
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
 
-async function removeFromCart(id) {
+async function removeFromCart(menuId) {
     await fetch("/cart/remove", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: id })
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
 
 async function loadCart() {
     if (!cartId) return;
+
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
-    cartItems.innerHTML = "";
+    const cartDiv = document.getElementById("cartItems");
+    cartDiv.innerHTML = "";
     currentTotal = data.total;
 
     data.items.forEach(i => {
-        cartItems.innerHTML += `
-            <div class="cart-item">
-                <span>${i.name}</span>
-                <span>
-                    <button onclick="removeFromCart(${i.menu_id})">-</button>
-                    ${i.quantity}
-                    <button onclick="addToCart(${i.menu_id})">+</button>
-                </span>
-                <span>₹${i.subtotal}</span>
-            </div>
+        const row = document.createElement("div");
+        row.className = "cart-item";
+        row.innerHTML = `
+            <span>${i.name}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">-</button>
+                ${i.quantity}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+            <span>₹${i.subtotal}</span>
         `;
+        cartDiv.appendChild(row);
     });
 
-    subTotal.innerText = currentTotal;
+    document.getElementById("subTotal").innerText = currentTotal;
     recalculateTotal();
 }
 
-/* ===== TOTAL ===== */
+/* ================= TOTAL ================= */
 function recalculateTotal() {
-    const discountValue = Number(discountInput.value || 0);
-    finalTotal.innerText = Math.max(currentTotal - discountValue, 0);
+    const discountValue =
+        Number(document.getElementById("discount").value || 0);
+
+    document.getElementById("finalTotal").innerText =
+        Math.max(currentTotal - discountValue, 0);
 }
 
-/* ===== HOLD / RESUME ===== */
+/* ================= HOLD ================= */
 async function holdBill() {
-    if (!customerName.value.trim()) return alert("Customer name required");
+    const name = document.getElementById("customerName").value.trim();
+    const mobile = document.getElementById("mobileNumber").value.trim();
+
+    if (!name) return alert("Customer name required");
+    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
 
     const res = await fetch("/cart/hold", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, customer_name: customerName.value })
+        body: JSON.stringify({ cart_id: cartId, customer_name: name })
     });
 
     cartId = (await res.json()).new_cart_id;
@@ -282,33 +279,34 @@ async function holdBill() {
     loadHolds();
 }
 
+/* ================= HOLDS ================= */
 async function loadHolds() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
+    const div = document.getElementById("holdList");
+    div.innerHTML = holds.length ? "" : "No holds";
 
-    holdList.innerHTML = holds.length ? "" : "No holds";
     holds.forEach(h => {
-        holdList.innerHTML += `<p>${h.customer_name}</p>`;
+        div.innerHTML += `<p>${h.customer_name}</p>`;
     });
 }
 
-function showResume() {
-    resumeModal.style.display = "block";
-    loadResume();
+/* ================= RESUME ================= */
+async function showResume() {
+    const res = await fetch("/cart/holds");
+    const holds = await res.json();
+    const list = document.getElementById("resumeList");
+    list.innerHTML = "";
+
+    holds.forEach(h => {
+        list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
+    });
+
+    document.getElementById("resumeModal").style.display = "block";
 }
 
 function closeResume() {
-    resumeModal.style.display = "none";
-}
-
-async function loadResume() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    resumeList.innerHTML = "";
-
-    holds.forEach(h => {
-        resumeList.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
-    });
+    document.getElementById("resumeModal").style.display = "none";
 }
 
 async function resumeHold(id) {
@@ -318,23 +316,27 @@ async function resumeHold(id) {
     loadCart();
 }
 
-/* ===== PAY ===== */
+/* ================= PAY ================= */
 async function payNow() {
-    if (!paymentMode.value) return alert("Select payment mode");
-    if (!customerName.value.trim()) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobileNumber.value)) return alert("Valid 10-digit mobile required");
-    if (paymentMode.value !== "CASH" && !transactionId.value.trim())
-        return alert("Transaction ID required");
+    const payment = document.getElementById("paymentMode").value;
+    const name = document.getElementById("customerName").value.trim();
+    const mobile = document.getElementById("mobileNumber").value.trim();
+    const txn = document.getElementById("transactionId").value.trim();
+
+    if (!payment) return alert("Select payment mode");
+    if (!name) return alert("Customer name required");
+    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
+    if (payment !== "CASH" && !txn) return alert("Transaction ID required");
 
     const res = await fetch("/checkout", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            payment_method: paymentMode.value,
-            customer_name: customerName.value,
-            customer_phone: mobileNumber.value,
-            transaction_id: transactionId.value
+            payment_method: payment,
+            customer_name: name,
+            customer_phone: mobile,
+            transaction_id: txn
         })
     });
 
@@ -345,13 +347,13 @@ async function payNow() {
     loadHolds();
 }
 
-/* ===== UTIL ===== */
+/* ================= UTIL ================= */
 function resetFields() {
-    customerName.value = "";
-    mobileNumber.value = "";
-    transactionId.value = "";
-    discountInput.value = "";
-    paymentMode.value = "";
+    document.getElementById("customerName").value = "";
+    document.getElementById("mobileNumber").value = "";
+    document.getElementById("transactionId").value = "";
+    document.getElementById("discount").value = "";
+    document.getElementById("paymentMode").value = "";
 }
 </script>
 
