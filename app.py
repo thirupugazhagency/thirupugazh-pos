@@ -295,13 +295,17 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        if not User.query.first():
+        # Ensure admin exists
+        if not User.query.filter_by(username="admin").first():
             db.session.add(User(
                 username="admin",
                 password=generate_password_hash("admin123"),
                 role="admin",
                 status="ACTIVE"
             ))
+
+        # Ensure staff exists
+        if not User.query.filter_by(username="staff1").first():
             db.session.add(User(
                 username="staff1",
                 password=generate_password_hash("1234"),
@@ -309,6 +313,7 @@ def init_db():
                 status="ACTIVE"
             ))
 
+        # Ensure menu exists
         if Menu.query.count() == 0:
             db.session.add_all([
                 Menu(name="Full Set", price=580),
