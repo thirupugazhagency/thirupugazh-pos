@@ -163,9 +163,21 @@ let cartId = null;
 let currentTotal = 0;
 
 /* ================= HEADER ================= */
-if (localStorage.getItem("role") === "admin") {
-    document.getElementById("headerButtons").innerHTML = `
-        <button class="btn-admin" onclick="goReports()">Reports</button>
+const role = localStorage.getItem("role");
+const header = document.getElementById("headerButtons");
+
+if (role === "admin") {
+    header.innerHTML = `
+        <button class="btn-admin" onclick="goReports()">Admin Reports</button>
+        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    `;
+}
+
+if (role === "staff") {
+    header.innerHTML = `
+        <button class="btn-admin" onclick="goStaffReport()">My Daily Report</button>
+        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
@@ -174,10 +186,20 @@ function goReports() {
     window.location.href = "/ui/admin-reports";
 }
 
+function goStaffReport() {
+    const staffId = localStorage.getItem("user_id");
+    window.location.href = `/staff/report/daily?staff_id=${staffId}`;
+}
+
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
+}
+
 function logout() {
     localStorage.clear();
     window.location.href = "/ui/login";
 }
+</script>
 
 /* ================= INIT ================= */
 window.onload = () => {
