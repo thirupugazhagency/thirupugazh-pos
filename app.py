@@ -340,3 +340,14 @@ def debug_db():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+@app.route("/__debug_login")
+def debug_login():
+    users = User.query.all()
+    return jsonify([
+        {
+            "id": u.id,
+            "username": u.username,
+            "role": u.role,
+            "status": u.status
+        } for u in users
+    ])
