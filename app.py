@@ -324,5 +324,14 @@ init_db()
 # RUN
 # ==================================================
 
+@app.route("/debug/db")
+def debug_db():
+    return jsonify({
+        "users": User.query.count(),
+        "staff": User.query.filter_by(role="staff").count(),
+        "menu": Menu.query.count(),
+        "sales": Sale.query.count()
+    })
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
