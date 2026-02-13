@@ -153,7 +153,11 @@
 </div>
 
 <script>
-<script>
+/* ===== AUTH GUARD (CRITICAL FIX) ===== */
+if (!localStorage.getItem("user_id")) {
+    window.location.href = "/ui/login";
+}
+
 /* ================= STATE ================= */
 let cartId = null;
 let currentTotal = 0;
@@ -187,15 +191,14 @@ window.onload = () => {
 async function loadMenu() {
     try {
         const res = await fetch("/menu");
-        const menu = await res.json();
 
+        if (!res.ok) {
+            throw new Error("Menu API failed");
+        }
+
+        const menu = await res.json();
         const div = document.getElementById("menuButtons");
         div.innerHTML = "";
-
-        if (menu.length === 0) {
-            div.innerHTML = "<p>No menu items</p>";
-            return;
-        }
 
         menu.forEach(item => {
             const btn = document.createElement("button");
@@ -203,10 +206,10 @@ async function loadMenu() {
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch (e) {
+    } catch (err) {
+        console.error(err);
         document.getElementById("menuButtons").innerHTML =
-            "<p style='color:red'>Menu load failed</p>";
-        console.error(e);
+            "<p style='color:red'>Menu failed to load</p>";
     }
 }
 
