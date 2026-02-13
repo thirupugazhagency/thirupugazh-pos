@@ -111,12 +111,25 @@ def ui_admin_staff():
 
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.json
-    user = User.query.filter_by(username=data.get("username")).first()
+    try:
+        data = request.get_json(force=True)
 
-    if user and check_password_hash(user.password, data.get("password")):
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            return jsonify({"status": "error", "message": "Missing credentials"}), 400
+
+        user = User.query.filter_by(username=username).first()
+
+        if not user:
+            return jsonify({"status": "error"}), 401
+
         if user.status != "ACTIVE":
             return jsonify({"status": "disabled"}), 403
+
+        if not check_password_hash(user.password, password):
+            return jsonify({"status": "error"}), 401
 
         return jsonify({
             "status": "ok",
@@ -124,7 +137,12 @@ def login():
             "role": user.role
         })
 
-    return jsonify({"status": "error"}), 401
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": "Server error",
+            "details": str(e)
+        }), 500
 
 # ==================================================
 # MENU
