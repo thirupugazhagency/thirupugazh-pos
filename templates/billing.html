@@ -53,7 +53,9 @@
             margin-bottom: 8px;
         }
 
-        .cart-item button { padding: 4px 8px; }
+        .cart-item button {
+            padding: 4px 8px;
+        }
 
         input, select {
             width: 100%;
@@ -127,7 +129,7 @@
 
         <div id="cartItems"></div>
 
-        <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
+        <input id="discount" type="number" min="0" placeholder="Discount ₹">
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
@@ -153,30 +155,10 @@
 </div>
 
 <script>
-/* ===== AUTH GUARD (CRITICAL FIX) ===== */
-if (!localStorage.getItem("user_id")) {
-    window.location.href = "/ui/login";
-}
-
-/* ================= STATE ================= */
-let cartId = null;
-let currentTotal = 0;
-
 /* ================= HEADER ================= */
-const role = localStorage.getItem("role");
-const header = document.getElementById("headerButtons");
-
-if (role === "admin") {
-    header.innerHTML = `
+if (localStorage.getItem("role") === "admin") {
+    document.getElementById("headerButtons").innerHTML = `
         <button class="btn-admin" onclick="goReports()">Admin Reports</button>
-        <button class="btn-admin" onclick="goChangePassword()">Change Password</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    `;
-}
-
-if (role === "staff") {
-    header.innerHTML = `
-        <button class="btn-admin" onclick="goStaffReport()">My Daily Report</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     `;
 }
@@ -185,35 +167,29 @@ function goReports() {
     window.location.href = "/ui/admin-reports";
 }
 
-function goStaffReport() {
-    const staffId = localStorage.getItem("user_id");
-    window.location.href = `/staff/report/daily?staff_id=${staffId}`;
-}
-
 function logout() {
     localStorage.clear();
     window.location.href = "/ui/login";
 }
-</script>
+
+/* ================= STATE ================= */
+let cartId = null;
+let currentTotal = 0;
 
 /* ================= INIT ================= */
-window.onload = () => {
-    createCart();
-    loadMenu();   // 🔑 menu loads FIRST
-    loadCart();
-    loadHolds();
+window.onload = async function () {
+    await createCart();
+    await loadMenu();
+    await loadCart();
+    await loadHolds();
 };
 
 /* ================= MENU ================= */
 async function loadMenu() {
     try {
         const res = await fetch("/menu");
-
-        if (!res.ok) {
-            throw new Error("Menu API failed");
-        }
-
         const menu = await res.json();
+
         const div = document.getElementById("menuButtons");
         div.innerHTML = "";
 
@@ -223,8 +199,7 @@ async function loadMenu() {
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch (err) {
-        console.error(err);
+    } catch (e) {
         document.getElementById("menuButtons").innerHTML =
             "<p style='color:red'>Menu failed to load</p>";
     }
@@ -255,17 +230,15 @@ async function removeFromCart(menuId) {
 }
 
 async function loadCart() {
-    if (!cartId) return;
-
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
-    const cartDiv = document.getElementById("cartItems");
-    cartDiv.innerHTML = "";
+    const div = document.getElementById("cartItems");
+    div.innerHTML = "";
     currentTotal = data.total;
 
     data.items.forEach(i => {
-        cartDiv.innerHTML += `
+        div.innerHTML += `
             <div class="cart-item">
                 <span>${i.name}</span>
                 <span>
@@ -274,8 +247,7 @@ async function loadCart() {
                     <button onclick="addToCart(${i.menu_id})">+</button>
                 </span>
                 <span>₹${i.subtotal}</span>
-            </div>
-        `;
+            </div>`;
     });
 
     document.getElementById("subTotal").innerText = currentTotal;
@@ -284,17 +256,15 @@ async function loadCart() {
 
 /* ================= TOTAL ================= */
 function recalculateTotal() {
-    const discount =
-        Number(document.getElementById("discount").value || 0);
-
+    const discount = Number(document.getElementById("discount").value || 0);
     document.getElementById("finalTotal").innerText =
         Math.max(currentTotal - discount, 0);
 }
 
 /* ================= HOLD ================= */
 async function holdBill() {
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
 
     if (!name) return alert("Customer name required");
     if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
@@ -315,21 +285,43 @@ async function holdBill() {
 async function loadHolds() {
     const res = await fetch("/cart/holds");
     const holds = await res.json();
-
     const div = document.getElementById("holdList");
-    div.innerHTML = holds.length ? "" : "No holds";
 
+    div.innerHTML = holds.length ? "" : "No holds";
+    holds.forEach(h => div.innerHTML += `<p>${h.customer_name}</p>`);
+}
+
+/* ================= RESUME ================= */
+async function showResume() {
+    const res = await fetch("/cart/holds");
+    const holds = await res.json();
+    const list = document.getElementById("resumeList");
+
+    list.innerHTML = "";
     holds.forEach(h => {
-        div.innerHTML += `<p>${h.customer_name}</p>`;
+        list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
     });
+
+    document.getElementById("resumeModal").style.display = "block";
+}
+
+function closeResume() {
+    document.getElementById("resumeModal").style.display = "none";
+}
+
+async function resumeHold(id) {
+    await fetch(`/cart/resume/${id}`, { method: "POST" });
+    cartId = id;
+    closeResume();
+    loadCart();
 }
 
 /* ================= PAY ================= */
 async function payNow() {
-    const payment = document.getElementById("paymentMode").value;
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
-    const txn = document.getElementById("transactionId").value.trim();
+    const payment = paymentMode.value;
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
+    const txn = transactionId.value.trim();
 
     if (!payment) return alert("Select payment mode");
     if (!name) return alert("Customer name required");
@@ -350,18 +342,18 @@ async function payNow() {
 
     alert("Paid ₹" + (await res.json()).total);
     resetFields();
-    createCart();
+    await createCart();
     loadCart();
     loadHolds();
 }
 
 /* ================= UTIL ================= */
 function resetFields() {
-    document.getElementById("customerName").value = "";
-    document.getElementById("mobileNumber").value = "";
-    document.getElementById("transactionId").value = "";
-    document.getElementById("discount").value = "";
-    document.getElementById("paymentMode").value = "";
+    customerName.value = "";
+    mobileNumber.value = "";
+    transactionId.value = "";
+    discount.value = "";
+    paymentMode.value = "";
 }
 </script>
 
