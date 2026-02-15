@@ -1,360 +1,154 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Thirupugazh – POS</title>
+    <title>Thirupugazh POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
+        header { background: #1e88e5; color: white; padding: 10px; text-align: center; font-size: 20px; }
 
-        header {
-            background: #1e88e5;
-            color: white;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 18px;
-        }
+        .container { display: flex; height: calc(100vh - 60px); }
 
-        header button {
-            margin-left: 8px;
-            padding: 6px 10px;
-            border: none;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+        .menu { width: 50%; padding: 10px; overflow-y: auto; background: white; }
+        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 18px; }
 
-        .btn-admin { background: #0d47a1; color: white; }
-        .btn-logout { background: #444; color: white; }
+        .cart { width: 50%; padding: 10px; background: #fafafa; border-left: 1px solid #ccc; }
 
-        .container { display: flex; height: calc(100vh - 50px); }
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
 
-        .menu, .cart, .holds {
-            padding: 10px;
-            overflow-y: auto;
-        }
-
-        .menu { width: 33%; background: white; }
-        .cart { width: 34%; background: #fafafa; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
-        .holds { width: 33%; background: white; }
-
-        .menu button {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 10px;
+        .cart-controls button {
+            padding: 4px 10px;
             font-size: 16px;
         }
 
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        .total { font-size: 22px; font-weight: bold; margin-top: 10px; }
 
-        .cart-item button {
-            padding: 4px 8px;
-        }
-
-        input, select {
+        .pay-btn {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
-
-        .total {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 6px 0;
-        }
-
-        .btn-hold { background: orange; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
-        .btn-resume { background: #555; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
-        .btn-pay { background: green; color: white; padding: 12px; border: none; width: 100%; }
-
-        #resumeModal {
-            display: none;
-            position: fixed;
-            top: 20%;
-            left: 35%;
-            width: 30%;
-            background: white;
-            border: 1px solid #ccc;
             padding: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,.4);
-            z-index: 1000;
-        }
-
-        #resumeModal button {
-            width: 100%;
-            margin-bottom: 6px;
+            font-size: 20px;
+            background: green;
+            color: white;
+            border: none;
+            margin-top: 10px;
         }
     </style>
 </head>
-
 <body>
 
-<header>
-    <span>🧾 Thirupugazh – POS</span>
-    <div id="headerButtons">
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    </div>
-</header>
+<header>🧾 Thirupugazh POS Billing</header>
 
 <div class="container">
 
-    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
-        <div id="menuButtons">Loading...</div>
+        <div id="menuButtons"></div>
     </div>
 
-    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
-
-        <input id="customerName" placeholder="Customer Name">
-        <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
-        <input id="transactionId" placeholder="Transaction ID">
-
-        <select id="paymentMode">
-            <option value="">Select Payment Mode</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="ONLINE">Online</option>
-            <option value="MIXED">Mixed</option>
-        </select>
-
         <div id="cartItems"></div>
 
-        <input id="discount" type="number" min="0" placeholder="Discount ₹">
+        <div class="total">
+            Total: ₹<span id="total">0</span>
+        </div>
 
-        <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
-        <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
-
-        <button class="btn-hold" onclick="holdBill()">HOLD</button>
-        <button class="btn-resume" onclick="showResume()">RESUME</button>
-        <button class="btn-pay" onclick="payNow()">PAY</button>
+        <button class="pay-btn">PAY</button>
     </div>
 
-    <!-- HOLDS -->
-    <div class="holds">
-        <h3>Hold Bills</h3>
-        <div id="holdList">No holds</div>
-    </div>
-
-</div>
-
-<!-- RESUME MODAL -->
-<div id="resumeModal">
-    <h3>Select Hold Bill</h3>
-    <div id="resumeList"></div>
-    <button onclick="closeResume()">Close</button>
 </div>
 
 <script>
-/* ================= HEADER ================= */
-if (localStorage.getItem("role") === "admin") {
-    document.getElementById("headerButtons").innerHTML = `
-        <button class="btn-admin" onclick="goReports()">Admin Reports</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    `;
-}
-
-function goReports() {
-    window.location.href = "/ui/admin-reports";
-}
-
-function logout() {
-    localStorage.clear();
-    window.location.href = "/ui/login";
-}
-
-/* ================= STATE ================= */
 let cartId = null;
-let currentTotal = 0;
 
-/* ================= INIT ================= */
-window.onload = async function () {
-    await createCart();
-    await loadMenu();
-    await loadCart();
-    await loadHolds();
-};
-
-/* ================= MENU ================= */
-async function loadMenu() {
-    try {
-        const res = await fetch("/menu");
-        const menu = await res.json();
-
-        const div = document.getElementById("menuButtons");
-        div.innerHTML = "";
-
-        menu.forEach(item => {
-            const btn = document.createElement("button");
-            btn.textContent = `${item.name} - ₹${item.price}`;
-            btn.onclick = () => addToCart(item.id);
-            div.appendChild(btn);
-        });
-    } catch (e) {
-        document.getElementById("menuButtons").innerHTML =
-            "<p style='color:red'>Menu failed to load</p>";
-    }
-}
-
-/* ================= CART ================= */
+// ---------------- CREATE CART ----------------
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
+    const data = await res.json();
+    cartId = data.cart_id;
+    console.log("Cart created:", cartId);
 }
 
+// ---------------- LOAD MENU ----------------
+async function loadMenu() {
+    console.log("Loading menu...");
+    const res = await fetch("/menu");
+    const menu = await res.json();
+    console.log("Menu data:", menu);
+
+    const div = document.getElementById("menuButtons");
+    div.innerHTML = "";
+
+    menu.forEach(item => {
+        const btn = document.createElement("button");
+        btn.innerText = `${item.name} - ₹${item.price}`;
+        btn.onclick = () => addToCart(item.id);
+        div.appendChild(btn);
+    });
+}
+
+// ---------------- ADD TO CART ----------------
 async function addToCart(menuId) {
     await fetch("/cart/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId
+        })
     });
+
     loadCart();
 }
 
+// ---------------- REMOVE FROM CART ----------------
 async function removeFromCart(menuId) {
     await fetch("/cart/remove", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId
+        })
     });
+
     loadCart();
 }
 
+// ---------------- LOAD CART ----------------
 async function loadCart() {
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
 
     const div = document.getElementById("cartItems");
     div.innerHTML = "";
-    currentTotal = data.total;
 
     data.items.forEach(i => {
-        div.innerHTML += `
-            <div class="cart-item">
-                <span>${i.name}</span>
-                <span>
-                    <button onclick="removeFromCart(${i.menu_id})">-</button>
-                    ${i.quantity}
-                    <button onclick="addToCart(${i.menu_id})">+</button>
-                </span>
-                <span>₹${i.subtotal}</span>
-            </div>`;
+        const row = document.createElement("div");
+        row.className = "cart-item";
+
+        row.innerHTML = `
+            <span>${i.name} x ${i.quantity}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">-</button>
+                ₹${i.subtotal}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+        `;
+
+        div.appendChild(row);
     });
 
-    document.getElementById("subTotal").innerText = currentTotal;
-    recalculateTotal();
+    document.getElementById("total").innerText = data.total;
 }
 
-/* ================= TOTAL ================= */
-function recalculateTotal() {
-    const discount = Number(document.getElementById("discount").value || 0);
-    document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discount, 0);
-}
-
-/* ================= HOLD ================= */
-async function holdBill() {
-    const name = customerName.value.trim();
-    const mobile = mobileNumber.value.trim();
-
-    if (!name) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
-
-    const res = await fetch("/cart/hold", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, customer_name: name })
-    });
-
-    cartId = (await res.json()).new_cart_id;
-    resetFields();
-    loadCart();
-    loadHolds();
-}
-
-/* ================= HOLDS ================= */
-async function loadHolds() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    const div = document.getElementById("holdList");
-
-    div.innerHTML = holds.length ? "" : "No holds";
-    holds.forEach(h => div.innerHTML += `<p>${h.customer_name}</p>`);
-}
-
-/* ================= RESUME ================= */
-async function showResume() {
-    const res = await fetch("/cart/holds");
-    const holds = await res.json();
-    const list = document.getElementById("resumeList");
-
-    list.innerHTML = "";
-    holds.forEach(h => {
-        list.innerHTML += `<button onclick="resumeHold(${h.id})">${h.customer_name}</button>`;
-    });
-
-    document.getElementById("resumeModal").style.display = "block";
-}
-
-function closeResume() {
-    document.getElementById("resumeModal").style.display = "none";
-}
-
-async function resumeHold(id) {
-    await fetch(`/cart/resume/${id}`, { method: "POST" });
-    cartId = id;
-    closeResume();
-    loadCart();
-}
-
-/* ================= PAY ================= */
-async function payNow() {
-    const payment = paymentMode.value;
-    const name = customerName.value.trim();
-    const mobile = mobileNumber.value.trim();
-    const txn = transactionId.value.trim();
-
-    if (!payment) return alert("Select payment mode");
-    if (!name) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
-    if (payment !== "CASH" && !txn) return alert("Transaction ID required");
-
-    const res = await fetch("/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: payment,
-            customer_name: name,
-            customer_phone: mobile,
-            transaction_id: txn
-        })
-    });
-
-    alert("Paid ₹" + (await res.json()).total);
-    resetFields();
+// ---------------- INIT ----------------
+(async function init() {
     await createCart();
-    loadCart();
-    loadHolds();
-}
-
-/* ================= UTIL ================= */
-function resetFields() {
-    customerName.value = "";
-    mobileNumber.value = "";
-    transactionId.value = "";
-    discount.value = "";
-    paymentMode.value = "";
-}
+    await loadMenu();
+    await loadCart();
+})();
 </script>
 
 </body>
