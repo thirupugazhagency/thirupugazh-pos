@@ -41,7 +41,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(20), default="ACTIVE")  # ✅ REQUIRED
+    status = db.Column(db.String(20), default="ACTIVE")
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,12 +51,10 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
-
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -95,6 +93,11 @@ def ui_billing():
 def ui_admin_reports():
     return render_template("admin_reports.html")
 
+# ✅ ADDED — Change Password UI (SAFE)
+@app.route("/ui/change-password")
+def ui_change_password():
+    return render_template("change_password.html")
+
 # ==================================================
 # AUTH
 # ==================================================
@@ -114,6 +117,23 @@ def login():
         })
 
     return jsonify({"status": "error"}), 401
+
+# ✅ ADDED — Change Password API (SAFE)
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    data = request.json
+    user_id = data.get("user_id")
+    old_password = data.get("old_password")
+    new_password = data.get("new_password")
+
+    user = User.query.get(user_id)
+    if not user or not check_password_hash(user.password, old_password):
+        return jsonify({"status": "error"}), 400
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # MENU
@@ -283,7 +303,7 @@ def admin_daily_report():
     })
 
 # ==================================================
-# STAFF PERFORMANCE LEADERBOARD (DAILY)
+# STAFF PERFORMANCE LEADERBOARD
 # ==================================================
 @app.route("/admin/report/staff-performance")
 def staff_performance():
@@ -294,7 +314,6 @@ def staff_performance():
     )
 
     staff_users = User.query.filter_by(role="staff", status="ACTIVE").all()
-
     leaderboard = []
 
     for staff in staff_users:
@@ -345,7 +364,6 @@ def init_db():
                 Menu(name="Three Tickets", price=150)
             ])
 
-        # ✅ Ensure all staff ACTIVE
         for staff in User.query.filter_by(role="staff").all():
             staff.status = "ACTIVE"
 
