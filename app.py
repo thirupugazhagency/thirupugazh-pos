@@ -45,6 +45,13 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
+
+    # ✅ REQUIRED FOR HOLD → RESUME
+    customer_name = db.Column(db.String(100))
+    customer_phone = db.Column(db.String(20))
+    transaction_id = db.Column(db.String(100))
+    discount = db.Column(db.Integer, default=0)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -61,7 +68,7 @@ class Sale(db.Model):
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     staff_id = db.Column(db.Integer)
-    business_date = db.Column(db.Date)   # ✅ REQUIRED
+    business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ---------------- UI ----------------
@@ -167,6 +174,62 @@ def view_cart(cart_id):
 
     return jsonify({"items": result, "total": total})
 
+# ---------------- HOLD / RESUME (FIXED) ----------------
+
+@app.route("/cart/hold", methods=["POST"])
+def hold_cart():
+    d = request.json
+    cart = Cart.query.get(d["cart_id"])
+
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    cart.status = "HOLD"
+    cart.customer_name = d.get("customer_name")
+    cart.customer_phone = d.get("customer_phone")
+    cart.transaction_id = d.get("transaction_id")
+    cart.discount = d.get("discount", 0)
+
+    db.session.commit()
+
+    new_cart = Cart(status="ACTIVE")
+    db.session.add(new_cart)
+    db.session.commit()
+
+    return jsonify({"new_cart_id": new_cart.id})
+
+@app.route("/cart/holds")
+def list_holds():
+    holds = Cart.query.filter_by(status="HOLD").all()
+    return jsonify([
+        {
+            "id": h.id,
+            "customer_name": h.customer_name,
+            "customer_phone": h.customer_phone,
+            "transaction_id": h.transaction_id,
+            "discount": h.discount
+        }
+        for h in holds
+    ])
+
+@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
+def resume_cart(cart_id):
+    cart = Cart.query.get(cart_id)
+
+    if not cart or cart.status != "HOLD":
+        return jsonify({"error": "Invalid cart"}), 400
+
+    cart.status = "ACTIVE"
+    db.session.commit()
+
+    return jsonify({
+        "status": "ok",
+        "customer_name": cart.customer_name,
+        "customer_phone": cart.customer_phone,
+        "transaction_id": cart.transaction_id,
+        "discount": cart.discount
+    })
+
 # ---------------- CHECKOUT ----------------
 
 @app.route("/checkout", methods=["POST"])
@@ -190,9 +253,7 @@ def checkout():
 
     return jsonify({"total": total})
 
-# ==================================================
-# ADMIN DAILY REPORT (VIEW)
-# ==================================================
+# ---------------- ADMIN DAILY REPORT ----------------
 
 @app.route("/admin/report/daily")
 def admin_daily_report():
@@ -208,10 +269,6 @@ def admin_daily_report():
         "bill_count": len(sales),
         "total_amount": sum(s.total for s in sales)
     })
-
-# ==================================================
-# ADMIN DAILY EXCEL
-# ==================================================
 
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
@@ -231,10 +288,6 @@ def admin_daily_excel():
 
     return send_file(output, as_attachment=True,
                      download_name="daily_sales.xlsx")
-
-# ==================================================
-# ADMIN DAILY PDF
-# ==================================================
 
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
