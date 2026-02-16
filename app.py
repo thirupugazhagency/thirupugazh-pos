@@ -41,6 +41,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), default="ACTIVE")  # ✅ needed
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,9 +50,9 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
+    status = db.Column(db.String(20), default="ACTIVE")
 
-    # ✅ HOLD → RESUME SUPPORT
+    # HOLD → RESUME SUPPORT
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -104,6 +105,9 @@ def login():
     user = User.query.filter_by(username=data.get("username")).first()
 
     if user and check_password_hash(user.password, data.get("password")):
+        if user.status != "ACTIVE":
+            return jsonify({"status": "disabled"}), 403
+
         return jsonify({
             "status": "ok",
             "user_id": user.id,
@@ -184,7 +188,7 @@ def view_cart(cart_id):
     return jsonify({"items": result, "total": total})
 
 # ==================================================
-# HOLD / RESUME (FIXED & SAFE)
+# HOLD / RESUME
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
@@ -265,7 +269,7 @@ def checkout():
     return jsonify({"total": total})
 
 # ==================================================
-# ADMIN DAILY REPORT (VIEW)
+# ADMIN REPORTS
 # ==================================================
 @app.route("/admin/report/daily")
 def admin_daily_report():
@@ -282,9 +286,6 @@ def admin_daily_report():
         "total_amount": sum(s.total for s in sales)
     })
 
-# ==================================================
-# ADMIN DAILY EXCEL (FIXED)
-# ==================================================
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
     date_str = request.args.get("date")
@@ -313,9 +314,6 @@ def admin_daily_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ==================================================
-# ADMIN DAILY PDF (FIXED)
-# ==================================================
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
     date_str = request.args.get("date")
@@ -357,7 +355,7 @@ def admin_daily_pdf():
     )
 
 # ==================================================
-# INIT DB
+# INIT DB (WITH STAFF ACTIVE FIX)
 # ==================================================
 def init_db():
     with app.app_context():
@@ -367,13 +365,19 @@ def init_db():
             db.session.add(User(
                 username="admin",
                 password=generate_password_hash("admin123"),
-                role="admin"
+                role="admin",
+                status="ACTIVE"
             ))
             db.session.add(User(
                 username="staff1",
                 password=generate_password_hash("1234"),
-                role="staff"
+                role="staff",
+                status="ACTIVE"
             ))
+
+        # ✅ ENSURE ALL STAFF ARE ACTIVE (OPTION B)
+        for staff in User.query.filter_by(role="staff").all():
+            staff.status = "ACTIVE"
 
         if not Menu.query.first():
             db.session.add_all([
