@@ -41,7 +41,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
-    status = db.Column(db.String(20), default="ACTIVE")  # ✅ needed
+    status = db.Column(db.String(20), default="ACTIVE")  # ✅ REQUIRED
 
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,7 +52,6 @@ class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
 
-    # HOLD → RESUME SUPPORT
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -215,16 +214,13 @@ def hold_cart():
 @app.route("/cart/holds")
 def list_holds():
     holds = Cart.query.filter_by(status="HOLD").all()
-    return jsonify([
-        {
-            "id": h.id,
-            "customer_name": h.customer_name,
-            "customer_phone": h.customer_phone,
-            "transaction_id": h.transaction_id,
-            "discount": h.discount
-        }
-        for h in holds
-    ])
+    return jsonify([{
+        "id": h.id,
+        "customer_name": h.customer_name,
+        "customer_phone": h.customer_phone,
+        "transaction_id": h.transaction_id,
+        "discount": h.discount
+    } for h in holds])
 
 @app.route("/cart/resume/<int:cart_id>", methods=["POST"])
 def resume_cart(cart_id):
@@ -269,7 +265,7 @@ def checkout():
     return jsonify({"total": total})
 
 # ==================================================
-# ADMIN REPORTS
+# ADMIN DAILY REPORT
 # ==================================================
 @app.route("/admin/report/daily")
 def admin_daily_report():
@@ -286,76 +282,43 @@ def admin_daily_report():
         "total_amount": sum(s.total for s in sales)
     })
 
-@app.route("/admin/report/daily/excel")
-def admin_daily_excel():
+# ==================================================
+# STAFF PERFORMANCE LEADERBOARD (DAILY)
+# ==================================================
+@app.route("/admin/report/staff-performance")
+def staff_performance():
     date_str = request.args.get("date")
     business_date = (
         datetime.strptime(date_str, "%Y-%m-%d").date()
         if date_str else get_business_date()
     )
 
-    sales = Sale.query.filter_by(business_date=business_date).all()
+    staff_users = User.query.filter_by(role="staff", status="ACTIVE").all()
 
-    df = pd.DataFrame([{
-        "Customer": s.customer_name,
-        "Mobile": s.customer_phone,
-        "Payment": s.payment_method,
-        "Total": s.total
-    } for s in sales])
+    leaderboard = []
 
-    output = io.BytesIO()
-    df.to_excel(output, index=False)
-    output.seek(0)
+    for staff in staff_users:
+        sales = Sale.query.filter_by(
+            staff_id=staff.id,
+            business_date=business_date
+        ).all()
 
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f"daily_sales_{business_date}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        leaderboard.append({
+            "staff_id": staff.id,
+            "staff_name": staff.username,
+            "bill_count": len(sales),
+            "total_sales": sum(s.total for s in sales)
+        })
 
-@app.route("/admin/report/daily/pdf")
-def admin_daily_pdf():
-    date_str = request.args.get("date")
-    business_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str else get_business_date()
-    )
+    leaderboard.sort(key=lambda x: x["total_sales"], reverse=True)
 
-    sales = Sale.query.filter_by(business_date=business_date).all()
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-    y = 800
-
-    pdf.drawString(50, y, f"Daily Sales Report : {business_date}")
-    y -= 30
-
-    if not sales:
-        pdf.drawString(50, y, "No sales found")
-    else:
-        for s in sales:
-            pdf.drawString(
-                50, y,
-                f"{s.customer_name or '-'} | {s.customer_phone or '-'} | ₹{s.total}"
-            )
-            y -= 20
-            if y < 50:
-                pdf.showPage()
-                y = 800
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"daily_sales_{business_date}.pdf",
-        mimetype="application/pdf"
-    )
+    return jsonify({
+        "date": str(business_date),
+        "leaderboard": leaderboard
+    })
 
 # ==================================================
-# INIT DB (WITH STAFF ACTIVE FIX)
+# INIT DB
 # ==================================================
 def init_db():
     with app.app_context():
@@ -375,16 +338,16 @@ def init_db():
                 status="ACTIVE"
             ))
 
-        # ✅ ENSURE ALL STAFF ARE ACTIVE (OPTION B)
-        for staff in User.query.filter_by(role="staff").all():
-            staff.status = "ACTIVE"
-
         if not Menu.query.first():
             db.session.add_all([
                 Menu(name="Full Set", price=580),
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
             ])
+
+        # ✅ Ensure all staff ACTIVE
+        for staff in User.query.filter_by(role="staff").all():
+            staff.status = "ACTIVE"
 
         db.session.commit()
 
