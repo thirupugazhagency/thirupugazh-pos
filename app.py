@@ -9,7 +9,9 @@ from reportlab.pdfgen import canvas
 
 app = Flask(__name__)
 
-# ---------------- CONFIG ----------------
+# ==================================================
+# CONFIG
+# ==================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set")
@@ -22,15 +24,18 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# ---------------- BUSINESS DATE (3 PM – 3 PM) ----------------
+# ==================================================
+# BUSINESS DATE (3 PM – 3 PM)
+# ==================================================
 def get_business_date():
     now = datetime.now()
     if now.hour < 15:
         return (now - timedelta(days=1)).date()
     return now.date()
 
-# ---------------- MODELS ----------------
-
+# ==================================================
+# MODELS
+# ==================================================
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -44,9 +49,9 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
 
-    # ✅ REQUIRED FOR HOLD → RESUME
+    # ✅ HOLD → RESUME SUPPORT
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -71,8 +76,9 @@ class Sale(db.Model):
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# ---------------- UI ----------------
-
+# ==================================================
+# UI ROUTES
+# ==================================================
 @app.route("/")
 def home():
     return "Thirupugazh POS API Running"
@@ -89,8 +95,9 @@ def ui_billing():
 def ui_admin_reports():
     return render_template("admin_reports.html")
 
-# ---------------- AUTH ----------------
-
+# ==================================================
+# AUTH
+# ==================================================
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -99,14 +106,15 @@ def login():
     if user and check_password_hash(user.password, data.get("password")):
         return jsonify({
             "status": "ok",
-            "role": user.role,
-            "user_id": user.id
+            "user_id": user.id,
+            "role": user.role
         })
 
     return jsonify({"status": "error"}), 401
 
-# ---------------- MENU ----------------
-
+# ==================================================
+# MENU
+# ==================================================
 @app.route("/menu")
 def get_menu():
     return jsonify([
@@ -114,8 +122,9 @@ def get_menu():
         for m in Menu.query.all()
     ])
 
-# ---------------- CART ----------------
-
+# ==================================================
+# CART
+# ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
     cart = Cart(status="ACTIVE")
@@ -134,7 +143,7 @@ def add_to_cart():
         item.quantity += 1
     else:
         db.session.add(CartItem(
-            cart_id=d["cart_id"], menu_id=d["menu_id"]
+            cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1
         ))
 
     db.session.commit()
@@ -174,8 +183,9 @@ def view_cart(cart_id):
 
     return jsonify({"items": result, "total": total})
 
-# ---------------- HOLD / RESUME (FIXED) ----------------
-
+# ==================================================
+# HOLD / RESUME (FIXED & SAFE)
+# ==================================================
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
     d = request.json
@@ -230,8 +240,9 @@ def resume_cart(cart_id):
         "discount": cart.discount
     })
 
-# ---------------- CHECKOUT ----------------
-
+# ==================================================
+# CHECKOUT
+# ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
@@ -253,8 +264,9 @@ def checkout():
 
     return jsonify({"total": total})
 
-# ---------------- ADMIN DAILY REPORT ----------------
-
+# ==================================================
+# ADMIN DAILY REPORT (VIEW)
+# ==================================================
 @app.route("/admin/report/daily")
 def admin_daily_report():
     date_str = request.args.get("date")
@@ -270,9 +282,17 @@ def admin_daily_report():
         "total_amount": sum(s.total for s in sales)
     })
 
+# ==================================================
+# ADMIN DAILY EXCEL (FIXED)
+# ==================================================
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
-    business_date = get_business_date()
+    date_str = request.args.get("date")
+    business_date = (
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_str else get_business_date()
+    )
+
     sales = Sale.query.filter_by(business_date=business_date).all()
 
     df = pd.DataFrame([{
@@ -286,36 +306,59 @@ def admin_daily_excel():
     df.to_excel(output, index=False)
     output.seek(0)
 
-    return send_file(output, as_attachment=True,
-                     download_name="daily_sales.xlsx")
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
+# ==================================================
+# ADMIN DAILY PDF (FIXED)
+# ==================================================
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
-    business_date = get_business_date()
+    date_str = request.args.get("date")
+    business_date = (
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_str else get_business_date()
+    )
+
     sales = Sale.query.filter_by(business_date=business_date).all()
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     y = 800
 
-    pdf.drawString(50, y, f"Daily Sales Report: {business_date}")
+    pdf.drawString(50, y, f"Daily Sales Report : {business_date}")
     y -= 30
 
-    for s in sales:
-        pdf.drawString(50, y, f"{s.customer_name} - ₹{s.total}")
-        y -= 20
-        if y < 50:
-            pdf.showPage()
-            y = 800
+    if not sales:
+        pdf.drawString(50, y, "No sales found")
+    else:
+        for s in sales:
+            pdf.drawString(
+                50, y,
+                f"{s.customer_name or '-'} | {s.customer_phone or '-'} | ₹{s.total}"
+            )
+            y -= 20
+            if y < 50:
+                pdf.showPage()
+                y = 800
 
     pdf.save()
     buffer.seek(0)
 
-    return send_file(buffer, as_attachment=True,
-                     download_name="daily_sales.pdf")
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.pdf",
+        mimetype="application/pdf"
+    )
 
-# ---------------- INIT DB ----------------
-
+# ==================================================
+# INIT DB
+# ==================================================
 def init_db():
     with app.app_context():
         db.create_all()
@@ -333,9 +376,11 @@ def init_db():
             ))
 
         if not Menu.query.first():
-            db.session.add(Menu(name="Full Set", price=580))
-            db.session.add(Menu(name="Half Set", price=300))
-            db.session.add(Menu(name="Three Tickets", price=150))
+            db.session.add_all([
+                Menu(name="Full Set", price=580),
+                Menu(name="Half Set", price=300),
+                Menu(name="Three Tickets", price=150)
+            ])
 
         db.session.commit()
 
