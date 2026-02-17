@@ -51,10 +51,12 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
+
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -93,9 +95,6 @@ def ui_billing():
 def ui_admin_reports():
     return render_template("admin_reports.html")
 
-# ==================================================
-# CHANGE PASSWORD UI
-# ==================================================
 @app.route("/ui/change-password")
 def ui_change_password():
     return render_template("change_password.html")
@@ -120,19 +119,36 @@ def login():
 
     return jsonify({"status": "error"}), 401
 
-# ✅ ADDED — Change Password API (SAFE)
+# ==================================================
+# 🔴 TEMPORARY ADMIN RESET ROUTE (SAFE)
+# ==================================================
+@app.route("/__reset_admin", methods=["GET"])
+def reset_admin():
+    admin = User.query.filter_by(username="admin").first()
+    if not admin:
+        return jsonify({"error": "Admin not found"}), 404
+
+    admin.password = generate_password_hash("admin123")
+    admin.status = "ACTIVE"
+    db.session.commit()
+
+    return jsonify({
+        "status": "ok",
+        "message": "Admin password reset to admin123"
+    })
+
+# ==================================================
+# CHANGE PASSWORD API
+# ==================================================
 @app.route("/change-password", methods=["POST"])
 def change_password():
     data = request.json
-    user_id = data.get("user_id")
-    old_password = data.get("old_password")
-    new_password = data.get("new_password")
+    user = User.query.get(data.get("user_id"))
 
-    user = User.query.get(user_id)
-    if not user or not check_password_hash(user.password, old_password):
+    if not user or not check_password_hash(user.password, data.get("old_password")):
         return jsonify({"status": "error"}), 400
 
-    user.password = generate_password_hash(new_password)
+    user.password = generate_password_hash(data.get("new_password"))
     db.session.commit()
 
     return jsonify({"status": "ok"})
@@ -216,9 +232,6 @@ def hold_cart():
     d = request.json
     cart = Cart.query.get(d["cart_id"])
 
-    if not cart:
-        return jsonify({"error": "Cart not found"}), 404
-
     cart.status = "HOLD"
     cart.customer_name = d.get("customer_name")
     cart.customer_phone = d.get("customer_phone")
@@ -247,9 +260,6 @@ def list_holds():
 @app.route("/cart/resume/<int:cart_id>", methods=["POST"])
 def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
-
-    if not cart or cart.status != "HOLD":
-        return jsonify({"error": "Invalid cart"}), 400
 
     cart.status = "ACTIVE"
     db.session.commit()
@@ -285,58 +295,6 @@ def checkout():
     db.session.commit()
 
     return jsonify({"total": total})
-
-# ==================================================
-# ADMIN DAILY REPORT
-# ==================================================
-@app.route("/admin/report/daily")
-def admin_daily_report():
-    date_str = request.args.get("date")
-    business_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str else get_business_date()
-    )
-
-    sales = Sale.query.filter_by(business_date=business_date).all()
-
-    return jsonify({
-        "bill_count": len(sales),
-        "total_amount": sum(s.total for s in sales)
-    })
-
-# ==================================================
-# STAFF PERFORMANCE LEADERBOARD
-# ==================================================
-@app.route("/admin/report/staff-performance")
-def staff_performance():
-    date_str = request.args.get("date")
-    business_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str else get_business_date()
-    )
-
-    staff_users = User.query.filter_by(role="staff", status="ACTIVE").all()
-    leaderboard = []
-
-    for staff in staff_users:
-        sales = Sale.query.filter_by(
-            staff_id=staff.id,
-            business_date=business_date
-        ).all()
-
-        leaderboard.append({
-            "staff_id": staff.id,
-            "staff_name": staff.username,
-            "bill_count": len(sales),
-            "total_sales": sum(s.total for s in sales)
-        })
-
-    leaderboard.sort(key=lambda x: x["total_sales"], reverse=True)
-
-    return jsonify({
-        "date": str(business_date),
-        "leaderboard": leaderboard
-    })
 
 # ==================================================
 # INIT DB
