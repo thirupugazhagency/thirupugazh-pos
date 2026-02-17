@@ -93,7 +93,9 @@ def ui_billing():
 def ui_admin_reports():
     return render_template("admin_reports.html")
 
-# ✅ ADDED — Change Password UI (SAFE)
+# ==================================================
+# CHANGE PASSWORD UI
+# ==================================================
 @app.route("/ui/change-password")
 def ui_change_password():
     return render_template("change_password.html")

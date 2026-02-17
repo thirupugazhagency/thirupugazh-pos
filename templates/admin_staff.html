@@ -1,171 +1,151 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Admin – Staff Management | Thirupugazh POS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Management – Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f6f8;
+            font-family: Arial;
+            background: #f5f5f5;
             margin: 0;
-            padding: 15px;
         }
 
         header {
             background: #1e88e5;
             color: white;
-            padding: 12px;
-            text-align: center;
-            font-size: 20px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        table {
-            width: 100%;
-            background: white;
-            border-collapse: collapse;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-
-        th, td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-            text-align: center;
-            font-size: 15px;
-        }
-
-        th {
-            background: #f1f1f1;
+            padding: 12px 16px;
+            font-size: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         button {
             padding: 6px 10px;
+            cursor: pointer;
             border: none;
             border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 2px;
         }
 
-        .enable {
-            background: green;
-            color: white;
+        .btn-back { background: #444; color: white; }
+        .btn-toggle { background: orange; color: white; }
+        .btn-reset { background: green; color: white; }
+
+        .container {
+            padding: 15px;
         }
 
-        .disable {
-            background: orange;
-            color: white;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
         }
 
-        .reset {
-            background: #444;
-            color: white;
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
         }
 
-        .back {
-            background: #555;
-            color: white;
-            margin-bottom: 10px;
+        th {
+            background: #eee;
+        }
+
+        input {
+            padding: 6px;
+            width: 140px;
         }
     </style>
 </head>
 
 <body>
 
-<header>👥 Staff Management (Admin Only)</header>
+<header>
+    <span>👥 Staff Management</span>
+    <button class="btn-back" onclick="goBack()">Back</button>
+</header>
 
-<button class="back" onclick="goBack()">⬅ Back to Billing</button>
-
-<table>
-    <thead>
-        <tr>
-            <th>Staff ID</th>
-            <th>Username</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody id="staffTable"></tbody>
-</table>
+<div class="container">
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Enable / Disable</th>
+                <th>Reset Password</th>
+            </tr>
+        </thead>
+        <tbody id="staffTable">
+            <tr><td colspan="4">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
 
 <script>
-const API = "https://thirupugazh-pos.onrender.com";
-
-/* 🔐 HARD ADMIN CHECK — SAME LOGIC AS BILLING */
+/* ===== SECURITY CHECK ===== */
 if (localStorage.getItem("role") !== "admin") {
-    alert("Access denied");
-    window.location.href = "/ui/billing";
+    alert("Unauthorized");
+    location.href = "/ui/login";
 }
 
-/* 🔙 BACK */
-function goBack() {
-    window.location.href = "/ui/billing";
-}
-
-/* 📥 LOAD STAFF */
+/* ===== LOAD STAFF ===== */
 async function loadStaff() {
-    try {
-        const res = await fetch(API + "/admin/staff/list");
-        const staff = await res.json();
+    const res = await fetch("/admin/staff/list");
+    const staff = await res.json();
+    const table = document.getElementById("staffTable");
+    table.innerHTML = "";
 
-        const tbody = document.getElementById("staffTable");
-        tbody.innerHTML = "";
-
-        staff.forEach(s => {
-            const tr = document.createElement("tr");
-
-            tr.innerHTML = `
-                <td>${s.id}</td>
+    staff.forEach(s => {
+        table.innerHTML += `
+            <tr>
                 <td>${s.username}</td>
                 <td>${s.status}</td>
                 <td>
-                    <button class="${s.status === 'ACTIVE' ? 'disable' : 'enable'}"
-                        onclick="toggleStaff(${s.id})">
-                        ${s.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-                    </button>
-
-                    <button class="reset"
-                        onclick="resetPassword(${s.id})">
-                        Reset Password
+                    <button class="btn-toggle" onclick="toggleStaff(${s.id})">
+                        ${s.status === "ACTIVE" ? "Disable" : "Enable"}
                     </button>
                 </td>
-            `;
-
-            tbody.appendChild(tr);
-        });
-    } catch (e) {
-        alert("Failed to load staff");
-    }
+                <td>
+                    <input type="password" id="pwd_${s.id}" placeholder="New password">
+                    <button class="btn-reset" onclick="resetPassword(${s.id})">Reset</button>
+                </td>
+            </tr>
+        `;
+    });
 }
 
-/* 🔄 ENABLE / DISABLE */
+/* ===== TOGGLE STAFF ===== */
 async function toggleStaff(id) {
-    await fetch(API + "/admin/staff/toggle", {
+    await fetch("/admin/staff/toggle", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ staff_id: id })
     });
     loadStaff();
 }
 
-/* 🔑 RESET PASSWORD */
+/* ===== RESET PASSWORD ===== */
 async function resetPassword(id) {
-    const pwd = prompt("Enter new password for staff:");
-    if (!pwd) return;
+    const pwd = document.getElementById(`pwd_${id}`).value;
+    if (!pwd) return alert("Enter new password");
 
-    await fetch(API + "/admin/staff/reset-password", {
+    await fetch("/admin/staff/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
             staff_id: id,
             new_password: pwd
         })
     });
 
-    alert("Password updated");
+    alert("Password reset successfully");
+    document.getElementById(`pwd_${id}`).value = "";
+}
+
+/* ===== NAV ===== */
+function goBack() {
+    location.href = "/ui/billing";
 }
 
 loadStaff();
