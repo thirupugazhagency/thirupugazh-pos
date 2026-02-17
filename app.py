@@ -51,12 +51,10 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
-
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
-
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -120,51 +118,18 @@ def login():
     return jsonify({"status": "error"}), 401
 
 # ==================================================
-# 🔴 TEMPORARY ADMIN RESET ROUTE (SAFE)
+# TEMP ADMIN RESET (REMOVE AFTER USE)
 # ==================================================
-@app.route("/__ ", methods=["GET"])
+@app.route("/__reset_admin", methods=["GET"])
 def reset_admin():
     admin = User.query.filter_by(username="admin").first()
-    if not admin:
-        return jsonify({"error": "Admin not found"}), 404
-
     admin.password = generate_password_hash("admin123")
     admin.status = "ACTIVE"
     db.session.commit()
-
-    return jsonify({
-        "status": "ok",
-        "message": "Admin password reset to admin123"
-    })
+    return jsonify({"status": "ok", "message": "Admin reset to admin123"})
 
 # ==================================================
-# 🔴 TEMPORARY STAFF RESET ROUTE (SAFE)
-# ==================================================
-@app.route("/__reset_staff", methods=["GET"])
-def reset_staff():
-    staff_users = User.query.filter(
-        User.username.in_([
-            "staff1","staff2","staff3","staff4","staff5",
-            "staff6","staff7","staff8","staff9","staff10"
-        ])
-    ).all()
-
-    if not staff_users:
-        return jsonify({"error": "No staff found"}), 404
-
-    for staff in staff_users:
-        staff.password = generate_password_hash("1234")
-        staff.status = "ACTIVE"
-
-    db.session.commit()
-
-    return jsonify({
-        "status": "ok",
-        "message": "staff1–staff10 passwords reset to 1234"
-    })
-
-# ==================================================
-# CHANGE PASSWORD API
+# CHANGE PASSWORD
 # ==================================================
 @app.route("/change-password", methods=["POST"])
 def change_password():
@@ -176,7 +141,6 @@ def change_password():
 
     user.password = generate_password_hash(data.get("new_password"))
     db.session.commit()
-
     return jsonify({"status": "ok"})
 
 # ==================================================
@@ -202,33 +166,23 @@ def create_cart():
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     d = request.json
-    item = CartItem.query.filter_by(
-        cart_id=d["cart_id"], menu_id=d["menu_id"]
-    ).first()
-
+    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(
-            cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1
-        ))
-
+        db.session.add(CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1))
     db.session.commit()
     return jsonify({"status": "ok"})
 
 @app.route("/cart/remove", methods=["POST"])
 def remove_from_cart():
     d = request.json
-    item = CartItem.query.filter_by(
-        cart_id=d["cart_id"], menu_id=d["menu_id"]
-    ).first()
-
+    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
     if item:
         if item.quantity > 1:
             item.quantity -= 1
         else:
             db.session.delete(item)
-
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -237,7 +191,6 @@ def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
     total = 0
     result = []
-
     for i in items:
         subtotal = i.menu.price * i.quantity
         total += subtotal
@@ -247,56 +200,7 @@ def view_cart(cart_id):
             "quantity": i.quantity,
             "subtotal": subtotal
         })
-
     return jsonify({"items": result, "total": total})
-
-# ==================================================
-# HOLD / RESUME
-# ==================================================
-@app.route("/cart/hold", methods=["POST"])
-def hold_cart():
-    d = request.json
-    cart = Cart.query.get(d["cart_id"])
-
-    cart.status = "HOLD"
-    cart.customer_name = d.get("customer_name")
-    cart.customer_phone = d.get("customer_phone")
-    cart.transaction_id = d.get("transaction_id")
-    cart.discount = d.get("discount", 0)
-
-    db.session.commit()
-
-    new_cart = Cart(status="ACTIVE")
-    db.session.add(new_cart)
-    db.session.commit()
-
-    return jsonify({"new_cart_id": new_cart.id})
-
-@app.route("/cart/holds")
-def list_holds():
-    holds = Cart.query.filter_by(status="HOLD").all()
-    return jsonify([{
-        "id": h.id,
-        "customer_name": h.customer_name,
-        "customer_phone": h.customer_phone,
-        "transaction_id": h.transaction_id,
-        "discount": h.discount
-    } for h in holds])
-
-@app.route("/cart/resume/<int:cart_id>", methods=["POST"])
-def resume_cart(cart_id):
-    cart = Cart.query.get(cart_id)
-
-    cart.status = "ACTIVE"
-    db.session.commit()
-
-    return jsonify({
-        "status": "ok",
-        "customer_name": cart.customer_name,
-        "customer_phone": cart.customer_phone,
-        "transaction_id": cart.transaction_id,
-        "discount": cart.discount
-    })
 
 # ==================================================
 # CHECKOUT
@@ -306,7 +210,6 @@ def checkout():
     d = request.json
     items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
     total = sum(i.menu.price * i.quantity for i in items)
-
     sale = Sale(
         total=total,
         payment_method=d.get("payment_method"),
@@ -315,12 +218,85 @@ def checkout():
         staff_id=d.get("staff_id"),
         business_date=get_business_date()
     )
-
     db.session.add(sale)
     Cart.query.get(d["cart_id"]).status = "PAID"
     db.session.commit()
-
     return jsonify({"total": total})
+
+# ==================================================
+# ADMIN DAILY VIEW
+# ==================================================
+@app.route("/admin/report/daily")
+def admin_daily_report():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    sales = Sale.query.filter_by(business_date=business_date).all()
+    return jsonify({
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales)
+    })
+
+# ==================================================
+# ADMIN DAILY EXCEL ✅
+# ==================================================
+@app.route("/admin/report/daily/excel")
+def admin_daily_excel():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    sales = Sale.query.filter_by(business_date=business_date).all()
+
+    df = pd.DataFrame([{
+        "Customer": s.customer_name,
+        "Mobile": s.customer_phone,
+        "Payment": s.payment_method,
+        "Total": s.total
+    } for s in sales])
+
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ==================================================
+# ADMIN DAILY PDF ✅
+# ==================================================
+@app.route("/admin/report/daily/pdf")
+def admin_daily_pdf():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    sales = Sale.query.filter_by(business_date=business_date).all()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+    pdf.drawString(50, y, f"Daily Sales Report : {business_date}")
+    y -= 30
+
+    if not sales:
+        pdf.drawString(50, y, "No sales found")
+    else:
+        for s in sales:
+            pdf.drawString(50, y, f"{s.customer_name or '-'} | {s.customer_phone or '-'} | ₹{s.total}")
+            y -= 20
+            if y < 50:
+                pdf.showPage()
+                y = 800
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.pdf",
+        mimetype="application/pdf"
+    )
 
 # ==================================================
 # INIT DB
@@ -328,31 +304,15 @@ def checkout():
 def init_db():
     with app.app_context():
         db.create_all()
-
         if not User.query.first():
-            db.session.add(User(
-                username="admin",
-                password=generate_password_hash("admin123"),
-                role="admin",
-                status="ACTIVE"
-            ))
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff",
-                status="ACTIVE"
-            ))
-
+            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
+            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
         if not Menu.query.first():
             db.session.add_all([
                 Menu(name="Full Set", price=580),
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
             ])
-
-        for staff in User.query.filter_by(role="staff").all():
-            staff.status = "ACTIVE"
-
         db.session.commit()
 
 init_db()
