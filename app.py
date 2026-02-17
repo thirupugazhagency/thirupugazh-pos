@@ -122,7 +122,7 @@ def login():
 # ==================================================
 # 🔴 TEMPORARY ADMIN RESET ROUTE (SAFE)
 # ==================================================
-@app.route("/__reset_admin", methods=["GET"])
+@app.route("/__ ", methods=["GET"])
 def reset_admin():
     admin = User.query.filter_by(username="admin").first()
     if not admin:
@@ -135,6 +135,32 @@ def reset_admin():
     return jsonify({
         "status": "ok",
         "message": "Admin password reset to admin123"
+    })
+
+# ==================================================
+# 🔴 TEMPORARY STAFF RESET ROUTE (SAFE)
+# ==================================================
+@app.route("/__reset_staff", methods=["GET"])
+def reset_staff():
+    staff_users = User.query.filter(
+        User.username.in_([
+            "staff1","staff2","staff3","staff4","staff5",
+            "staff6","staff7","staff8","staff9","staff10"
+        ])
+    ).all()
+
+    if not staff_users:
+        return jsonify({"error": "No staff found"}), 404
+
+    for staff in staff_users:
+        staff.password = generate_password_hash("1234")
+        staff.status = "ACTIVE"
+
+    db.session.commit()
+
+    return jsonify({
+        "status": "ok",
+        "message": "staff1–staff10 passwords reset to 1234"
     })
 
 # ==================================================
