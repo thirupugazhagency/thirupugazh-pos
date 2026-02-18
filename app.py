@@ -321,6 +321,83 @@ def admin_daily_report():
     })
 
 # ==================================================
+# ADMIN DAILY EXCEL (WITH BILL NO)
+# ==================================================
+@app.route("/admin/report/daily/excel")
+def admin_daily_excel():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+
+    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+
+    data = []
+    for s in sales:
+        data.append({
+            "Bill No": s.bill_no,
+            "Customer Name": s.customer_name or "",
+            "Mobile": s.customer_phone or "",
+            "Payment Mode": s.payment_method,
+            "Amount": s.total,
+            "Date Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ==================================================
+# ADMIN DAILY PDF (WITH BILL NO)
+# ==================================================
+@app.route("/admin/report/daily/pdf")
+def admin_daily_pdf():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+
+    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Daily Sales Report - {business_date}")
+    y -= 30
+
+    pdf.setFont("Helvetica", 10)
+
+    if not sales:
+        pdf.drawString(50, y, "No sales found")
+    else:
+        for s in sales:
+            line = f"{s.bill_no} | {s.payment_method} | ₹{s.total}"
+            pdf.drawString(50, y, line)
+            y -= 18
+
+            if y < 50:
+                pdf.showPage()
+                y = 800
+                pdf.setFont("Helvetica", 10)
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.pdf",
+        mimetype="application/pdf"
+    )
+
+# ==================================================
 # INIT DB
 # ==================================================
 def init_db():
