@@ -342,7 +342,11 @@ async function payNow() {
         })
     });
 
-    alert("Paid ₹" + (await res.json()).total);
+    const result = await res.json();
+    alert(`✅ Payment Successful
+    Bill No: ${result.bill_no}
+    Amount: ₹${result.total}`);
+
     await createCart();
     loadCart();
     loadHolds();

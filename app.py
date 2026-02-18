@@ -23,7 +23,6 @@ else:
     print("⚠️ DATABASE_URL not set. Using local SQLite DB")
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
 db = SQLAlchemy(app)
 
 # ==================================================
@@ -68,6 +67,7 @@ class CartItem(db.Model):
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
     total = db.Column(db.Integer, nullable=False)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
@@ -75,6 +75,28 @@ class Sale(db.Model):
     staff_id = db.Column(db.Integer)
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# ==================================================
+# BILL NUMBER GENERATOR
+# ==================================================
+def generate_bill_no():
+    year = datetime.now().year
+    prefix = f"TLA-{year}"
+
+    last_sale = (
+        Sale.query
+        .filter(Sale.bill_no.like(f"{prefix}-%"))
+        .order_by(Sale.id.desc())
+        .first()
+    )
+
+    if last_sale and last_sale.bill_no:
+        last_number = int(last_sale.bill_no.split("-")[-1])
+        next_number = last_number + 1
+    else:
+        next_number = 1
+
+    return f"{prefix}-{str(next_number).zfill(4)}"
 
 # ==================================================
 # UI ROUTES
@@ -225,7 +247,7 @@ def resume_cart(cart_id):
     return jsonify({"cart_id": cart_id})
 
 # ==================================================
-# CHECKOUT
+# CHECKOUT (WITH BILL NUMBER)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -233,7 +255,10 @@ def checkout():
     items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
     total = sum(i.menu.price * i.quantity for i in items)
 
+    bill_no = generate_bill_no()
+
     sale = Sale(
+        bill_no=bill_no,
         total=total,
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
@@ -246,10 +271,13 @@ def checkout():
     Cart.query.get(d["cart_id"]).status = "PAID"
     db.session.commit()
 
-    return jsonify({"total": total})
+    return jsonify({
+        "total": total,
+        "bill_no": bill_no
+    })
 
 # ==================================================
-# ADMIN STAFF MANAGEMENT (NEW – SAFE ADDITION)
+# ADMIN STAFF MANAGEMENT
 # ==================================================
 @app.route("/admin/staff/list")
 def admin_staff_list():
