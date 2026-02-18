@@ -24,7 +24,6 @@ else:
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# ✅ db MUST be defined BEFORE models
 db = SQLAlchemy(app)
 
 # ==================================================
@@ -99,6 +98,10 @@ def ui_admin_reports():
 @app.route("/ui/change-password")
 def ui_change_password():
     return render_template("change_password.html")
+
+@app.route("/ui/admin-staff")
+def ui_admin_staff():
+    return render_template("admin_staff.html")
 
 # ==================================================
 # AUTH
@@ -244,6 +247,37 @@ def checkout():
     db.session.commit()
 
     return jsonify({"total": total})
+
+# ==================================================
+# ADMIN STAFF MANAGEMENT (NEW – SAFE ADDITION)
+# ==================================================
+@app.route("/admin/staff/list")
+def admin_staff_list():
+    staff = User.query.filter(User.role != "admin").all()
+    return jsonify([
+        {"id": s.id, "username": s.username, "status": s.status}
+        for s in staff
+    ])
+
+@app.route("/admin/staff/toggle", methods=["POST"])
+def admin_staff_toggle():
+    staff = User.query.get(request.json.get("staff_id"))
+    if not staff or staff.role == "admin":
+        return jsonify({"status": "error"}), 400
+
+    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+@app.route("/admin/staff/reset-password", methods=["POST"])
+def admin_staff_reset_password():
+    staff = User.query.get(request.json.get("staff_id"))
+    if not staff or staff.role == "admin":
+        return jsonify({"status": "error"}), 400
+
+    staff.password = generate_password_hash(request.json.get("new_password"))
+    db.session.commit()
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # ADMIN DAILY REPORT

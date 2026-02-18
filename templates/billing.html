@@ -80,8 +80,11 @@
 <header>
     <span>🧾 Thirupugazh – POS</span>
     <div id="headerButtons">
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    </div>
+    <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+    <button class="btn-admin" onclick="goStaff()">Staff Management</button>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+</div>
+
 </header>
 
 <div class="container">
@@ -139,6 +142,12 @@
     <div id="resumeList"></div>
     <button onclick="closeResume()">Close</button>
 </div>
+
+const role = localStorage.getItem("role");
+
+if (role !== "admin") {
+    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
+}
 
 <script>
 /* ================= AUTH GUARD ================= */
@@ -345,6 +354,18 @@ async function payNow() {
     loadCart();
     loadHolds();
 }
+
+<script>
+
+/* ===== ADMIN NAVIGATION ===== */
+function goAdminReports() {
+    window.location.href = "/ui/admin-reports";
+}
+
+function goStaff() {
+    window.location.href = "/ui/admin-staff";
+}
+</script>
 
 /* ================= LOGOUT ================= */
 function logout() {
