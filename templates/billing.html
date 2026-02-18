@@ -82,6 +82,7 @@
     <div id="headerButtons">
         <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
         <button class="btn-admin" onclick="goStaff()">Staff Management</button>
+        <button onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
 </header>
@@ -157,16 +158,18 @@ let cartId = null;
 let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
-document.addEventListener("DOMContentLoaded", async function () {
-    try {
-        await createCart();
-        await loadMenu();
-        await loadCart();
-        await loadHolds();
-    } catch (e) {
-        console.error("INIT ERROR:", e);
-        alert("POS failed to load. Please refresh.");
-    }
+document.addEventListener("DOMContentLoaded", function () {
+    (async () => {
+        try {
+            await createCart();
+            await loadMenu();
+            await loadCart();
+            await loadHolds();
+        } catch (e) {
+            console.error("Billing init failed:", e);
+            alert("Billing failed to load. Please refresh.");
+        }
+    })();
 });
 
 /* ================= MENU ================= */
@@ -191,7 +194,7 @@ async function loadMenu() {
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch (err) {
+    } catch {
         div.innerHTML = "<p>Error loading menu</p>";
     }
 }
@@ -344,8 +347,8 @@ async function payNow() {
 
     const result = await res.json();
     alert(`✅ Payment Successful
-    Bill No: ${result.bill_no}
-    Amount: ₹${result.total}`);
+Bill No: ${result.bill_no}
+Amount: ₹${result.total}`);
 
     await createCart();
     loadCart();
@@ -359,6 +362,10 @@ function goAdminReports() {
 
 function goStaff() {
     window.location.href = "/ui/admin-staff";
+}
+
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
 }
 
 function logout() {
