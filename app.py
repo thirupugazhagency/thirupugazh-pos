@@ -52,7 +52,7 @@ class Menu(db.Model):
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
-    bill_no = db.Column(db.String(30), unique=True)      # ✅ ADDED
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)      # ✅ ADDED
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
