@@ -89,13 +89,11 @@
 
 <div class="container">
 
-    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons">Loading...</div>
     </div>
 
-    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
 
@@ -126,7 +124,6 @@
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
-    <!-- HOLDS -->
     <div class="holds">
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
@@ -134,7 +131,6 @@
 
 </div>
 
-<!-- RESUME MODAL -->
 <div id="resumeModal">
     <h3>Select Hold Bill</h3>
     <div id="resumeList"></div>
@@ -142,24 +138,25 @@
 </div>
 
 <script>
-/* ================= AUTH GUARD ================= */
+/* AUTH GUARD */
 if (!localStorage.getItem("user_id")) {
     window.location.href = "/ui/login";
 }
 
-/* ================= ADMIN VISIBILITY ================= */
+/* ADMIN VISIBILITY */
 const role = localStorage.getItem("role");
 if (role !== "admin") {
     document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
 }
 
-/* ================= STATE ================= */
+/* STATE */
 let cartId = null;
 let currentTotal = 0;
 
-/* ================= INIT (RENDER SAFE) ================= */
+/* INIT — RENDER SAFE */
 document.addEventListener("DOMContentLoaded", function () {
     (async () => {
+        console.log("Billing JS started");
         try {
             await createCart();
             await loadMenu();
@@ -172,17 +169,17 @@ document.addEventListener("DOMContentLoaded", function () {
     })();
 });
 
-/* ================= MENU ================= */
+/* MENU */
 async function loadMenu() {
+    console.log("Loading menu...");
     const div = document.getElementById("menuButtons");
-    if (!div) return;
 
     try {
         const res = await fetch("/menu");
+        if (!res.ok) throw new Error("Menu API failed");
         const menu = await res.json();
 
         div.innerHTML = "";
-
         if (!menu.length) {
             div.innerHTML = "<p>No menu items</p>";
             return;
@@ -194,12 +191,13 @@ async function loadMenu() {
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch {
-        div.innerHTML = "<p>Error loading menu</p>";
+    } catch (err) {
+        console.error(err);
+        div.innerHTML = "<p style='color:red'>Menu load failed</p>";
     }
 }
 
-/* ================= CART ================= */
+/* CART */
 async function createCart() {
     const res = await fetch("/cart/create", { method: "POST" });
     cartId = (await res.json()).cart_id;
@@ -249,14 +247,13 @@ async function loadCart() {
     recalculateTotal();
 }
 
-/* ================= TOTAL ================= */
+/* TOTAL */
 function recalculateTotal() {
     const discount = Number(document.getElementById("discount").value || 0);
-    document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discount, 0);
+    document.getElementById("finalTotal").innerText = Math.max(currentTotal - discount, 0);
 }
 
-/* ================= GPAY ================= */
+/* GPAY */
 function toggleGpay() {
     const mode = document.getElementById("paymentMode").value;
     const gpayInput = document.getElementById("gpayNumber");
@@ -264,7 +261,7 @@ function toggleGpay() {
     if (mode !== "GPAY") gpayInput.value = "";
 }
 
-/* ================= HOLD / RESUME ================= */
+/* HOLD / RESUME */
 async function holdBill() {
     await fetch("/cart/hold", {
         method: "POST",
@@ -279,26 +276,24 @@ async function holdBill() {
 async function loadHolds() {
     const res = await fetch("/cart/held");
     const holds = await res.json();
-
     const div = document.getElementById("holdList");
-    div.innerHTML = holds.length ? "" : "No holds";
 
+    div.innerHTML = holds.length ? "" : "No holds";
     holds.forEach(h => {
-        div.innerHTML += `<p>Cart #${h.cart_id} (${h.created_at})</p>`;
+        div.innerHTML += `<p>${h.bill_no || "—"}<br><small>${h.created_at}</small></p>`;
     });
 }
 
 async function showResume() {
     const res = await fetch("/cart/held");
     const holds = await res.json();
-
     const list = document.getElementById("resumeList");
-    list.innerHTML = "";
 
+    list.innerHTML = "";
     holds.forEach(h => {
         list.innerHTML += `
             <button onclick="resumeHold(${h.cart_id})">
-                Resume Cart #${h.cart_id} (${h.created_at})
+                ${h.bill_no || "—"} (${h.created_at})
             </button>
         `;
     });
@@ -312,13 +307,12 @@ function closeResume() {
 
 async function resumeHold(id) {
     const res = await fetch(`/cart/resume/${id}`);
-    const data = await res.json();
-    cartId = data.cart_id;
+    cartId = (await res.json()).cart_id;
     closeResume();
     loadCart();
 }
 
-/* ================= PAY ================= */
+/* PAY */
 async function payNow() {
     const payment = paymentMode.value;
     const name = customerName.value.trim();
@@ -346,27 +340,17 @@ async function payNow() {
     });
 
     const result = await res.json();
-    alert(`✅ Payment Successful
-Bill No: ${result.bill_no}
-Amount: ₹${result.total}`);
+    alert(`✅ Payment Successful\nBill No: ${result.bill_no}\nAmount: ₹${result.total}`);
 
     await createCart();
     loadCart();
     loadHolds();
 }
 
-/* ================= NAV ================= */
-function goAdminReports() {
-    window.location.href = "/ui/admin-reports";
-}
-
-function goStaff() {
-    window.location.href = "/ui/admin-staff";
-}
-
-function goChangePassword() {
-    window.location.href = "/ui/change-password";
-}
+/* NAV */
+function goAdminReports() { window.location.href = "/ui/admin-reports"; }
+function goStaff() { window.location.href = "/ui/admin-staff"; }
+function goChangePassword() { window.location.href = "/ui/change-password"; }
 
 function logout() {
     localStorage.removeItem("user_id");
