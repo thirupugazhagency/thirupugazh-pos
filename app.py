@@ -51,8 +51,8 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)      # ✅ ADDED
+    status = db.Column(db.String(20), default="ACTIVE")
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -68,7 +68,7 @@ class CartItem(db.Model):
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    bill_no = db.Column(db.String(30), unique=True)
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)
     total = db.Column(db.Integer, nullable=False)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
