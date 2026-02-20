@@ -175,10 +175,21 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    cart = Cart(status="ACTIVE")
+    bill_no = generate_bill_no()
+
+    cart = Cart(
+        status="ACTIVE",
+        bill_no=bill_no,
+        staff_id=request.json.get("staff_id")
+    )
+
     db.session.add(cart)
     db.session.commit()
-    return jsonify({"cart_id": cart.id})
+
+    return jsonify({
+        "cart_id": cart.id,
+        "bill_no": cart.bill_no
+    })
 
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
@@ -224,17 +235,36 @@ def view_cart(cart_id):
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
-    cart = Cart.query.get(request.json.get("cart_id"))
+    data = request.json
+    cart = Cart.query.get(data.get("cart_id"))
+
     if cart and cart.status == "ACTIVE":
         cart.status = "HOLD"
+        cart.customer_name = data.get("customer_name")
+        cart.customer_phone = data.get("customer_phone")
         db.session.commit()
+
     return jsonify({"status": "ok"})
 
 @app.route("/cart/held")
 def held_carts():
-    carts = Cart.query.filter_by(status="HOLD").order_by(Cart.created_at.desc()).all()
+    role = request.args.get("role")
+    user_id = request.args.get("user_id")
+
+    query = Cart.query.filter_by(status="HOLD")
+
+    if role != "admin":
+        query = query.filter_by(staff_id=user_id)
+
+    carts = query.order_by(Cart.created_at.desc()).all()
+
     return jsonify([
-        {"cart_id": c.id, "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")}
+        {
+            "cart_id": c.id,
+            "bill_no": c.bill_no,
+            "customer_name": c.customer_name or "",
+            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
+        }
         for c in carts
     ])
 

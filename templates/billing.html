@@ -272,8 +272,13 @@ async function holdBill() {
     await fetch("/cart/hold", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId })
+        body: JSON.stringify({
+            cart_id: cartId,
+            customer_name: document.getElementById("customerName").value,
+            customer_phone: document.getElementById("mobileNumber").value
+        })
     });
+
     await createCart();
     loadCart();
     loadHolds();
@@ -287,9 +292,14 @@ async function loadHolds() {
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
-        div.innerHTML += `<p>Cart #${h.cart_id} (${h.created_at})</p>`;
-    });
-}
+    div.innerHTML += `
+        <p>
+            <strong>${h.bill_no}</strong> - 
+            ${h.customer_name || "No Name"} 
+            (${h.created_at})
+        </p>
+    `;
+});
 
 async function showResume() {
     const res = await fetch("/cart/held");
@@ -300,10 +310,10 @@ async function showResume() {
 
     holds.forEach(h => {
         list.innerHTML += `
-            <button onclick="resumeHold(${h.cart_id})">
-                Resume Cart #${h.cart_id} (${h.created_at})
-            </button>
-        `;
+    <button onclick="resumeHold(${h.cart_id})">
+        ${h.bill_no} - ${h.customer_name || "No Name"} (${h.created_at})
+    </button>
+`;
     });
 
     document.getElementById("resumeModal").style.display = "block";
