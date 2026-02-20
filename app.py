@@ -54,10 +54,10 @@ with app.app_context():
     price = db.Column(db.Integer, nullable=False)
 
 class Cart(db.Model):
-with app.app_context():
-    db.create_all()
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)
-    staff_id = db.Column(db.Integer)
+    id = db.Column(db.Integer, primary_key=True)
+    status = db.Column(db.String(20), default="ACTIVE")
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)  # ✅ ADD
+    staff_id = db.Column(db.Integer, nullable=True)                 # ✅ ADD
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -292,13 +292,12 @@ def resume_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
-
     cart = Cart.query.get(d["cart_id"])
     items = CartItem.query.filter_by(cart_id=cart.id).all()
     total = sum(i.menu.price * i.quantity for i in items)
 
     sale = Sale(
-        bill_no=cart.bill_no,   # ✅ USE SAME BILL NO
+        bill_no=cart.bill_no,
         total=total,
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
@@ -315,7 +314,6 @@ def checkout():
         "total": total,
         "bill_no": cart.bill_no
     })
-
 # ==================================================
 # ADMIN STAFF MANAGEMENT
 # ==================================================
@@ -440,11 +438,8 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
-        try:
-            db.create_all()
-            print("✅ DB Checked / Created")
-        except Exception as e:
-            print("❌ DB Error:", e)
+        db.drop_all()   # TEMPORARY RESET
+        db.create_all()
 
         if not User.query.first():
             db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
