@@ -83,10 +83,18 @@
         <span>Thirupugazh – POS</span>
     </div>
 
-    <div style="margin-top:15px; padding:10px; background:#e3f2fd;">
-        <h4>My Today's Sales (3PM – 3PM)</h4>
-        <div id="mySales">Loading...</div>
+    <div style="margin:10px 15px;">
+    <div style="
+        display:inline-block;
+        padding:6px 12px;
+        background:#e3f2fd;
+        border-radius:4px;
+        font-size:14px;
+        font-weight:bold;
+    ">
+        <span id="mySales">Loading...</span>
     </div>
+</div>
 
     <div id="headerButtons">
         <button onclick="goHome()">Home</button>
@@ -168,18 +176,17 @@ let cartId = null;
 let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
-document.addEventListener("DOMContentLoaded", function () {
-    (async () => {
-        try {
-            await createCart();
-            await loadMenu();
-            await loadCart();
-            await loadHolds();
-        } catch (e) {
-            console.error("Billing init failed:", e);
-            alert("Billing failed to load. Please refresh.");
-        }
-    })();
+document.addEventListener("DOMContentLoaded", async function () {
+    try {
+        await createCart();
+        await loadMenu();
+        await loadCart();
+        await loadHolds();
+        await loadMySales();   // 👈 ADD HERE
+    } catch (e) {
+        console.error("Billing init failed:", e);
+        alert("Billing failed to load.");
+    }
 });
 
 /* ================= MENU ================= */
@@ -432,7 +439,6 @@ async function loadMySales() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", loadMySales);
 </script>
 
 </body>
