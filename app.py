@@ -38,6 +38,8 @@ def get_business_date():
 # MODELS
 # ==================================================
 class User(db.Model):
+with app.app_context():
+    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
@@ -45,11 +47,15 @@ class User(db.Model):
     status = db.Column(db.String(20), default="ACTIVE")
 
 class Menu(db.Model):
+with app.app_context():
+    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
 
 class Cart(db.Model):
+with app.app_context():
+    db.create_all()
     bill_no = db.Column(db.String(30), unique=True, nullable=True)
     staff_id = db.Column(db.Integer)
     customer_name = db.Column(db.String(100))
@@ -59,6 +65,8 @@ class Cart(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
+with app.app_context():
+    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
     menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
@@ -66,6 +74,8 @@ class CartItem(db.Model):
     menu = db.relationship("Menu")
 
 class Sale(db.Model):
+with app.app_context():
+    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
     total = db.Column(db.Integer, nullable=False)
@@ -430,7 +440,11 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            print("✅ DB Checked / Created")
+        except Exception as e:
+            print("❌ DB Error:", e)
 
         if not User.query.first():
             db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
