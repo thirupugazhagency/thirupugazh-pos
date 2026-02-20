@@ -436,20 +436,30 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
+        print("Resetting DB...")
+        db.drop_all()
         db.create_all()
 
-        if not User.query.first():
-            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
-            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
+        db.session.add(User(
+            username="admin",
+            password=generate_password_hash("admin123"),
+            role="admin"
+        ))
 
-        if not Menu.query.first():
-            db.session.add_all([
-                Menu(name="Full Set", price=580),
-                Menu(name="Half Set", price=300),
-                Menu(name="Three Tickets", price=150)
-            ])
+        db.session.add(User(
+            username="staff1",
+            password=generate_password_hash("1234"),
+            role="staff"
+        ))
+
+        db.session.add_all([
+            Menu(name="Full Set", price=580),
+            Menu(name="Half Set", price=300),
+            Menu(name="Three Tickets", price=150)
+        ])
 
         db.session.commit()
+        print("DB Reset Complete")
 
 init_db()
 if __name__ == "__main__":
