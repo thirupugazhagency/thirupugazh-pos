@@ -38,46 +38,42 @@ def get_business_date():
 # MODELS
 # ==================================================
 class User(db.Model):
-with app.app_context():
-    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     status = db.Column(db.String(20), default="ACTIVE")
 
+
 class Menu(db.Model):
-with app.app_context():
-    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
 
+
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)  # ✅ ADD
-    staff_id = db.Column(db.Integer, nullable=True)                 # ✅ ADD
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)
+    staff_id = db.Column(db.Integer, nullable=True)
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+
 class CartItem(db.Model):
-with app.app_context():
-    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
     cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
     menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
     quantity = db.Column(db.Integer, default=1)
     menu = db.relationship("Menu")
 
+
 class Sale(db.Model):
-with app.app_context():
-    db.create_all()
     id = db.Column(db.Integer, primary_key=True)
-    bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
+    bill_no = db.Column(db.String(30), unique=True)
     total = db.Column(db.Integer, nullable=False)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
@@ -438,7 +434,7 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
-        db.drop_all()   # TEMPORARY RESET
+        db.drop_all()
         db.create_all()
 
         if not User.query.first():
