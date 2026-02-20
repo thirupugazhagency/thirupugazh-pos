@@ -173,28 +173,47 @@ document.addEventListener("DOMContentLoaded", function () {
 /* MENU */
 async function loadMenu() {
     console.log("Loading menu...");
+
     const div = document.getElementById("menuButtons");
+
+    if (!div) {
+        console.error("menuButtons div not found");
+        return;
+    }
 
     try {
         const res = await fetch("/menu");
-        if (!res.ok) throw new Error("Menu API failed");
+
+        if (!res.ok) {
+            throw new Error("Menu API failed");
+        }
+
         const menu = await res.json();
 
+        console.log("Menu data:", menu);
+
         div.innerHTML = "";
-        if (!menu.length) {
-            div.innerHTML = "<p>No menu items</p>";
+
+        if (!menu || !Array.isArray(menu) || menu.length === 0) {
+            div.innerHTML = "<p>No menu items found</p>";
             return;
         }
 
         menu.forEach(item => {
+            if (!item.id || !item.name || item.price === undefined) {
+                console.warn("Invalid menu item skipped:", item);
+                return;
+            }
+
             const btn = document.createElement("button");
             btn.textContent = `${item.name} - ₹${item.price}`;
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch (err) {
-        console.error(err);
-        div.innerHTML = "<p style='color:red'>Menu load failed</p>";
+
+    } catch (error) {
+        console.error("Menu Load Error:", error);
+        div.innerHTML = "<p style='color:red'>Menu failed to load</p>";
     }
 }
 
