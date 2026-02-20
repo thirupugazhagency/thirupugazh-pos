@@ -1,35 +1,77 @@
-<!-- VERSION 3.3 STABLE -->
 <!DOCTYPE html>
 <html>
 <head>
     <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <style>
         body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header { background:#1e88e5; color:white; padding:10px 15px; display:flex; justify-content:space-between; align-items:center; font-size:18px; }
-        header button { margin-left:8px; padding:6px 10px; border:none; cursor:pointer; border-radius:4px; }
-        .btn-admin { background:#0d47a1; color:white; }
-        .btn-logout { background:#444; color:white; }
+        header {
+            background: #1e88e5;
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+        }
+        header button {
+            margin-left: 8px;
+            padding: 6px 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-admin { background: #0d47a1; color: white; }
+        .btn-logout { background: #444; color: white; }
 
-        .container { display:flex; height:calc(100vh - 50px); }
-        .menu,.cart,.holds { padding:10px; overflow-y:auto; }
-        .menu { width:33%; background:white; }
-        .cart { width:34%; background:#fafafa; border-left:1px solid #ccc; border-right:1px solid #ccc; }
-        .holds { width:33%; background:white; }
+        .container { display: flex; height: calc(100vh - 50px); }
 
-        .menu button { width:100%; padding:15px; margin-bottom:10px; font-size:16px; }
-        .cart-item { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-        .cart-item button { padding:4px 8px; }
+        .menu, .cart, .holds { padding: 10px; overflow-y: auto; }
+        .menu { width: 33%; background: white; }
+        .cart { width: 34%; background: #fafafa; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
+        .holds { width: 33%; background: white; }
 
-        input,select { width:100%; padding:10px; margin-bottom:8px; font-size:15px; }
-        .total { font-size:18px; font-weight:bold; margin:6px 0; }
+        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 16px; }
 
-        .btn-hold { background:orange; color:white; padding:12px; border:none; width:100%; margin-bottom:8px; }
-        .btn-resume { background:#555; color:white; padding:12px; border:none; width:100%; margin-bottom:8px; }
-        .btn-pay { background:green; color:white; padding:12px; border:none; width:100%; }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .cart-item button { padding: 4px 8px; }
 
-        #resumeModal { display:none; position:fixed; top:20%; left:35%; width:30%; background:white; border:1px solid #ccc; padding:15px; box-shadow:0 0 10px rgba(0,0,0,.4); z-index:1000; }
-        #resumeModal button { width:100%; margin-bottom:6px; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .total { font-size: 18px; font-weight: bold; margin: 6px 0; }
+
+        .btn-hold { background: orange; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
+        .btn-resume { background: #555; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
+        .btn-pay { background: green; color: white; padding: 12px; border: none; width: 100%; }
+
+        #resumeModal {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 35%;
+            width: 30%;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,.4);
+            z-index: 1000;
+        }
+
+        #resumeModal button {
+            width: 100%;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 
@@ -37,25 +79,31 @@
 
 <header>
     <span>🧾 Thirupugazh – POS</span>
-    <div>
-        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
-        <button class="btn-admin" onclick="goStaff()">Staff Management</button>
-        <button onclick="goChangePassword()">Change Password</button>
-        <button class="btn-logout" onclick="logout()">Logout</button>
-    </div>
+    <div id="headerButtons">
+    <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+    <button class="btn-admin" onclick="goStaff()">Staff Management</button>
+    <button onclick="goChangePassword()">Change Password</button>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+</div>
+
 </header>
 
 <div class="container">
+
+    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons">Loading...</div>
     </div>
 
+    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
+
         <input id="customerName" placeholder="Customer Name">
         <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
         <input id="transactionId" placeholder="Transaction ID">
+
         <input id="gpayNumber" placeholder="GPay Mobile Number" style="display:none;">
 
         <select id="paymentMode" onchange="toggleGpay()">
@@ -79,12 +127,15 @@
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
+    <!-- HOLDS -->
     <div class="holds">
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
     </div>
+
 </div>
 
+<!-- RESUME MODAL -->
 <div id="resumeModal">
     <h3>Select Hold Bill</h3>
     <div id="resumeList"></div>
@@ -92,97 +143,229 @@
 </div>
 
 <script>
-if (!localStorage.getItem("user_id")) window.location.href="/ui/login";
-
-let cartId=null;
-let currentTotal=0;
-
-document.addEventListener("DOMContentLoaded",function(){
-(async()=>{
-try{
-await createCart();
-await loadMenu();
-await loadCart();
-await loadHolds();
-}catch(e){
-console.error(e);
-alert("Billing failed to load. Please refresh.");
+/* ================= AUTH GUARD ================= */
+if (!localStorage.getItem("user_id")) {
+    window.location.href = "/ui/login";
 }
-})();
+
+/* ================= ADMIN VISIBILITY ================= */
+const role = localStorage.getItem("role");
+if (role !== "admin") {
+    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
+}
+
+/* ================= STATE ================= */
+let cartId = null;
+let currentTotal = 0;
+
+/* ================= INIT (RENDER SAFE) ================= */
+document.addEventListener("DOMContentLoaded", function () {
+    (async () => {
+        try {
+            await createCart();
+            await loadMenu();
+            await loadCart();
+            await loadHolds();
+        } catch (e) {
+            console.error("Billing init failed:", e);
+            alert("Billing failed to load. Please refresh.");
+        }
+    })();
 });
 
-async function loadMenu(){
-const div=document.getElementById("menuButtons");
-try{
-const res=await fetch("/menu");
-const menu=await res.json();
-div.innerHTML="";
-menu.forEach(item=>{
-const btn=document.createElement("button");
-btn.textContent=`${item.name} - ₹${item.price}`;
-btn.onclick=()=>addToCart(item.id);
-div.appendChild(btn);
-});
-}catch{div.innerHTML="<p style='color:red'>Menu failed</p>";}
+/* ================= MENU ================= */
+async function loadMenu() {
+    const div = document.getElementById("menuButtons");
+    if (!div) return;
+
+    try {
+        const res = await fetch("/menu");
+        const menu = await res.json();
+
+        div.innerHTML = "";
+
+        if (!menu.length) {
+            div.innerHTML = "<p>No menu items</p>";
+            return;
+        }
+
+        menu.forEach(item => {
+            const btn = document.createElement("button");
+            btn.textContent = `${item.name} - ₹${item.price}`;
+            btn.onclick = () => addToCart(item.id);
+            div.appendChild(btn);
+        });
+    } catch (err) {
+        div.innerHTML = "<p>Error loading menu</p>";
+    }
 }
 
-async function createCart(){
-const res=await fetch("/cart/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({staff_id:localStorage.getItem("user_id")})});
-cartId=(await res.json()).cart_id;
+/* ================= CART ================= */
+async function createCart() {
+    const res = await fetch("/cart/create", { method: "POST" });
+    cartId = (await res.json()).cart_id;
 }
 
-async function addToCart(id){
-await fetch("/cart/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cart_id:cartId,menu_id:id})});
-loadCart();
+async function addToCart(menuId) {
+    await fetch("/cart/add", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+    });
+    loadCart();
 }
 
-async function loadCart(){
-const res=await fetch(`/cart/${cartId}`);
-const data=await res.json();
-currentTotal=data.total;
-const div=document.getElementById("cartItems");
-div.innerHTML="";
-data.items.forEach(i=>{
-div.innerHTML+=`<div class="cart-item">
-<span>${i.name}</span>
-<span><button onclick="addToCart(${i.menu_id})">+</button> ${i.quantity}</span>
-<span>₹${i.subtotal}</span>
-</div>`;
-});
-document.getElementById("subTotal").innerText=currentTotal;
-recalculateTotal();
+async function removeFromCart(menuId) {
+    await fetch("/cart/remove", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+    });
+    loadCart();
 }
 
-function recalculateTotal(){
-const discount=Number(document.getElementById("discount").value||0);
-document.getElementById("finalTotal").innerText=Math.max(currentTotal-discount,0);
+async function loadCart() {
+    const res = await fetch(`/cart/${cartId}`);
+    const data = await res.json();
+
+    const cartDiv = document.getElementById("cartItems");
+    cartDiv.innerHTML = "";
+    currentTotal = data.total;
+
+    data.items.forEach(i => {
+        cartDiv.innerHTML += `
+            <div class="cart-item">
+                <span>${i.name}</span>
+                <span>
+                    <button onclick="removeFromCart(${i.menu_id})">−</button>
+                    ${i.quantity}
+                    <button onclick="addToCart(${i.menu_id})">+</button>
+                </span>
+                <span>₹${i.subtotal}</span>
+            </div>
+        `;
+    });
+
+    document.getElementById("subTotal").innerText = currentTotal;
+    recalculateTotal();
 }
 
-async function holdBill(){
-await fetch("/cart/hold",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-cart_id:cartId,
-customer_name:customerName.value,
-customer_phone:mobileNumber.value
-})});
-await createCart();
-loadCart();
-loadHolds();
+/* ================= TOTAL ================= */
+function recalculateTotal() {
+    const discount = Number(document.getElementById("discount").value || 0);
+    document.getElementById("finalTotal").innerText =
+        Math.max(currentTotal - discount, 0);
 }
 
-async function loadHolds(){
-const res=await fetch(`/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`);
-const holds=await res.json();
-const div=document.getElementById("holdList");
-div.innerHTML=holds.length?"":"No holds";
-holds.forEach(h=>{
-div.innerHTML+=`<p><strong>${h.bill_no}</strong> - ${h.customer_name||"No Name"} (${h.created_at})</p>`;
-});
+/* ================= GPAY ================= */
+function toggleGpay() {
+    const mode = document.getElementById("paymentMode").value;
+    const gpayInput = document.getElementById("gpayNumber");
+    gpayInput.style.display = mode === "GPAY" ? "block" : "none";
+    if (mode !== "GPAY") gpayInput.value = "";
 }
 
-function goAdminReports(){window.location.href="/ui/admin-reports";}
-function goStaff(){window.location.href="/ui/admin-staff";}
-function goChangePassword(){window.location.href="/ui/change-password";}
-function logout(){localStorage.clear();window.location.replace("/ui/login");}
+/* ================= HOLD / RESUME ================= */
+async function holdBill() {
+    await fetch("/cart/hold", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cart_id: cartId })
+    });
+    await createCart();
+    loadCart();
+    loadHolds();
+}
+
+async function loadHolds() {
+    const res = await fetch("/cart/held");
+    const holds = await res.json();
+
+    const div = document.getElementById("holdList");
+    div.innerHTML = holds.length ? "" : "No holds";
+
+    holds.forEach(h => {
+        div.innerHTML += `<p>Cart #${h.cart_id} (${h.created_at})</p>`;
+    });
+}
+
+async function showResume() {
+    const res = await fetch("/cart/held");
+    const holds = await res.json();
+
+    const list = document.getElementById("resumeList");
+    list.innerHTML = "";
+
+    holds.forEach(h => {
+        list.innerHTML += `
+            <button onclick="resumeHold(${h.cart_id})">
+                Resume Cart #${h.cart_id} (${h.created_at})
+            </button>
+        `;
+    });
+
+    document.getElementById("resumeModal").style.display = "block";
+}
+
+function closeResume() {
+    document.getElementById("resumeModal").style.display = "none";
+}
+
+async function resumeHold(id) {
+    const res = await fetch(`/cart/resume/${id}`);
+    const data = await res.json();
+    cartId = data.cart_id;
+    closeResume();
+    loadCart();
+}
+
+/* ================= PAY ================= */
+async function payNow() {
+    const payment = paymentMode.value;
+    const name = customerName.value.trim();
+    const mobile = mobileNumber.value.trim();
+    const txn = transactionId.value.trim();
+    const gpay = gpayNumber.value.trim();
+
+    if (!payment) return alert("Select payment mode");
+    if (!name) return alert("Customer name required");
+    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
+    if (payment === "GPAY" && !/^\d{10}$/.test(gpay)) return alert("Enter valid GPay number");
+    if (payment !== "CASH" && payment !== "GPAY" && !txn) return alert("Transaction ID required");
+
+    const res = await fetch("/checkout", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+            cart_id: cartId,
+            payment_method: payment,
+            customer_name: name,
+            customer_phone: mobile,
+            transaction_id: txn,
+            gpay_number: gpay
+        })
+    });
+
+    alert("Paid ₹" + (await res.json()).total);
+    await createCart();
+    loadCart();
+    loadHolds();
+}
+
+/* ================= NAV ================= */
+function goAdminReports() {
+    window.location.href = "/ui/admin-reports";
+}
+
+function goStaff() {
+    window.location.href = "/ui/admin-staff";
+}
+
+function logout() {
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("role");
+    window.location.replace("/ui/login");
+}
 </script>
 
 </body>
