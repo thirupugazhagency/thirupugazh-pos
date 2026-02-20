@@ -434,7 +434,6 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
-        db.drop_all()
         db.create_all()
 
         if not User.query.first():
@@ -451,6 +450,5 @@ def init_db():
         db.session.commit()
 
 init_db()
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run()
