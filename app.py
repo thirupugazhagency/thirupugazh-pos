@@ -181,23 +181,28 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    data = request.get_json(silent=True) or {}
+    try:
+        data = request.get_json() or {}
 
-    bill_no = generate_bill_no()
+        bill_no = generate_bill_no()
 
-    cart = Cart(
-        status="ACTIVE",
-        bill_no=bill_no,
-        staff_id=data.get("staff_id")
-    )
+        cart = Cart(
+            status="ACTIVE",
+            bill_no=bill_no,
+            staff_id=data.get("staff_id")
+        )
 
-    db.session.add(cart)
-    db.session.commit()
+        db.session.add(cart)
+        db.session.commit()
 
-    return jsonify({
-        "cart_id": cart.id,
-        "bill_no": cart.bill_no
-    })
+        return jsonify({
+            "cart_id": cart.id,
+            "bill_no": cart.bill_no
+        })
+
+    except Exception as e:
+        print("CART CREATE ERROR:", str(e))
+        return jsonify({"error": "Cart create failed"}), 500
 
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
@@ -436,30 +441,31 @@ def admin_daily_pdf():
 # ==================================================
 def init_db():
     with app.app_context():
-        print("Resetting DB...")
-        db.drop_all()
         db.create_all()
 
-        db.session.add(User(
-            username="admin",
-            password=generate_password_hash("admin123"),
-            role="admin"
-        ))
+        # Create default users only if not exists
+        if not User.query.filter_by(username="admin").first():
+            db.session.add(User(
+                username="admin",
+                password=generate_password_hash("admin123"),
+                role="admin"
+            ))
 
-        db.session.add(User(
-            username="staff1",
-            password=generate_password_hash("1234"),
-            role="staff"
-        ))
+        if not User.query.filter_by(username="staff1").first():
+            db.session.add(User(
+                username="staff1",
+                password=generate_password_hash("1234"),
+                role="staff"
+            ))
 
-        db.session.add_all([
-            Menu(name="Full Set", price=580),
-            Menu(name="Half Set", price=300),
-            Menu(name="Three Tickets", price=150)
-        ])
+        if not Menu.query.first():
+            db.session.add_all([
+                Menu(name="Full Set", price=580),
+                Menu(name="Half Set", price=300),
+                Menu(name="Three Tickets", price=150)
+            ])
 
         db.session.commit()
-        print("DB Reset Complete")
 
 init_db()
 if __name__ == "__main__":
