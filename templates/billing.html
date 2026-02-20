@@ -78,8 +78,13 @@
 <body>
 
 <header>
-    <span>🧾 Thirupugazh – POS</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <img src="/static/logo.png" style="height:30px;">
+        <span>Thirupugazh – POS</span>
+    </div>
+
     <div id="headerButtons">
+        <button onclick="goHome()">Home</button>
         <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
         <button class="btn-admin" onclick="goStaff()">Staff Management</button>
         <button onclick="goChangePassword()">Change Password</button>

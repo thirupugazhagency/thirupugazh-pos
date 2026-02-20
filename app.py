@@ -409,6 +409,121 @@ def admin_daily_pdf():
     )
 
 # ==================================================
+# ADMIN MONTHLY REPORT (WITH BILL NUMBERS)
+# ==================================================
+@app.route("/admin/report/monthly")
+def admin_monthly_report():
+    month = int(request.args.get("month"))
+    year = int(request.args.get("year"))
+
+    sales = Sale.query.filter(
+        db.extract("month", Sale.business_date) == month,
+        db.extract("year", Sale.business_date) == year
+    ).order_by(Sale.id.asc()).all()
+
+    return jsonify({
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales),
+        "bills": [
+            {
+                "bill_no": s.bill_no,
+                "amount": s.total
+            }
+            for s in sales
+        ]
+    })
+
+# ==================================================
+# ADMIN MONTHLY EXCEL (WITH BILL NUMBER COLUMN)
+# ==================================================
+@app.route("/admin/report/monthly/excel")
+def admin_monthly_excel():
+    month = int(request.args.get("month"))
+    year = int(request.args.get("year"))
+
+    sales = Sale.query.filter(
+        db.extract("month", Sale.business_date) == month,
+        db.extract("year", Sale.business_date) == year
+    ).order_by(Sale.id.asc()).all()
+
+    data = []
+    for s in sales:
+        data.append({
+            "Bill Number": s.bill_no,
+            "Customer Name": s.customer_name or "",
+            "Mobile Number": s.customer_phone or "",
+            "Payment Mode": s.payment_method,
+            "Amount (₹)": s.total,
+            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"monthly_sales_{month}_{year}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ==================================================
+# ADMIN MONTHLY PDF (WITH BILL NUMBER COLUMN FORMAT)
+# ==================================================
+@app.route("/admin/report/monthly/pdf")
+def admin_monthly_pdf():
+    month = int(request.args.get("month"))
+    year = int(request.args.get("year"))
+
+    sales = Sale.query.filter(
+        db.extract("month", Sale.business_date) == month,
+        db.extract("year", Sale.business_date) == year
+    ).order_by(Sale.id.asc()).all()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Monthly Sales Report - {month}/{year}")
+    y -= 30
+
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(50, y, "Bill No")
+    pdf.drawString(150, y, "Payment")
+    pdf.drawString(250, y, "Amount")
+    y -= 20
+
+    pdf.setFont("Helvetica", 10)
+
+    if not sales:
+        pdf.drawString(50, y, "No sales found")
+    else:
+        for s in sales:
+            pdf.drawString(50, y, s.bill_no)
+            pdf.drawString(150, y, s.payment_method or "")
+            pdf.drawString(250, y, f"₹{s.total}")
+            y -= 18
+
+            if y < 50:
+                pdf.showPage()
+                y = 800
+                pdf.setFont("Helvetica", 10)
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"monthly_sales_{month}_{year}.pdf",
+        mimetype="application/pdf"
+    )
+
+# ==================================================
 # INIT DB
 # ==================================================
 def init_db():
