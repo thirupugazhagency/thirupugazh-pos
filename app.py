@@ -78,24 +78,43 @@ class Sale(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ==================================================
-# BILL NUMBER GENERATOR
+# BILL NUMBER GENERATOR (SAFE – CHECKS CART + SALE)
 # ==================================================
 def generate_bill_no():
     year = datetime.now().year
     prefix = f"TLA-{year}"
 
-    last = (
+    last_sale = (
         Sale.query
         .filter(Sale.bill_no.like(f"{prefix}-%"))
         .order_by(Sale.id.desc())
         .first()
     )
 
-    next_no = 1
-    if last and last.bill_no:
-        next_no = int(last.bill_no.split("-")[-1]) + 1
+    last_cart = (
+        Cart.query
+        .filter(Cart.bill_no.like(f"{prefix}-%"))
+        .order_by(Cart.id.desc())
+        .first()
+    )
 
-    return f"{prefix}-{str(next_no).zfill(4)}"
+    last_numbers = []
+
+    if last_sale and last_sale.bill_no:
+        try:
+            last_numbers.append(int(last_sale.bill_no.split("-")[-1]))
+        except:
+            pass
+
+    if last_cart and last_cart.bill_no:
+        try:
+            last_numbers.append(int(last_cart.bill_no.split("-")[-1]))
+        except:
+            pass
+
+    next_number = max(last_numbers) + 1 if last_numbers else 1
+
+    return f"{prefix}-{str(next_number).zfill(4)}"
 
 # ==================================================
 # UI ROUTES
