@@ -181,12 +181,14 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
+    data = request.get_json(silent=True) or {}
+
     bill_no = generate_bill_no()
 
     cart = Cart(
         status="ACTIVE",
         bill_no=bill_no,
-        staff_id=request.json.get("staff_id")
+        staff_id=data.get("staff_id")
     )
 
     db.session.add(cart)
