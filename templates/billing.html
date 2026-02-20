@@ -80,12 +80,11 @@
 <header>
     <span>🧾 Thirupugazh – POS</span>
     <div id="headerButtons">
-    <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
-    <button class="btn-admin" onclick="goStaff()">Staff Management</button>
-    <button onclick="goChangePassword()">Change Password</button>
-    <button class="btn-logout" onclick="logout()">Logout</button>
-</div>
-
+        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+        <button class="btn-admin" onclick="goStaff()">Staff Management</button>
+        <button onclick="goChangePassword()">Change Password</button>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
 </header>
 
 <div class="container">
@@ -195,7 +194,7 @@ async function loadMenu() {
             btn.onclick = () => addToCart(item.id);
             div.appendChild(btn);
         });
-    } catch (err) {
+    } catch {
         div.innerHTML = "<p>Error loading menu</p>";
     }
 }
@@ -218,12 +217,15 @@ async function addToCart(menuId) {
 async function removeFromCart(menuId) {
     await fetch("/cart/remove", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId
+        })
     });
+
     loadCart();
 }
-
 async function loadCart() {
     const res = await fetch(`/cart/${cartId}`);
     const data = await res.json();
@@ -346,7 +348,11 @@ async function payNow() {
         })
     });
 
-    alert("Paid ₹" + (await res.json()).total);
+    const result = await res.json();
+    alert(`✅ Payment Successful
+Bill No: ${result.bill_no}
+Amount: ₹${result.total}`);
+
     await createCart();
     loadCart();
     loadHolds();
@@ -359,6 +365,10 @@ function goAdminReports() {
 
 function goStaff() {
     window.location.href = "/ui/admin-staff";
+}
+
+function goChangePassword() {
+    window.location.href = "/ui/change-password";
 }
 
 function logout() {
