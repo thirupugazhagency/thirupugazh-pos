@@ -364,13 +364,14 @@ async function payNow() {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: payment,
-            customer_name: name,
-            customer_phone: mobile,
-            transaction_id: txn,
-            gpay_number: gpay
-        })
+                            cart_id: cartId,
+                            payment_method: payment,
+                            customer_name: name,
+                            customer_phone: mobile,
+                            transaction_id: txn,
+                            discount: Number(document.getElementById("discount").value || 0),
+                            staff_id: localStorage.getItem("user_id")
+})
     });
 
     const result = await res.json();

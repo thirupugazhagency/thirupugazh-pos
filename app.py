@@ -184,12 +184,20 @@ def create_cart():
     try:
         data = request.get_json() or {}
 
+        staff_id = data.get("staff_id")
+        if staff_id:
+            staff_id = int(staff_id)
+
         bill_no = generate_bill_no()
+
+        # Safety check if bill already exists
+        while Cart.query.filter_by(bill_no=bill_no).first():
+            bill_no = generate_bill_no()
 
         cart = Cart(
             status="ACTIVE",
             bill_no=bill_no,
-            staff_id=data.get("staff_id")
+            staff_id=staff_id
         )
 
         db.session.add(cart)
@@ -201,6 +209,7 @@ def create_cart():
         })
 
     except Exception as e:
+        db.session.rollback()
         print("CART CREATE ERROR:", str(e))
         return jsonify({"error": "Cart create failed"}), 500
 
@@ -263,6 +272,8 @@ def hold_cart():
 def held_carts():
     role = request.args.get("role")
     user_id = request.args.get("user_id")
+    if user_id:
+    user_id = int(user_id)
 
     query = Cart.query.filter_by(status="HOLD")
 
@@ -284,39 +295,63 @@ def held_carts():
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
-    if cart and cart.status == "HOLD":
-        cart.status = "ACTIVE"
-        db.session.commit()
-    return jsonify({"cart_id": cart_id})
+
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
+
+    if cart.status == "PAID":
+        return jsonify({"error": "Cannot resume paid cart"}), 400
+
+    cart.status = "ACTIVE"
+    db.session.commit()
+
+    return jsonify({"cart_id": cart.id})
 
 # ==================================================
 # CHECKOUT (WITH BILL NUMBER)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
-    d = request.json
-    cart = Cart.query.get(d["cart_id"])
-    items = CartItem.query.filter_by(cart_id=cart.id).all()
-    total = sum(i.menu.price * i.quantity for i in items)
+    try:
+        d = request.json
+        cart = Cart.query.get(d["cart_id"])
 
-    sale = Sale(
-        bill_no=cart.bill_no,
-        total=total,
-        payment_method=d.get("payment_method"),
-        customer_name=d.get("customer_name"),
-        customer_phone=d.get("customer_phone"),
-        staff_id=d.get("staff_id"),
-        business_date=get_business_date()
-    )
+        if not cart:
+            return jsonify({"error": "Cart not found"}), 404
 
-    db.session.add(sale)
-    cart.status = "PAID"
-    db.session.commit()
+        items = CartItem.query.filter_by(cart_id=cart.id).all()
+        total = sum(i.menu.price * i.quantity for i in items)
 
-    return jsonify({
-        "total": total,
-        "bill_no": cart.bill_no
-    })
+        discount = int(d.get("discount") or 0)
+        final_total = max(total - discount, 0)
+
+        sale = Sale(
+            bill_no=cart.bill_no,
+            total=final_total,
+            payment_method=d.get("payment_method"),
+            customer_name=d.get("customer_name"),
+            customer_phone=d.get("customer_phone"),
+            staff_id=d.get("staff_id"),
+            business_date=get_business_date()
+        )
+
+        # Save transaction id inside cart
+        cart.transaction_id = d.get("transaction_id")
+        cart.discount = discount
+        cart.status = "PAID"
+
+        db.session.add(sale)
+        db.session.commit()
+
+        return jsonify({
+            "total": final_total,
+            "bill_no": cart.bill_no
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print("CHECKOUT ERROR:", str(e))
+        return jsonify({"error": "Checkout failed"}), 500
 # ==================================================
 # ADMIN STAFF MANAGEMENT
 # ==================================================
