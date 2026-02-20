@@ -200,8 +200,18 @@ async function loadMenu() {
 
 /* CART */
 async function createCart() {
-    const res = await fetch("/cart/create", { method: "POST" });
-    cartId = (await res.json()).cart_id;
+    const res = await fetch("/cart/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            staff_id: localStorage.getItem("user_id")
+        })
+    });
+
+    const data = await res.json();
+    cartId = data.cart_id;
+
+    console.log("New Cart Created:", data.bill_no);
 }
 
 async function addToCart(menuId) {
@@ -267,23 +277,32 @@ async function holdBill() {
     await fetch("/cart/hold", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId })
+        body: JSON.stringify({
+            cart_id: cartId,
+            customer_name: document.getElementById("customerName").value,
+            customer_phone: document.getElementById("mobileNumber").value
+        })
     });
+
     await createCart();
     loadCart();
     loadHolds();
 }
 
 async function loadHolds() {
-    const res = await fetch("/cart/held");
+    const res = await fetch(`/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`);
     const holds = await res.json();
     const div = document.getElementById("holdList");
 
     div.innerHTML = holds.length ? "" : "No holds";
     holds.forEach(h => {
-        div.innerHTML += `<p>${h.bill_no || "—"}<br><small>${h.created_at}</small></p>`;
-    });
-}
+        div.innerHTML += `
+    <p>
+        <strong>${h.bill_no}</strong> - 
+        ${h.customer_name || "No Name"} 
+        (${h.created_at})
+    </p>
+`;
 
 async function showResume() {
     const res = await fetch("/cart/held");
@@ -294,8 +313,9 @@ async function showResume() {
     holds.forEach(h => {
         list.innerHTML += `
             <button onclick="resumeHold(${h.cart_id})">
-                ${h.bill_no || "—"} (${h.created_at})
-            </button>
+                               ${h.bill_no} - ${h.customer_name || "No Name"} (${h.created_at})
+                               </button>
+
         `;
     });
 
