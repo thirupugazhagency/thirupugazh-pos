@@ -115,7 +115,7 @@ def ui_billing():
 
 @app.route("/ui/admin-reports")
 def ui_admin_reports():
-    return render_template("admin_report.html")
+    return render_template("admin_reports.html")
 
 @app.route("/ui/change-password")
 def ui_change_password():
@@ -321,13 +321,25 @@ def admin_staff_reset_password():
     return jsonify({"status": "ok"})
 
 # ==================================================
-# ADMIN DAILY REPORT
+# ADMIN DAILY REPORT (WITH STAFF FILTER)
 # ==================================================
 @app.route("/admin/report/daily")
 def admin_daily_report():
     date_str = request.args.get("date")
-    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
-    sales = Sale.query.filter_by(business_date=business_date).all()
+    staff_id = request.args.get("staff_id")
+
+    business_date = (
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_str else get_business_date()
+    )
+
+    query = Sale.query.filter(Sale.business_date == business_date)
+
+    if staff_id:
+        query = query.filter(Sale.staff_id == int(staff_id))
+
+    sales = query.order_by(Sale.id.asc()).all()
+
     return jsonify({
         "bill_count": len(sales),
         "total_amount": sum(s.total for s in sales)
@@ -338,19 +350,33 @@ def admin_daily_report():
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
     date_str = request.args.get("date")
-    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    staff_id = request.args.get("staff_id")
 
-    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+    business_date = (
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_str else get_business_date()
+    )
+
+    query = Sale.query.filter(Sale.business_date == business_date)
+
+    if staff_id:
+        query = query.filter(Sale.staff_id == int(staff_id))
+
+    sales = query.order_by(Sale.id.asc()).all()
 
     data = []
+
     for s in sales:
+        staff = User.query.get(s.staff_id)
         data.append({
-            "Bill No": s.bill_no,
+            "Bill Number": s.bill_no,
+            "Staff ID": s.staff_id,
+            "Staff Name": staff.username if staff else "",
             "Customer Name": s.customer_name or "",
             "Mobile": s.customer_phone or "",
             "Payment Mode": s.payment_method,
-            "Amount": s.total,
-            "Date Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+            "Amount (₹)": s.total,
+            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
         })
 
     df = pd.DataFrame(data)
@@ -371,9 +397,19 @@ def admin_daily_excel():
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
     date_str = request.args.get("date")
-    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    staff_id = request.args.get("staff_id")
 
-    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+    business_date = (
+        datetime.strptime(date_str, "%Y-%m-%d").date()
+        if date_str else get_business_date()
+    )
+
+    query = Sale.query.filter(Sale.business_date == business_date)
+
+    if staff_id:
+        query = query.filter(Sale.staff_id == int(staff_id))
+
+    sales = query.order_by(Sale.id.asc()).all()
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -383,20 +419,36 @@ def admin_daily_pdf():
     pdf.drawString(50, y, f"Daily Sales Report - {business_date}")
     y -= 30
 
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(50, y, "Bill No")
+    pdf.drawString(130, y, "Staff")
+    pdf.drawString(220, y, "Payment")
+    pdf.drawString(320, y, "Amount")
+    y -= 20
+
     pdf.setFont("Helvetica", 10)
 
-    if not sales:
-        pdf.drawString(50, y, "No sales found")
-    else:
-        for s in sales:
-            line = f"{s.bill_no} | {s.payment_method} | ₹{s.total}"
-            pdf.drawString(50, y, line)
-            y -= 18
+    total_amount = 0
 
-            if y < 50:
-                pdf.showPage()
-                y = 800
-                pdf.setFont("Helvetica", 10)
+    for s in sales:
+        staff = User.query.get(s.staff_id)
+
+        pdf.drawString(50, y, s.bill_no)
+        pdf.drawString(130, y, staff.username if staff else "")
+        pdf.drawString(220, y, s.payment_method or "")
+        pdf.drawString(320, y, f"₹{s.total}")
+
+        total_amount += s.total
+        y -= 18
+
+        if y < 50:
+            pdf.showPage()
+            y = 800
+            pdf.setFont("Helvetica", 10)
+
+    y -= 10
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(50, y, f"Total: ₹{total_amount}")
 
     pdf.save()
     buffer.seek(0)
@@ -438,20 +490,39 @@ def admin_monthly_report():
 # ==================================================
 @app.route("/admin/report/monthly/excel")
 def admin_monthly_excel():
-    month = int(request.args.get("month"))
-    year = int(request.args.get("year"))
+    month = request.args.get("month")
+    year = request.args.get("year")
+    staff_id = request.args.get("staff_id")
 
-    sales = Sale.query.filter(
-        db.extract("month", Sale.business_date) == month,
-        db.extract("year", Sale.business_date) == year
-    ).order_by(Sale.id.asc()).all()
+    if not month or not year:
+        return "Month and Year required", 400
+
+    month = int(month)
+    year = int(year)
+
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
+
+    query = Sale.query.filter(
+        Sale.business_date >= start_date.date(),
+        Sale.business_date < end_date.date()
+    )
+
+    if staff_id:
+        query = query.filter(Sale.staff_id == int(staff_id))
+
+    sales = query.order_by(Sale.id.asc()).all()
 
     data = []
+
     for s in sales:
+        staff = User.query.get(s.staff_id)
         data.append({
             "Bill Number": s.bill_no,
+            "Staff ID": s.staff_id,
+            "Staff Name": staff.username if staff else "",
             "Customer Name": s.customer_name or "",
-            "Mobile Number": s.customer_phone or "",
+            "Mobile": s.customer_phone or "",
             "Payment Mode": s.payment_method,
             "Amount (₹)": s.total,
             "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
@@ -469,60 +540,61 @@ def admin_monthly_excel():
         download_name=f"monthly_sales_{month}_{year}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
 # ==================================================
 # ADMIN MONTHLY PDF (WITH BILL NUMBER COLUMN FORMAT)
 # ==================================================
 @app.route("/admin/report/monthly/pdf")
 def admin_monthly_pdf():
-    month = int(request.args.get("month"))
-    year = int(request.args.get("year"))
+    month = request.args.get("month")
+    year = request.args.get("year")
+    staff_id = request.args.get("staff_id")
 
-    sales = Sale.query.filter(
-        db.extract("month", Sale.business_date) == month,
-        db.extract("year", Sale.business_date) == year
-    ).order_by(Sale.id.asc()).all()
+    if not month or not year:
+        return "Month and Year required", 400
 
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-    y = 800
+    month = int(month)
+    year = int(year)
 
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(50, y, f"Monthly Sales Report - {month}/{year}")
-    y -= 30
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
 
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(50, y, "Bill No")
-    pdf.drawString(150, y, "Payment")
-    pdf.drawString(250, y, "Amount")
-    y -= 20
-
-    pdf.setFont("Helvetica", 10)
-
-    if not sales:
-        pdf.drawString(50, y, "No sales found")
-    else:
-        for s in sales:
-            pdf.drawString(50, y, s.bill_no)
-            pdf.drawString(150, y, s.payment_method or "")
-            pdf.drawString(250, y, f"₹{s.total}")
-            y -= 18
-
-            if y < 50:
-                pdf.showPage()
-                y = 800
-                pdf.setFont("Helvetica", 10)
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"monthly_sales_{month}_{year}.pdf",
-        mimetype="application/pdf"
+    query = Sale.query.filter(
+        Sale.business_date >= start_date.date(),
+        Sale.business_date < end_date.date()
     )
 
+    if staff_id:
+        query = query.filter(Sale.staff_id == int(staff_id))
+
+    sales = query.order_by(Sale.id.asc()).all()
+
+    data = []
+
+    for s in sales:
+        staff = User.query.get(s.staff_id)
+        data.append({
+            "Bill Number": s.bill_no,
+            "Staff ID": s.staff_id,
+            "Staff Name": staff.username if staff else "",
+            "Customer Name": s.customer_name or "",
+            "Mobile": s.customer_phone or "",
+            "Payment Mode": s.payment_method,
+            "Amount (₹)": s.total,
+            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    df.to_pdf(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"monthly_sales_{month}_{year}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 # ==================================================
 # INIT DB
 # ==================================================
