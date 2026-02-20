@@ -321,6 +321,40 @@ def admin_staff_reset_password():
     return jsonify({"status": "ok"})
 
 # ==================================================
+# STAFF DAILY SALES (ONLY THEIR OWN)
+# ==================================================
+@app.route("/staff/report/daily")
+def staff_daily_report():
+    try:
+        staff_id = request.args.get("staff_id")
+
+        if not staff_id:
+            return jsonify({"error": "Staff ID required"}), 400
+
+        business_date = get_business_date()
+
+        sales = Sale.query.filter(
+            Sale.business_date == business_date,
+            Sale.staff_id == int(staff_id)
+        ).order_by(Sale.id.asc()).all()
+
+        return jsonify({
+            "bill_count": len(sales),
+            "total_amount": sum(s.total for s in sales),
+            "bills": [
+                {
+                    "bill_no": s.bill_no,
+                    "amount": s.total
+                }
+                for s in sales
+            ]
+        })
+
+    except Exception as e:
+        print("STAFF DAILY ERROR:", str(e))
+        return jsonify({"error": "Server error"}), 500
+
+# ==================================================
 # ADMIN DAILY REPORT (WITH STAFF FILTER)
 # ==================================================
 @app.route("/admin/report/daily")

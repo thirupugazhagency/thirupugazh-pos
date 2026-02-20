@@ -182,10 +182,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         await loadMenu();
         await loadCart();
         await loadHolds();
-        await loadMySales();   // 👈 ADD HERE
     } catch (e) {
         console.error("Billing init failed:", e);
-        alert("Billing failed to load.");
+    }
+
+    // Run sales separately so it never blocks menu
+    try {
+        await loadMySales();
+    } catch (e) {
+        console.error("Daily sales failed:", e);
     }
 });
 
