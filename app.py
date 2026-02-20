@@ -602,9 +602,22 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        if not User.query.first():
-            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
-            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
+        if not User.query.filter_by(username="admin").first():
+    db.session.add(User(
+        username="admin",
+        password=generate_password_hash("admin123"),
+        role="admin"
+    ))
+
+# Create staff1 to staff10 if not exists
+for i in range(1, 11):
+    username = f"staff{i}"
+    if not User.query.filter_by(username=username).first():
+        db.session.add(User(
+            username=username,
+            password=generate_password_hash("1234"),
+            role="staff"
+        ))
 
         if not Menu.query.first():
             db.session.add_all([
