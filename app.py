@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 app = Flask(__name__)
 
 # ==================================================
-# DATABASE CONFIG
+# DATABASE CONFIG (SAFE FOR WINDOWS + RENDER)
 # ==================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -26,7 +26,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # ==================================================
-# BUSINESS DATE
+# BUSINESS DATE (3 PM – 3 PM)
 # ==================================================
 def get_business_date():
     now = datetime.now()
@@ -51,9 +51,7 @@ class Menu(db.Model):
 
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)
-    staff_id = db.Column(db.Integer)  # ✅ ADDED
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -69,7 +67,7 @@ class CartItem(db.Model):
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)
+    bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
     total = db.Column(db.Integer, nullable=False)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
@@ -85,24 +83,19 @@ def generate_bill_no():
     year = datetime.now().year
     prefix = f"TLA-{year}"
 
-    last_sale = Sale.query.filter(Sale.bill_no.like(f"{prefix}-%")).order_by(Sale.id.desc()).first()
-    last_cart = Cart.query.filter(Cart.bill_no.like(f"{prefix}-%")).order_by(Cart.id.desc()).first()
-
-    last_numbers = []
+    last_sale = (
+        Sale.query
+        .filter(Sale.bill_no.like(f"{prefix}-%"))
+        .order_by(Sale.id.desc())
+        .first()
+    )
 
     if last_sale and last_sale.bill_no:
-        try:
-            last_numbers.append(int(last_sale.bill_no.split("-")[-1]))
-        except:
-            pass
+        last_number = int(last_sale.bill_no.split("-")[-1])
+        next_number = last_number + 1
+    else:
+        next_number = 1
 
-    if last_cart and last_cart.bill_no:
-        try:
-            last_numbers.append(int(last_cart.bill_no.split("-")[-1]))
-        except:
-            pass
-
-    next_number = max(last_numbers) + 1 if last_numbers else 1
     return f"{prefix}-{str(next_number).zfill(4)}"
 
 # ==================================================
@@ -143,34 +136,49 @@ def login():
     if user and check_password_hash(user.password, data.get("password")):
         if user.status != "ACTIVE":
             return jsonify({"status": "disabled"}), 403
-        return jsonify({"status": "ok", "user_id": user.id, "role": user.role})
+
+        return jsonify({
+            "status": "ok",
+            "user_id": user.id,
+            "role": user.role
+        })
 
     return jsonify({"status": "error"}), 401
+
+# ==================================================
+# CHANGE PASSWORD
+# ==================================================
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    data = request.json
+    user = User.query.get(data.get("user_id"))
+
+    if not user or not check_password_hash(user.password, data.get("old_password")):
+        return jsonify({"status": "error"}), 400
+
+    user.password = generate_password_hash(data.get("new_password"))
+    db.session.commit()
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # MENU
 # ==================================================
 @app.route("/menu")
 def get_menu():
-    return jsonify([{"id": m.id, "name": m.name, "price": m.price} for m in Menu.query.all()])
+    return jsonify([
+        {"id": m.id, "name": m.name, "price": m.price}
+        for m in Menu.query.all()
+    ])
 
 # ==================================================
 # CART
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    bill_no = generate_bill_no()
-
-    cart = Cart(
-        status="ACTIVE",
-        bill_no=bill_no,
-        staff_id=request.json.get("staff_id")
-    )
-
+    cart = Cart(status="ACTIVE")
     db.session.add(cart)
     db.session.commit()
-
-    return jsonify({"cart_id": cart.id, "bill_no": cart.bill_no})
+    return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
@@ -179,7 +187,7 @@ def add_to_cart():
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"]))
+        db.session.add(CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1))
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -198,73 +206,59 @@ def remove_from_cart():
 @app.route("/cart/<int:cart_id>")
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
-    total = sum(i.menu.price * i.quantity for i in items)
-    return jsonify({
-        "items": [
-            {"menu_id": i.menu.id, "name": i.menu.name, "quantity": i.quantity, "subtotal": i.menu.price * i.quantity}
-            for i in items
-        ],
-        "total": total
-    })
+    total = 0
+    result = []
+    for i in items:
+        subtotal = i.menu.price * i.quantity
+        total += subtotal
+        result.append({
+            "menu_id": i.menu.id,
+            "name": i.menu.name,
+            "quantity": i.quantity,
+            "subtotal": subtotal
+        })
+    return jsonify({"items": result, "total": total})
 
 # ==================================================
 # HOLD / RESUME
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
-    data = request.json
-    cart = Cart.query.get(data.get("cart_id"))
-
+    cart = Cart.query.get(request.json.get("cart_id"))
     if cart and cart.status == "ACTIVE":
         cart.status = "HOLD"
-        cart.customer_name = data.get("customer_name")
-        cart.customer_phone = data.get("customer_phone")
         db.session.commit()
-
     return jsonify({"status": "ok"})
 
 @app.route("/cart/held")
 def held_carts():
-    role = request.args.get("role")
-    user_id = request.args.get("user_id")
-
-    query = Cart.query.filter_by(status="HOLD")
-
-    if role != "admin":
-        query = query.filter_by(staff_id=user_id)
-
-    carts = query.order_by(Cart.created_at.desc()).all()
-
+    carts = Cart.query.filter_by(status="HOLD").order_by(Cart.created_at.desc()).all()
     return jsonify([
-        {
-            "cart_id": c.id,
-            "bill_no": c.bill_no,
-            "customer_name": c.customer_name or "",
-            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
-        }
+        {"cart_id": c.id, "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")}
         for c in carts
     ])
 
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
-    if cart:
+    if cart and cart.status == "HOLD":
         cart.status = "ACTIVE"
         db.session.commit()
     return jsonify({"cart_id": cart_id})
 
 # ==================================================
-# CHECKOUT
+# CHECKOUT (WITH BILL NUMBER)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
-    cart = Cart.query.get(d["cart_id"])
-    items = CartItem.query.filter_by(cart_id=cart.id).all()
+    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
     total = sum(i.menu.price * i.quantity for i in items)
 
+    bill_no = generate_bill_no()
+
     sale = Sale(
-        bill_no=cart.bill_no,
+        bill_no=bill_no,
         total=total,
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
@@ -274,10 +268,132 @@ def checkout():
     )
 
     db.session.add(sale)
-    cart.status = "PAID"
+    Cart.query.get(d["cart_id"]).status = "PAID"
     db.session.commit()
 
-    return jsonify({"total": total, "bill_no": cart.bill_no})
+    return jsonify({
+        "total": total,
+        "bill_no": bill_no
+    })
+
+# ==================================================
+# ADMIN STAFF MANAGEMENT
+# ==================================================
+@app.route("/admin/staff/list")
+def admin_staff_list():
+    staff = User.query.filter(User.role != "admin").all()
+    return jsonify([
+        {"id": s.id, "username": s.username, "status": s.status}
+        for s in staff
+    ])
+
+@app.route("/admin/staff/toggle", methods=["POST"])
+def admin_staff_toggle():
+    staff = User.query.get(request.json.get("staff_id"))
+    if not staff or staff.role == "admin":
+        return jsonify({"status": "error"}), 400
+
+    staff.status = "DISABLED" if staff.status == "ACTIVE" else "ACTIVE"
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+@app.route("/admin/staff/reset-password", methods=["POST"])
+def admin_staff_reset_password():
+    staff = User.query.get(request.json.get("staff_id"))
+    if not staff or staff.role == "admin":
+        return jsonify({"status": "error"}), 400
+
+    staff.password = generate_password_hash(request.json.get("new_password"))
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+# ==================================================
+# ADMIN DAILY REPORT
+# ==================================================
+@app.route("/admin/report/daily")
+def admin_daily_report():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+    sales = Sale.query.filter_by(business_date=business_date).all()
+    return jsonify({
+        "bill_count": len(sales),
+        "total_amount": sum(s.total for s in sales)
+    })
+# ==================================================
+# ADMIN DAILY EXCEL (WITH BILL NO)
+# ==================================================
+@app.route("/admin/report/daily/excel")
+def admin_daily_excel():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+
+    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+
+    data = []
+    for s in sales:
+        data.append({
+            "Bill No": s.bill_no,
+            "Customer Name": s.customer_name or "",
+            "Mobile": s.customer_phone or "",
+            "Payment Mode": s.payment_method,
+            "Amount": s.total,
+            "Date Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    df = pd.DataFrame(data)
+
+    output = io.BytesIO()
+    df.to_excel(output, index=False)
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+# ==================================================
+# ADMIN DAILY PDF (WITH BILL NO)
+# ==================================================
+@app.route("/admin/report/daily/pdf")
+def admin_daily_pdf():
+    date_str = request.args.get("date")
+    business_date = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else get_business_date()
+
+    sales = Sale.query.filter_by(business_date=business_date).order_by(Sale.id.asc()).all()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Daily Sales Report - {business_date}")
+    y -= 30
+
+    pdf.setFont("Helvetica", 10)
+
+    if not sales:
+        pdf.drawString(50, y, "No sales found")
+    else:
+        for s in sales:
+            line = f"{s.bill_no} | {s.payment_method} | ₹{s.total}"
+            pdf.drawString(50, y, line)
+            y -= 18
+
+            if y < 50:
+                pdf.showPage()
+                y = 800
+                pdf.setFont("Helvetica", 10)
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"daily_sales_{business_date}.pdf",
+        mimetype="application/pdf"
+    )
 
 # ==================================================
 # INIT DB
