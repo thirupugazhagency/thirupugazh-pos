@@ -44,24 +44,19 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False)
     status = db.Column(db.String(20), default="ACTIVE")
 
-
 class Menu(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
 
-
 class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")
-    bill_no = db.Column(db.String(30), unique=True, nullable=True)
-    staff_id = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -70,10 +65,9 @@ class CartItem(db.Model):
     quantity = db.Column(db.Integer, default=1)
     menu = db.relationship("Menu")
 
-
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    bill_no = db.Column(db.String(30), unique=True)
+    bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
     total = db.Column(db.Integer, nullable=False)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
@@ -181,37 +175,10 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    try:
-        data = request.get_json() or {}
-
-        staff_id = data.get("staff_id")
-        if staff_id:
-            staff_id = int(staff_id)
-
-        bill_no = generate_bill_no()
-
-        # Safety check if bill already exists
-        while Cart.query.filter_by(bill_no=bill_no).first():
-            bill_no = generate_bill_no()
-
-        cart = Cart(
-            status="ACTIVE",
-            bill_no=bill_no,
-            staff_id=staff_id
-        )
-
-        db.session.add(cart)
-        db.session.commit()
-
-        return jsonify({
-            "cart_id": cart.id,
-            "bill_no": cart.bill_no
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        print("CART CREATE ERROR:", str(e))
-        return jsonify({"error": "Cart create failed"}), 500
+    cart = Cart(status="ACTIVE")
+    db.session.add(cart)
+    db.session.commit()
+    return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
@@ -270,25 +237,9 @@ def hold_cart():
 
 @app.route("/cart/held")
 def held_carts():
-    role = request.args.get("role")
-    user_id = request.args.get("user_id")
-    if user_id:
-    user_id = int(user_id)
-
-    query = Cart.query.filter_by(status="HOLD")
-
-    if role != "admin":
-        query = query.filter_by(staff_id=user_id)
-
-    carts = query.order_by(Cart.created_at.desc()).all()
-
+    carts = Cart.query.filter_by(status="HOLD").order_by(Cart.created_at.desc()).all()
     return jsonify([
-        {
-            "cart_id": c.id,
-            "bill_no": c.bill_no,
-            "customer_name": c.customer_name or "",
-            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
-        }
+        {"cart_id": c.id, "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")}
         for c in carts
     ])
 
@@ -296,62 +247,48 @@ def held_carts():
 def resume_cart(cart_id):
     cart = Cart.query.get(cart_id)
 
-    if not cart:
-        return jsonify({"error": "Cart not found"}), 404
+    if cart and cart.status == "HOLD":
+        cart.status = "ACTIVE"
+        db.session.commit()
 
-    if cart.status == "PAID":
-        return jsonify({"error": "Cannot resume paid cart"}), 400
+        return jsonify({
+            "cart_id": cart.id,
+            "customer_name": cart.customer_name,
+            "customer_phone": cart.customer_phone
+        })
 
-    cart.status = "ACTIVE"
-    db.session.commit()
-
-    return jsonify({"cart_id": cart.id})
+    return jsonify({"error": "Cart not found"}), 404
 
 # ==================================================
 # CHECKOUT (WITH BILL NUMBER)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
-    try:
-        d = request.json
-        cart = Cart.query.get(d["cart_id"])
+    d = request.json
+    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
+    total = sum(i.menu.price * i.quantity for i in items)
 
-        if not cart:
-            return jsonify({"error": "Cart not found"}), 404
+    bill_no = generate_bill_no()
 
-        items = CartItem.query.filter_by(cart_id=cart.id).all()
-        total = sum(i.menu.price * i.quantity for i in items)
+    sale = Sale(
+        bill_no=bill_no,
+        total=total,
+        payment_method=d.get("payment_method"),
+        customer_name=d.get("customer_name"),
+        customer_phone=d.get("customer_phone"),
+        staff_id=d.get("staff_id"),
+        business_date=get_business_date()
+    )
 
-        discount = int(d.get("discount") or 0)
-        final_total = max(total - discount, 0)
+    db.session.add(sale)
+    Cart.query.get(d["cart_id"]).status = "PAID"
+    db.session.commit()
 
-        sale = Sale(
-            bill_no=cart.bill_no,
-            total=final_total,
-            payment_method=d.get("payment_method"),
-            customer_name=d.get("customer_name"),
-            customer_phone=d.get("customer_phone"),
-            staff_id=d.get("staff_id"),
-            business_date=get_business_date()
-        )
+    return jsonify({
+        "total": total,
+        "bill_no": bill_no
+    })
 
-        # Save transaction id inside cart
-        cart.transaction_id = d.get("transaction_id")
-        cart.discount = discount
-        cart.status = "PAID"
-
-        db.session.add(sale)
-        db.session.commit()
-
-        return jsonify({
-            "total": final_total,
-            "bill_no": cart.bill_no
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        print("CHECKOUT ERROR:", str(e))
-        return jsonify({"error": "Checkout failed"}), 500
 # ==================================================
 # ADMIN STAFF MANAGEMENT
 # ==================================================
@@ -478,20 +415,9 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # Create default users only if not exists
-        if not User.query.filter_by(username="admin").first():
-            db.session.add(User(
-                username="admin",
-                password=generate_password_hash("admin123"),
-                role="admin"
-            ))
-
-        if not User.query.filter_by(username="staff1").first():
-            db.session.add(User(
-                username="staff1",
-                password=generate_password_hash("1234"),
-                role="staff"
-            ))
+        if not User.query.first():
+            db.session.add(User(username="admin", password=generate_password_hash("admin123"), role="admin"))
+            db.session.add(User(username="staff1", password=generate_password_hash("1234"), role="staff"))
 
         if not Menu.query.first():
             db.session.add_all([
@@ -503,5 +429,6 @@ def init_db():
         db.session.commit()
 
 init_db()
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=5000)

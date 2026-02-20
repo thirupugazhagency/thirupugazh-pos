@@ -201,20 +201,8 @@ async function loadMenu() {
 
 /* ================= CART ================= */
 async function createCart() {
-    const res = await fetch("/cart/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            staff_id: localStorage.getItem("user_id")
-        })
-    });
-
-    if (!res.ok) {
-        throw new Error("Cart create failed");
-    }
-
-    const data = await res.json();
-    cartId = data.cart_id;
+    const res = await fetch("/cart/create", { method: "POST" });
+    cartId = (await res.json()).cart_id;
 }
 
 async function addToCart(menuId) {
@@ -286,8 +274,8 @@ async function holdBill() {
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
             cart_id: cartId,
-            customer_name: document.getElementById("customerName").value,
-            customer_phone: document.getElementById("mobileNumber").value
+            customer_name: customerName.value,
+            customer_phone: mobileNumber.value
         })
     });
 
@@ -297,27 +285,19 @@ async function holdBill() {
 }
 
 async function loadHolds() {
-    const res = await fetch(
-        `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
-    );
-
+    const res = await fetch("/cart/held");
     const holds = await res.json();
-    const div = document.getElementById("holdList");
 
+    const div = document.getElementById("holdList");
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
-        div.innerHTML += `
-            <p>
-                <strong>${h.bill_no}</strong> - 
-                ${h.customer_name || "No Name"} 
-                (${h.created_at})
-            </p>
-        `;
+        div.innerHTML += `<p>Cart #${h.cart_id} (${h.created_at})</p>`;
     });
 }
+
 async function showResume() {
-    const res = await fetch(`/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`);
+    const res = await fetch("/cart/held");
     const holds = await res.json();
 
     const list = document.getElementById("resumeList");
@@ -325,10 +305,10 @@ async function showResume() {
 
     holds.forEach(h => {
         list.innerHTML += `
-    <button onclick="resumeHold(${h.cart_id})">
-        ${h.bill_no} - ${h.customer_name || "No Name"} (${h.created_at})
-    </button>
-`;
+            <button onclick="resumeHold(${h.cart_id})">
+                Resume Cart #${h.cart_id} (${h.created_at})
+            </button>
+        `;
     });
 
     document.getElementById("resumeModal").style.display = "block";
@@ -341,7 +321,12 @@ function closeResume() {
 async function resumeHold(id) {
     const res = await fetch(`/cart/resume/${id}`);
     const data = await res.json();
+
     cartId = data.cart_id;
+
+    customerName.value = data.customer_name || "";
+    mobileNumber.value = data.customer_phone || "";
+
     closeResume();
     loadCart();
 }
@@ -364,14 +349,13 @@ async function payNow() {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({
-                            cart_id: cartId,
-                            payment_method: payment,
-                            customer_name: name,
-                            customer_phone: mobile,
-                            transaction_id: txn,
-                            discount: Number(document.getElementById("discount").value || 0),
-                            staff_id: localStorage.getItem("user_id")
-})
+            cart_id: cartId,
+            payment_method: payment,
+            customer_name: name,
+            customer_phone: mobile,
+            transaction_id: txn,
+            gpay_number: gpay
+        })
     });
 
     const result = await res.json();
