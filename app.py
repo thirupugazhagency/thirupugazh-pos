@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 app = Flask(__name__)
 
 # ==================================================
-# DATABASE CONFIG (SAFE FOR WINDOWS + RENDER)
+# DATABASE CONFIG
 # ==================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -26,7 +26,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # ==================================================
-# BUSINESS DATE (3 PM – 3 PM)
+# BUSINESS DATE
 # ==================================================
 def get_business_date():
     now = datetime.now()
@@ -53,6 +53,7 @@ class Cart(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     status = db.Column(db.String(20), default="ACTIVE")
     bill_no = db.Column(db.String(30), unique=True, nullable=True)
+    staff_id = db.Column(db.Integer)  # ✅ ADDED
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -78,25 +79,14 @@ class Sale(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # ==================================================
-# BILL NUMBER GENERATOR (SAFE – CHECKS CART + SALE)
+# BILL NUMBER GENERATOR
 # ==================================================
 def generate_bill_no():
     year = datetime.now().year
     prefix = f"TLA-{year}"
 
-    last_sale = (
-        Sale.query
-        .filter(Sale.bill_no.like(f"{prefix}-%"))
-        .order_by(Sale.id.desc())
-        .first()
-    )
-
-    last_cart = (
-        Cart.query
-        .filter(Cart.bill_no.like(f"{prefix}-%"))
-        .order_by(Cart.id.desc())
-        .first()
-    )
+    last_sale = Sale.query.filter(Sale.bill_no.like(f"{prefix}-%")).order_by(Sale.id.desc()).first()
+    last_cart = Cart.query.filter(Cart.bill_no.like(f"{prefix}-%")).order_by(Cart.id.desc()).first()
 
     last_numbers = []
 
@@ -113,7 +103,6 @@ def generate_bill_no():
             pass
 
     next_number = max(last_numbers) + 1 if last_numbers else 1
-
     return f"{prefix}-{str(next_number).zfill(4)}"
 
 # ==================================================
@@ -154,25 +143,9 @@ def login():
     if user and check_password_hash(user.password, data.get("password")):
         if user.status != "ACTIVE":
             return jsonify({"status": "disabled"}), 403
-
         return jsonify({"status": "ok", "user_id": user.id, "role": user.role})
 
     return jsonify({"status": "error"}), 401
-
-# ==================================================
-# CHANGE PASSWORD
-# ==================================================
-@app.route("/change-password", methods=["POST"])
-def change_password():
-    data = request.json
-    user = User.query.get(data.get("user_id"))
-
-    if not user or not check_password_hash(user.password, data.get("old_password")):
-        return jsonify({"status": "error"}), 400
-
-    user.password = generate_password_hash(data.get("new_password"))
-    db.session.commit()
-    return jsonify({"status": "ok"})
 
 # ==================================================
 # MENU
@@ -186,12 +159,17 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
+    bill_no = generate_bill_no()
+
     cart = Cart(
         status="ACTIVE",
-        bill_no=generate_bill_no()   # ✅ ASSIGNED ON CREATE
+        bill_no=bill_no,
+        staff_id=request.json.get("staff_id")
     )
+
     db.session.add(cart)
     db.session.commit()
+
     return jsonify({"cart_id": cart.id, "bill_no": cart.bill_no})
 
 @app.route("/cart/add", methods=["POST"])
@@ -234,19 +212,34 @@ def view_cart(cart_id):
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
 def hold_cart():
-    cart = Cart.query.get(request.json.get("cart_id"))
-    if cart:
+    data = request.json
+    cart = Cart.query.get(data.get("cart_id"))
+
+    if cart and cart.status == "ACTIVE":
         cart.status = "HOLD"
+        cart.customer_name = data.get("customer_name")
+        cart.customer_phone = data.get("customer_phone")
         db.session.commit()
+
     return jsonify({"status": "ok"})
 
 @app.route("/cart/held")
 def held_carts():
-    carts = Cart.query.filter_by(status="HOLD").order_by(Cart.created_at.desc()).all()
+    role = request.args.get("role")
+    user_id = request.args.get("user_id")
+
+    query = Cart.query.filter_by(status="HOLD")
+
+    if role != "admin":
+        query = query.filter_by(staff_id=user_id)
+
+    carts = query.order_by(Cart.created_at.desc()).all()
+
     return jsonify([
         {
             "cart_id": c.id,
             "bill_no": c.bill_no,
+            "customer_name": c.customer_name or "",
             "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
         }
         for c in carts
@@ -261,7 +254,7 @@ def resume_cart(cart_id):
     return jsonify({"cart_id": cart_id})
 
 # ==================================================
-# CHECKOUT (USES SAME BILL NO)
+# CHECKOUT
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
