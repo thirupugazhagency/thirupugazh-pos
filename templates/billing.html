@@ -285,22 +285,25 @@ async function holdBill() {
 }
 
 async function loadHolds() {
-    const res = await fetch("/cart/held");
-    const holds = await res.json();
+    const res = await fetch(
+        `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
+    );
 
+    const holds = await res.json();
     const div = document.getElementById("holdList");
+
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
-    div.innerHTML += `
-        <p>
-            <strong>${h.bill_no}</strong> - 
-            ${h.customer_name || "No Name"} 
-            (${h.created_at})
-        </p>
-    `;
-});
-
+        div.innerHTML += `
+            <p>
+                <strong>${h.bill_no}</strong> - 
+                ${h.customer_name || "No Name"} 
+                (${h.created_at})
+            </p>
+        `;
+    });
+}
 async function showResume() {
     const res = await fetch("/cart/held");
     const holds = await res.json();

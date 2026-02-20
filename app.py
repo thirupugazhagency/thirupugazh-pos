@@ -50,8 +50,8 @@ class Menu(db.Model):
     price = db.Column(db.Integer, nullable=False)
 
 class Cart(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    status = db.Column(db.String(20), default="ACTIVE")  # ACTIVE / HOLD / PAID
+    bill_no = db.Column(db.String(30), unique=True, nullable=True)
+    staff_id = db.Column(db.Integer)
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
@@ -282,13 +282,13 @@ def resume_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
-    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
+
+    cart = Cart.query.get(d["cart_id"])
+    items = CartItem.query.filter_by(cart_id=cart.id).all()
     total = sum(i.menu.price * i.quantity for i in items)
 
-    bill_no = generate_bill_no()
-
     sale = Sale(
-        bill_no=bill_no,
+        bill_no=cart.bill_no,   # ✅ USE SAME BILL NO
         total=total,
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
@@ -298,12 +298,12 @@ def checkout():
     )
 
     db.session.add(sale)
-    Cart.query.get(d["cart_id"]).status = "PAID"
+    cart.status = "PAID"
     db.session.commit()
 
     return jsonify({
         "total": total,
-        "bill_no": bill_no
+        "bill_no": cart.bill_no
     })
 
 # ==================================================
