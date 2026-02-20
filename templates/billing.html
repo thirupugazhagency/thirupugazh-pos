@@ -83,6 +83,11 @@
         <span>Thirupugazh – POS</span>
     </div>
 
+    <div style="margin-top:15px; padding:10px; background:#e3f2fd;">
+        <h4>My Today's Sales (3PM – 3PM)</h4>
+        <div id="mySales">Loading...</div>
+    </div>
+
     <div id="headerButtons">
         <button onclick="goHome()">Home</button>
         <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
@@ -257,6 +262,11 @@ async function loadCart() {
     recalculateTotal();
 }
 
+<div style="margin-top:15px; padding:10px; background:#e3f2fd;">
+    <h4>My Today's Sales (3PM – 3PM)</h4>
+    <div id="mySales">Loading...</div>
+</div>
+
 /* ================= TOTAL ================= */
 function recalculateTotal() {
     const discount = Number(document.getElementById("discount").value || 0);
@@ -395,6 +405,34 @@ function logout() {
     localStorage.removeItem("role");
     window.location.replace("/ui/login");
 }
+// ================= MY DAILY SALES =================
+async function loadMySales() {
+    const role = localStorage.getItem("role");
+    const userId = localStorage.getItem("user_id");
+
+    if (!userId) return;
+
+    try {
+        if (role === "staff") {
+            const res = await fetch(`/staff/report/daily?staff_id=${userId}`);
+            const data = await res.json();
+
+            document.getElementById("mySales").innerHTML =
+                `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
+        } 
+        else if (role === "admin") {
+            const res = await fetch(`/admin/report/daily`);
+            const data = await res.json();
+
+            document.getElementById("mySales").innerHTML =
+                `All Sales Today | Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
+        }
+    } catch (error) {
+        console.error("Failed to load daily sales");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadMySales);
 </script>
 
 </body>
