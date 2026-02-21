@@ -169,9 +169,10 @@ if (!localStorage.getItem("user_id")) {
 }
 
 /* ================= ADMIN VISIBILITY ================= */
-const role = localStorage.getItem("role");
-if (role !== "admin") {
-    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
+const username = localStorage.getItem("username");
+if (username) {
+    document.querySelector("header span").innerText =
+        "Thirupugazh – POS | " + username;
 }
 
 /* ================= STATE ================= */
@@ -180,16 +181,18 @@ let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
 document.addEventListener("DOMContentLoaded", async function () {
+
+    // Load menu FIRST always
+    await loadMenu();
+
     try {
         await createCart();
-        await loadMenu();
         await loadCart();
         await loadHolds();
     } catch (e) {
-        console.error("Billing init failed:", e);
+        console.error("Cart init failed:", e);
     }
 
-    // Run sales separately so it never blocks menu
     try {
         await loadMySales();
     } catch (e) {
