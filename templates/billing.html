@@ -180,10 +180,17 @@ let cartId = null;
 let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
-document.addEventListener("DOMContentLoaded", async function () {
+document.addEventListener("DOMContentLoaded", function () {
+    initializeBilling();
+});
 
-    // Load menu FIRST always
-    await loadMenu();
+async function initializeBilling() {
+
+    try {
+        await loadMenu();
+    } catch (e) {
+        console.error("Menu load failed:", e);
+    }
 
     try {
         await createCart();
@@ -198,9 +205,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     } catch (e) {
         console.error("Daily sales failed:", e);
     }
-});
+}
 
-// ================= SHOW LOGGED USER =================
+/* ================= SHOW LOGGED USER =================
     const userId = localStorage.getItem("user_id");
     const role = localStorage.getItem("role");
 
@@ -454,7 +461,6 @@ async function loadMySales() {
         console.error("Failed to load daily sales");
     }
 }
-
 </script>
 
 </body>
