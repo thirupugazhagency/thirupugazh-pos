@@ -79,9 +79,12 @@
 
 <header>
     <div style="display:flex; align-items:center; gap:10px;">
-        <img src="/static/logo.png" style="height:30px;">
-        <span>Thirupugazh – POS</span>
-    </div>
+    <img src="/static/logo.png" style="height:30px;">
+    <span>Thirupugazh – POS</span>
+    <span style="font-size:14px; background:#ffffff; color:#000; padding:4px 8px; border-radius:4px;">
+        User: <strong id="loggedUser"></strong>
+    </span>
+</div>
 
     <!-- Small Daily Sales Badge -->
     <div style="
@@ -191,6 +194,17 @@ document.addEventListener("DOMContentLoaded", async function () {
         await loadMySales();
     } catch (e) {
         console.error("Daily sales failed:", e);
+    }
+});
+
+// ================= SHOW LOGGED USER =================
+document.addEventListener("DOMContentLoaded", function() {
+    const userId = localStorage.getItem("user_id");
+    const role = localStorage.getItem("role");
+
+    if (userId) {
+        document.getElementById("loggedUser").innerText =
+            role === "admin" ? "Admin" : "Staff " + userId;
     }
 });
 
@@ -377,9 +391,9 @@ async function payNow() {
             customer_phone: mobile,
             transaction_id: txn,
             gpay_number: gpay
+            staff_id: localStorage.getItem("user_id")
         })
     });
-
     const result = await res.json();
     alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
