@@ -3,9 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os, io
-import pandas as pd
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+os.environ["PYTHONUNBUFFERED"] = "1"
 
 app = Flask(__name__)
 
@@ -103,7 +101,7 @@ def generate_bill_no():
 # ==================================================
 @app.route("/")
 def home():
-    return "Thirupugazh POS API Running"
+    return "OK"
 
 @app.route("/ui/login")
 def ui_login():
@@ -383,6 +381,7 @@ def admin_daily_report():
 # ==================================================
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
+    import pandas as pd
     date_str = request.args.get("date")
     staff_id = request.args.get("staff_id")
 
@@ -430,6 +429,8 @@ def admin_daily_excel():
 # ==================================================
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
     date_str = request.args.get("date")
     staff_id = request.args.get("staff_id")
 
@@ -524,6 +525,7 @@ def admin_monthly_report():
 # ==================================================
 @app.route("/admin/report/monthly/excel")
 def admin_monthly_excel():
+    import pandas as pd
     month = request.args.get("month")
     year = request.args.get("year")
     staff_id = request.args.get("staff_id")
@@ -579,6 +581,8 @@ def admin_monthly_excel():
 # ==================================================
 @app.route("/admin/report/monthly/pdf")
 def admin_monthly_pdf():
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
     month = request.args.get("month")
     year = request.args.get("year")
     staff_id = request.args.get("staff_id")
@@ -667,4 +671,6 @@ def init_db():
 init_db()
 
 if __name__ == "__main__":
+    with app.app_context():
+        init_db()
     app.run(host="0.0.0.0", port=5000)
