@@ -79,12 +79,9 @@
 
 <header>
     <div style="display:flex; align-items:center; gap:10px;">
-    <img src="/static/logo.png" style="height:30px;">
-    <span>Thirupugazh – POS</span>
-    <span style="font-size:14px; background:#ffffff; color:#000; padding:4px 8px; border-radius:4px;">
-        User: <strong id="loggedUser"></strong>
-    </span>
-</div>
+        <img src="/static/logo.png" style="height:30px;">
+        <span>Thirupugazh – POS</span>
+    </div>
 
     <!-- Small Daily Sales Badge -->
     <div style="
@@ -169,10 +166,9 @@ if (!localStorage.getItem("user_id")) {
 }
 
 /* ================= ADMIN VISIBILITY ================= */
-const username = localStorage.getItem("username");
-if (username) {
-    document.querySelector("header span").innerText =
-        "Thirupugazh – POS | " + username;
+const role = localStorage.getItem("role");
+if (role !== "admin") {
+    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
 }
 
 /* ================= STATE ================= */
@@ -180,40 +176,21 @@ let cartId = null;
 let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
-document.addEventListener("DOMContentLoaded", function () {
-    initializeBilling();
-});
-
-async function initializeBilling() {
-
-    try {
-        await loadMenu();
-    } catch (e) {
-        console.error("Menu load failed:", e);
-    }
-
+document.addEventListener("DOMContentLoaded", async function () {
     try {
         await createCart();
+        await loadMenu();
         await loadCart();
         await loadHolds();
     } catch (e) {
-        console.error("Cart init failed:", e);
+        console.error("Billing init failed:", e);
     }
 
+    // Run sales separately so it never blocks menu
     try {
         await loadMySales();
     } catch (e) {
         console.error("Daily sales failed:", e);
-    }
-}
-
-/* ================= SHOW LOGGED USER =================
-    const userId = localStorage.getItem("user_id");
-    const role = localStorage.getItem("role");
-
-    if (userId) {
-        document.getElementById("loggedUser").innerText =
-            role === "admin" ? "Admin" : "Staff " + userId;
     }
 });
 
@@ -378,11 +355,12 @@ async function resumeHold(id) {
 
 /* ================= PAY ================= */
 async function payNow() {
-    const payment = paymentMode.value;
-    const name = customerName.value.trim();
-    const mobile = mobileNumber.value.trim();
-    const txn = transactionId.value.trim();
-    const gpay = gpayNumber.value.trim();
+
+    const payment = document.getElementById("paymentMode").value;
+    const name = document.getElementById("customerName").value.trim();
+    const mobile = document.getElementById("mobileNumber").value.trim();
+    const txn = document.getElementById("transactionId").value.trim();
+    const gpay = document.getElementById("gpayNumber").value.trim();
 
     if (!payment) return alert("Select payment mode");
     if (!name) return alert("Customer name required");
@@ -392,18 +370,20 @@ async function payNow() {
 
     const res = await fetch("/checkout", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             cart_id: cartId,
             payment_method: payment,
             customer_name: name,
             customer_phone: mobile,
             transaction_id: txn,
-            gpay_number: gpay
+            gpay_number: gpay,
             staff_id: localStorage.getItem("user_id")
         })
     });
+
     const result = await res.json();
+
     alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
@@ -461,6 +441,7 @@ async function loadMySales() {
         console.error("Failed to load daily sales");
     }
 }
+
 </script>
 
 </body>
