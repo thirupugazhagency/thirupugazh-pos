@@ -353,7 +353,10 @@ def staff_daily_report():
     staff_id = request.args.get("staff_id")
 
     if not staff_id:
-        return jsonify({"bill_count": 0, "total_amount": 0})
+        return jsonify({
+            "bill_count": 0,
+            "total_amount": 0
+        })
 
     sales = Sale.query.filter_by(
         staff_id=staff_id,
@@ -364,11 +367,6 @@ def staff_daily_report():
         "bill_count": len(sales),
         "total_amount": sum(s.total for s in sales)
     })
-
-    except Exception as e:
-        print("STAFF DAILY ERROR:", str(e))
-        return jsonify({"error": "Server error"}), 500
-
 # ==================================================
 # ADMIN DAILY REPORT (WITH STAFF FILTER)
 # ==================================================
