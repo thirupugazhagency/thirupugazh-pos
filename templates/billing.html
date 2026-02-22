@@ -80,7 +80,8 @@
 <header>
     <div style="display:flex; align-items:center; gap:10px;">
         <img src="/static/logo.png" style="height:30px;">
-        <span>Thirupugazh – POS</span>
+        <span id="headerTitle">Thirupugazh – POS</span>
+        <span id="loggedUser" style="margin-left:10px;font-size:14px;font-weight:bold;"></span>
     </div>
 
     <!-- Small Daily Sales Badge -->
@@ -177,6 +178,13 @@ let currentTotal = 0;
 
 /* ================= INIT (RENDER SAFE) ================= */
 document.addEventListener("DOMContentLoaded", async function () {
+
+    // SHOW USERNAME
+    const username = localStorage.getItem("username");
+    if (username) {
+        document.getElementById("loggedUser").innerText = "👤 " + username;
+    }
+
     try {
         await createCart();
         await loadMenu();
@@ -186,7 +194,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         console.error("Billing init failed:", e);
     }
 
-    // Run sales separately so it never blocks menu
     try {
         await loadMySales();
     } catch (e) {
@@ -307,14 +314,25 @@ async function holdBill() {
 }
 
 async function loadHolds() {
-    const res = await fetch("/cart/held");
-    const holds = await res.json();
+    const res = await fetch(
+        `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
+    );
 
+    const holds = await res.json();
     const div = document.getElementById("holdList");
+
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
-        div.innerHTML += `<p>Cart #${h.cart_id} (${h.created_at})</p>`;
+        div.innerHTML += `
+            <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
+                <strong>${h.bill_no}</strong><br>
+                👤 ${h.customer_name || "No Name"}<br>
+                📞 ${h.customer_phone || "No Number"}<br>
+                🧾 ${h.items}<br>
+                <small>${h.created_at}</small>
+            </div>
+        `;
     });
 }
 
@@ -326,12 +344,13 @@ async function showResume() {
     list.innerHTML = "";
 
     holds.forEach(h => {
-        list.innerHTML += `
-            <button onclick="resumeHold(${h.cart_id})">
-                Resume Cart #${h.cart_id} (${h.created_at})
-            </button>
-        `;
-    });
+    list.innerHTML += `
+        <button onclick="resumeHold(${h.cart_id})">
+            ${h.bill_no} | ${h.customer_name || "No Name"} | ${h.customer_phone || ""}<br>
+            ${h.items}
+        </button>
+    `;
+});
 
     document.getElementById("resumeModal").style.display = "block";
 }
@@ -351,6 +370,7 @@ async function resumeHold(id) {
 
     closeResume();
     loadCart();
+    loadHolds();
 }
 
 /* ================= PAY ================= */
@@ -440,6 +460,11 @@ async function loadMySales() {
     } catch (error) {
         console.error("Failed to load daily sales");
     }
+}
+
+const username = localStorage.getItem("username");
+if (username) {
+    document.getElementById("loggedUser").innerText = `👤 ${username}`;
 }
 
 </script>

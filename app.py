@@ -238,11 +238,35 @@ def hold_cart():
 
 @app.route("/cart/held")
 def held_carts():
-    carts = Cart.query.filter_by(status="HOLD").order_by(Cart.created_at.desc()).all()
-    return jsonify([
-        {"cart_id": c.id, "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")}
-        for c in carts
-    ])
+    role = request.args.get("role")
+    user_id = request.args.get("user_id")
+
+    query = Cart.query.filter_by(status="HOLD")
+
+    if role != "admin":
+        query = query.filter_by(staff_id=user_id)
+
+    carts = query.order_by(Cart.created_at.desc()).all()
+
+    result = []
+
+    for c in carts:
+        items = CartItem.query.filter_by(cart_id=c.id).all()
+
+        item_list = []
+        for i in items:
+            item_list.append(f"{i.menu.name} x{i.quantity}")
+
+        result.append({
+            "cart_id": c.id,
+            "bill_no": c.bill_no,
+            "customer_name": c.customer_name or "",
+            "customer_phone": c.customer_phone or "",
+            "items": ", ".join(item_list),
+            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    return jsonify(result)
 
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
