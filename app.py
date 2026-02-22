@@ -56,6 +56,7 @@ class Cart(db.Model):
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
+    staff_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class CartItem(db.Model):
@@ -175,9 +176,16 @@ def get_menu():
 # ==================================================
 @app.route("/cart/create", methods=["POST"])
 def create_cart():
-    cart = Cart(status="ACTIVE")
+    data = request.json or {}
+
+    cart = Cart(
+        status="ACTIVE",
+        staff_id=data.get("staff_id")
+    )
+
     db.session.add(cart)
     db.session.commit()
+
     return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
@@ -242,8 +250,8 @@ def held_carts():
 
     query = Cart.query.filter_by(status="HOLD")
 
-    if role != "admin":
-        query = query.filter_by(staff_id=user_id)
+    if role != "admin" and user_id:
+    query = query.filter_by(staff_id=int(user_id))
 
     carts = query.order_by(Cart.created_at.desc()).all()
 
@@ -258,7 +266,6 @@ def held_carts():
 
         result.append({
             "cart_id": c.id,
-            "bill_no": c.bill_no,
             "customer_name": c.customer_name or "",
             "customer_phone": c.customer_phone or "",
             "items": ", ".join(item_list),
