@@ -137,15 +137,14 @@ def login():
         if user.status != "ACTIVE":
             return jsonify({"status": "disabled"}), 403
 
-       return jsonify({
+        return jsonify({
             "status": "ok",
             "user_id": user.id,
             "username": user.username,
             "role": user.role
-       })
+        })
 
     return jsonify({"status": "error"}), 401
-
 # ==================================================
 # CHANGE PASSWORD
 # ==================================================
@@ -615,32 +614,45 @@ def admin_monthly_pdf():
 
     sales = query.order_by(Sale.id.asc()).all()
 
-    data = []
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Monthly Sales Report - {month}/{year}")
+    y -= 30
+
+    pdf.setFont("Helvetica", 10)
+
+    total = 0
 
     for s in sales:
         staff = User.query.get(s.staff_id)
-        data.append({
-            "Bill Number": s.bill_no,
-            "Staff ID": s.staff_id,
-            "Staff Name": staff.username if staff else "",
-            "Customer Name": s.customer_name or "",
-            "Mobile": s.customer_phone or "",
-            "Payment Mode": s.payment_method,
-            "Amount (₹)": s.total,
-            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
-        })
+        pdf.drawString(50, y, s.bill_no)
+        pdf.drawString(150, y, staff.username if staff else "")
+        pdf.drawString(250, y, s.payment_method or "")
+        pdf.drawString(350, y, f"₹{s.total}")
 
-    df = pd.DataFrame(data)
+        total += s.total
+        y -= 18
 
-    output = io.BytesIO()
-    df.to_pdf(output, index=False)
-    output.seek(0)
+        if y < 50:
+            pdf.showPage()
+            y = 800
+            pdf.setFont("Helvetica", 10)
+
+    y -= 10
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(50, y, f"Total: ₹{total}")
+
+    pdf.save()
+    buffer.seek(0)
 
     return send_file(
-        output,
+        buffer,
         as_attachment=True,
-        download_name=f"monthly_sales_{month}_{year}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        download_name=f"monthly_sales_{month}_{year}.pdf",
+        mimetype="application/pdf"
     )
 # ==================================================
 # INIT DB
