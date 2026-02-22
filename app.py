@@ -182,9 +182,9 @@ def create_cart():
         status="ACTIVE",
         staff_id=data.get("staff_id")
     )
+
     db.session.add(cart)
     db.session.commit()
-
     return jsonify({"cart_id": cart.id})
 
 @app.route("/cart/add", methods=["POST"])
