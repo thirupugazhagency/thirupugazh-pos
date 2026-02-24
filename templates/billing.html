@@ -543,7 +543,6 @@ async function payNow() {
     const mobile = document.getElementById("mobileNumber").value.trim();
     const txn = document.getElementById("transactionId").value.trim();
     const gpay = document.getElementById("gpayNumber").value.trim();
-    const sound = new Audio("/static/payment success.mp3");
     sound.play().catch(err => console.log("Sound blocked:", err));
 
     if (!payment) return alert("Select payment mode");
@@ -568,14 +567,16 @@ async function payNow() {
 
     const result = await res.json();
 
+try {
     const sound = new Audio("/static/payment-success.mp3");
-sound.play().catch(err => console.log("Sound blocked:", err));
+    sound.play();
+} catch (e) {
+    console.log("Sound error:", e);
+}
 
 alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
-
-document.getElementById("paymentSound").play();
 
 // Open PDF bill
 window.open(`/bill/${result.sale_id}/pdf`, "_blank");
@@ -656,9 +657,10 @@ function toggleMobileCart() {
     cart.classList.toggle("active");
 }
 
-<audio id="paymentSound" src="/static/payment-success.mp3" preload="auto"></audio>
 
 </script>
+
+<audio id="paymentSound" src="/static/payment-success.mp3" preload="auto"></audio>
 
 </body>
 </html>
