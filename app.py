@@ -6,6 +6,8 @@ import os, io
 import pandas as pd
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.platypus import Image
+from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 
@@ -581,19 +583,29 @@ def generate_bill_pdf(sale_id):
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, 800, "Thirupugazh Lottery Agency")
+    width, height = A4
+
+    # ================= LOGO =================
+    logo_path = os.path.join(app.root_path, "static", "logo.png")
+    if os.path.exists(logo_path):
+        pdf.drawImage(logo_path, 50, height - 100, width=80, height=50, preserveAspectRatio=True)
+
+    # ================= SHOP NAME =================
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(150, height - 80, "Thirupugazh Lottery Agency")
 
     pdf.setFont("Helvetica", 12)
-    pdf.drawString(50, 770, f"Bill No: {sale.bill_no}")
-    pdf.drawString(50, 750, f"Date: {sale.created_at.strftime('%d-%m-%Y %I:%M %p')}")
-    pdf.drawString(50, 730, f"Customer: {sale.customer_name}")
-    pdf.drawString(50, 710, f"Mobile: {sale.customer_phone}")
-    pdf.drawString(50, 690, f"Payment Mode: {sale.payment_method}")
+    pdf.drawString(50, height - 130, f"Bill No: {sale.bill_no}")
+    pdf.drawString(50, height - 150, f"Date: {sale.created_at.strftime('%d-%m-%Y %I:%M %p')}")
+    pdf.drawString(50, height - 170, f"Customer: {sale.customer_name}")
+    pdf.drawString(50, height - 190, f"Mobile: {sale.customer_phone}")
+    pdf.drawString(50, height - 210, f"Payment Mode: {sale.payment_method}")
 
-    pdf.drawString(50, 660, f"Total Amount: ₹{sale.total}")
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 250, f"Total Amount: ₹{sale.total}")
 
-    pdf.drawString(50, 620, "Thank you for your purchase!")
+    pdf.setFont("Helvetica-Oblique", 10)
+    pdf.drawString(50, height - 290, "Thank you for your purchase!")
 
     pdf.save()
     buffer.seek(0)
