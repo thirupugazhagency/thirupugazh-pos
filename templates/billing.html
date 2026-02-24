@@ -2,77 +2,177 @@
 <html>
 <head>
     <title>Thirupugazh – POS</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body { font-family: Arial; margin: 0; background: #f5f5f5; }
-        header {
-            background: #1e88e5;
-            color: white;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 18px;
-        }
-        header button {
-            margin-left: 8px;
-            padding: 6px 10px;
-            border: none;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        .btn-admin { background: #0d47a1; color: white; }
-        .btn-logout { background: #444; color: white; }
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f4f6;
+}
 
-        .container { display: flex; height: calc(100vh - 50px); }
+/* Header */
+header {
+    background: #1e3a8a;
+    color: white;
+    padding: 10px 15px;
+}
 
-        .menu, .cart, .holds { padding: 10px; overflow-y: auto; }
-        .menu { width: 33%; background: white; }
-        .cart { width: 34%; background: #fafafa; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
-        .holds { width: 33%; background: white; }
+header img {
+    height: 30px;
+}
 
-        .menu button { width: 100%; padding: 15px; margin-bottom: 10px; font-size: 16px; }
+#headerButtons button {
+    margin: 4px 3px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
 
-        .cart-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .cart-item button { padding: 4px 8px; }
+.btn-logout {
+    background: #dc2626;
+    color: white;
+}
 
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 8px;
-            font-size: 15px;
-        }
+.btn-admin {
+    background: #2563eb;
+    color: white;
+}
 
-        .total { font-size: 18px; font-weight: bold; margin: 6px 0; }
+/* Layout */
+.container {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    height: calc(100vh - 120px);
+}
 
-        .btn-hold { background: orange; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
-        .btn-resume { background: #555; color: white; padding: 12px; border: none; width: 100%; margin-bottom: 8px; }
-        .btn-pay { background: green; color: white; padding: 12px; border: none; width: 100%; }
+/* Sections */
+.menu, .cart, .holds {
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    overflow-y: auto;
+}
 
-        #resumeModal {
-            display: none;
-            position: fixed;
-            top: 20%;
-            left: 35%;
-            width: 30%;
-            background: white;
-            border: 1px solid #ccc;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,.4);
-            z-index: 1000;
-        }
+.menu {
+    flex: 2;
+}
 
-        #resumeModal button {
-            width: 100%;
-            margin-bottom: 6px;
-        }
-    </style>
+.cart {
+    flex: 1.5;
+}
+
+.holds {
+    flex: 1;
+}
+
+/* Inputs */
+input, select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 6px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+/* Menu Buttons */
+#menuButtons button {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 6px;
+    border: none;
+    border-radius: 6px;
+    background: #e5e7eb;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#menuButtons button:hover {
+    background: #dbeafe;
+}
+
+/* Cart Items */
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.cart-item button {
+    padding: 4px 8px;
+}
+
+/* Totals */
+.total {
+    font-weight: bold;
+    margin-top: 6px;
+}
+
+/* Action Buttons */
+.btn-hold, .btn-resume, .btn-pay {
+    width: 100%;
+    padding: 10px;
+    margin-top: 6px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-hold { background: #f59e0b; color: white; }
+.btn-resume { background: #2563eb; color: white; }
+.btn-pay { background: #16a34a; color: white; }
+
+/* Resume Modal */
+#resumeModal {
+    display: none;
+    position: fixed;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 15px;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* ================= MOBILE OPTIMIZATION ================= */
+@media (max-width: 768px) {
+
+    .container {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .menu {
+        order: 1;
+    }
+
+    .cart {
+        order: 2;
+    }
+
+    .holds {
+        order: 3;
+    }
+
+    #menuButtons button {
+        font-size: 16px;
+        padding: 16px;
+    }
+
+    .btn-hold, .btn-resume, .btn-pay {
+        font-size: 16px;
+        padding: 14px;
+    }
+}
+</style>
 </head>
 
 <body>
