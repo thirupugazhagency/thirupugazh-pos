@@ -225,6 +225,28 @@ input, select {
     🛒 Cart
 </button>
 
+<div id="closingModal" style="
+    display:none;
+    position:fixed;
+    top:20%;
+    left:50%;
+    transform:translateX(-50%);
+    background:white;
+    padding:20px;
+    width:90%;
+    max-width:400px;
+    border-radius:8px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.3);
+    z-index:2000;
+">
+    <h3>📊 Daily Closing Summary</h3>
+    <div id="closingContent">Loading...</div>
+    <button onclick="closeClosing()" 
+            style="margin-top:10px;padding:8px 12px;border:none;border-radius:5px;background:#ef4444;color:white;">
+        Close
+    </button>
+</div>
+
 <body>
 
 <header>
@@ -294,6 +316,12 @@ input, select {
         </button>
         <button class="btn-hold" onclick="holdBill()">HOLD</button>
         <button class="btn-resume" onclick="showResume()">RESUME</button>
+        <button onclick="showClosingSummary()" 
+        style="width:100%;padding:10px;margin-top:6px;
+               border:none;border-radius:6px;
+               background:#0ea5e9;color:white;font-weight:bold;">
+    📊 Closing Summary
+</button>
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
@@ -494,6 +522,47 @@ async function loadHolds() {
             </div>
         `;
     });
+}
+
+async function showClosingSummary() {
+
+    const role = localStorage.getItem("role");
+    const userId = localStorage.getItem("user_id");
+
+    if (!userId) return;
+
+    let salesData;
+    let holdData;
+
+    try {
+        // Get staff sales
+        const salesRes = await fetch(`/staff/report/daily?staff_id=${userId}`);
+        salesData = await salesRes.json();
+
+        // Get hold carts
+        const holdRes = await fetch(`/cart/held?role=${role}&user_id=${userId}`);
+        holdData = await holdRes.json();
+
+    } catch (err) {
+        console.log("Closing fetch error:", err);
+        return;
+    }
+
+    const today = new Date().toLocaleDateString();
+
+    document.getElementById("closingContent").innerHTML = `
+        📅 <strong>Business Date:</strong> ${today}<br><br>
+        👤 <strong>Staff:</strong> ${localStorage.getItem("username")}<br><br>
+        🧾 <strong>Total Bills:</strong> ${salesData.bill_count}<br><br>
+        💰 <strong>Total Amount:</strong> ₹${salesData.total_amount}<br><br>
+        📦 <strong>Active Holds:</strong> ${holdData.length}
+    `;
+
+    document.getElementById("closingModal").style.display = "block";
+}
+
+function closeClosing() {
+    document.getElementById("closingModal").style.display = "none";
 }
 
 async function showResume() {
