@@ -543,7 +543,6 @@ async function payNow() {
     const mobile = document.getElementById("mobileNumber").value.trim();
     const txn = document.getElementById("transactionId").value.trim();
     const gpay = document.getElementById("gpayNumber").value.trim();
-    sound.play().catch(err => console.log("Sound blocked:", err));
 
     if (!payment) return alert("Select payment mode");
     if (!name) return alert("Customer name required");
@@ -567,27 +566,25 @@ async function payNow() {
 
     const result = await res.json();
 
-try {
-    const sound = new Audio("/static/payment-success.mp3");
-    sound.play();
-} catch (e) {
-    console.log("Sound error:", e);
-}
+    // 🔔 Play sound AFTER successful checkout
+    try {
+        const sound = new Audio("/static/payment-success.mp3");
+        sound.play();
+    } catch (e) {
+        console.log("Sound error:", e);
+    }
 
-alert(`✅ Payment Successful
+    alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
 
-// Open PDF bill
-window.open(`/bill/${result.sale_id}/pdf`, "_blank");
+    window.open(`/bill/${result.sale_id}/pdf`, "_blank");
 
-// WhatsApp message
-const message = `Thank you for shopping at Thirupugazh Lottery Agency.
+    const message = `Thank you for shopping at Thirupugazh Lottery Agency.
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`;
 
-// Open WhatsApp with customer number
-window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
+    window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
 
     await createCart();
     loadCart();
