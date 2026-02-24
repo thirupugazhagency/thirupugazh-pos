@@ -162,6 +162,37 @@ def change_password():
     return jsonify({"status": "ok"})
 
 # ==================================================
+# DASHBOARD API
+# ==================================================
+@app.route("/admin/dashboard")
+def admin_dashboard():
+    today = get_business_date()
+
+    # Today's sales
+    today_sales = Sale.query.filter_by(business_date=today).all()
+    today_total = sum(s.total for s in today_sales)
+
+    # Hold carts
+    hold_count = Cart.query.filter_by(status="HOLD").count()
+
+    # Monthly sales
+    now = datetime.now()
+    monthly_sales = Sale.query.filter(
+        db.extract("month", Sale.business_date) == now.month,
+        db.extract("year", Sale.business_date) == now.year
+    ).all()
+
+    monthly_total = sum(s.total for s in monthly_sales)
+
+    return jsonify({
+        "today_total": today_total,
+        "today_bills": len(today_sales),
+        "hold_count": hold_count,
+        "monthly_total": monthly_total,
+        "monthly_bills": len(monthly_sales)
+    })
+
+# ==================================================
 # MENU
 # ==================================================
 @app.route("/menu")

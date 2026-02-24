@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Thirupugazh POS</title>
+</head>
+<body>
+    <h2>📊 Thirupugazh POS Dashboard</h2>
+
+    <div>
+        <h3>Today</h3>
+        <p>Total Sales: ₹<span id="today_total">0</span></p>
+        <p>Total Bills: <span id="today_bills">0</span></p>
+        <p>Hold Bills: <span id="hold_count">0</span></p>
+    </div>
+
+    <div>
+        <h3>This Month</h3>
+        <p>Total Sales: ₹<span id="monthly_total">0</span></p>
+        <p>Total Bills: <span id="monthly_bills">0</span></p>
+    </div>
+
+    <script>
+        fetch("/admin/dashboard")
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("today_total").innerText = data.today_total;
+                document.getElementById("today_bills").innerText = data.today_bills;
+                document.getElementById("hold_count").innerText = data.hold_count;
+                document.getElementById("monthly_total").innerText = data.monthly_total;
+                document.getElementById("monthly_bills").innerText = data.monthly_bills;
+            });
+    </script>
+</body>
+</html>
