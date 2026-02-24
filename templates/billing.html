@@ -486,7 +486,7 @@ async function loadHolds() {
     holds.forEach(h => {
         div.innerHTML += `
             <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
-                <strong>${h.bill_no}</strong><br>
+                <strong>Cart #${h.cart_id}</strong><br>
                 👤 ${h.customer_name || "No Name"}<br>
                 📞 ${h.customer_phone || "No Number"}<br>
                 🧾 ${h.items}<br>
@@ -508,7 +508,7 @@ async function showResume() {
     holds.forEach(h => {
     list.innerHTML += `
         <button onclick="resumeHold(${h.cart_id})">
-            ${h.bill_no} | ${h.customer_name || "No Name"} | ${h.customer_phone || ""}<br>
+            Cart #${h.cart_id} | ${h.customer_name || "No Name"} | ${h.customer_phone || ""}<br>
             ${h.items}
         </button>
     `;
