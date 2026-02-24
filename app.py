@@ -299,14 +299,13 @@ def held_carts():
 
         result.append({
     "cart_id": c.id,
+    "bill_no": f"HOLD-{c.id}",
     "customer_name": c.customer_name or "",
     "customer_phone": c.customer_phone or "",
     "staff_name": staff.username if staff else "",
     "items": ", ".join(item_list),
     "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
 })
-
-    return jsonify(result)
 
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
