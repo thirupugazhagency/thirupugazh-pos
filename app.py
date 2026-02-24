@@ -411,6 +411,86 @@ def staff_daily_report():
         "bill_count": len(sales),
         "total_amount": sum(s.total for s in sales)
     })
+
+# ==================================================
+# STAFF DAILY CLOSING PDF
+# ==================================================
+@app.route("/staff/report/daily/pdf")
+def staff_daily_pdf():
+    staff_id = request.args.get("staff_id")
+
+    if not staff_id:
+        return "Staff ID required", 400
+
+    sales = Sale.query.filter_by(
+        staff_id=staff_id,
+        business_date=get_business_date()
+    ).order_by(Sale.id.asc()).all()
+
+    hold_count = Cart.query.filter_by(
+        staff_id=staff_id,
+        status="HOLD"
+    ).count()
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    y = 800
+
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, y, "Thirupugazh Lottery Agency")
+    y -= 30
+
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, "Daily Closing Report")
+    y -= 30
+
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(50, y, f"Business Date: {get_business_date()}")
+    y -= 20
+
+    staff = User.query.get(staff_id)
+    pdf.drawString(50, y, f"Staff: {staff.username if staff else ''}")
+    y -= 30
+
+    total_amount = 0
+
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(50, y, "Bill No")
+    pdf.drawString(150, y, "Amount")
+    y -= 20
+
+    pdf.setFont("Helvetica", 10)
+
+    for s in sales:
+        pdf.drawString(50, y, s.bill_no)
+        pdf.drawString(150, y, f"₹{s.total}")
+        total_amount += s.total
+        y -= 18
+
+        if y < 50:
+            pdf.showPage()
+            y = 800
+            pdf.setFont("Helvetica", 10)
+
+    y -= 20
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, f"Total Bills: {len(sales)}")
+    y -= 20
+    pdf.drawString(50, y, f"Total Amount: ₹{total_amount}")
+    y -= 20
+    pdf.drawString(50, y, f"Active Holds: {hold_count}")
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"closing_report_{get_business_date()}.pdf",
+        mimetype="application/pdf"
+    )
+
 # ==================================================
 # ADMIN DAILY REPORT (WITH STAFF FILTER)
 # ==================================================
