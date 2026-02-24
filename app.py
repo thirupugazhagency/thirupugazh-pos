@@ -254,25 +254,24 @@ def held_carts():
 
     carts = query.order_by(Cart.created_at.desc()).all()
 
-result = []
+    result = []
 
-for c in carts:
-    items = CartItem.query.filter_by(cart_id=c.id).all()
+    for c in carts:
+        items = CartItem.query.filter_by(cart_id=c.id).all()
+        staff = User.query.get(c.staff_id)
 
-    staff = User.query.get(c.staff_id)
+        item_list = []
+        for i in items:
+            item_list.append(f"{i.menu.name} x{i.quantity}")
 
-    item_list = []
-    for i in items:
-        item_list.append(f"{i.menu.name} x{i.quantity}")
-
-    result.append({
-        "cart_id": c.id,
-        "customer_name": c.customer_name or "",
-        "customer_phone": c.customer_phone or "",
-        "staff_name": staff.username if staff else "",   # ✅ NEW
-        "items": ", ".join(item_list),
-        "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
-    })
+        result.append({
+            "cart_id": c.id,
+            "customer_name": c.customer_name or "",
+            "customer_phone": c.customer_phone or "",
+            "staff_name": staff.username if staff else "",
+            "items": ", ".join(item_list),
+            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
 
     return jsonify(result)
 
