@@ -570,6 +570,17 @@ async function payNow() {
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
 
+// Open PDF bill
+window.open(`/bill/${result.sale_id}/pdf`, "_blank");
+
+// WhatsApp message
+const message = `Thank you for shopping at Thirupugazh Lottery Agency.
+Bill No: ${result.bill_no}
+Amount: ₹${result.total}`;
+
+// Open WhatsApp with customer number
+window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
+
     await createCart();
     loadCart();
     loadHolds();

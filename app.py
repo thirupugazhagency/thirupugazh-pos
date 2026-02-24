@@ -348,9 +348,10 @@ def checkout():
     db.session.commit()
 
     return jsonify({
-        "total": total,
-        "bill_no": bill_no
-    })
+    "total": total,
+    "bill_no": bill_no,
+    "sale_id": sale.id
+})
 
 # ==================================================
 # ADMIN STAFF MANAGEMENT
@@ -569,6 +570,40 @@ def admin_monthly_report():
             for s in sales
         ]
     })
+
+# ==================================================
+# Bill PDF for Each Transaction
+# ==================================================
+@app.route("/bill/<int:sale_id>/pdf")
+def generate_bill_pdf(sale_id):
+    sale = Sale.query.get_or_404(sale_id)
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, 800, "Thirupugazh Lottery Agency")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, 770, f"Bill No: {sale.bill_no}")
+    pdf.drawString(50, 750, f"Date: {sale.created_at.strftime('%d-%m-%Y %I:%M %p')}")
+    pdf.drawString(50, 730, f"Customer: {sale.customer_name}")
+    pdf.drawString(50, 710, f"Mobile: {sale.customer_phone}")
+    pdf.drawString(50, 690, f"Payment Mode: {sale.payment_method}")
+
+    pdf.drawString(50, 660, f"Total Amount: ₹{sale.total}")
+
+    pdf.drawString(50, 620, "Thank you for your purchase!")
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{sale.bill_no}.pdf",
+        mimetype="application/pdf"
+    )
 
 # ==================================================
 # ADMIN MONTHLY EXCEL (WITH BILL NUMBER COLUMN)
