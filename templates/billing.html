@@ -570,6 +570,8 @@ async function payNow() {
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
 
+document.getElementById("paymentSound").play();
+
 // Open PDF bill
 window.open(`/bill/${result.sale_id}/pdf`, "_blank");
 
@@ -648,6 +650,8 @@ function toggleMobileCart() {
     const cart = document.querySelector(".cart");
     cart.classList.toggle("active");
 }
+
+<audio id="paymentSound" src="/static/payment-success.mp3" preload="auto"></audio>
 
 </script>
 
