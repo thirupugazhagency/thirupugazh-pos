@@ -321,6 +321,14 @@ input, select {
                border:none;border-radius:6px;
                background:#0ea5e9;color:white;font-weight:bold;">
     📊 Closing Summary
+
+<button onclick="downloadClosingPDF()" 
+        style="margin-top:8px;padding:8px 12px;
+               border:none;border-radius:5px;
+               background:#16a34a;color:white;">
+    📥 Download PDF
+</button>
+
 </button>
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
@@ -723,6 +731,10 @@ function toggleMobileCart() {
     cart.classList.toggle("active");
 }
 
+function downloadClosingPDF() {
+    const userId = localStorage.getItem("user_id");
+    window.open(`/staff/report/daily/pdf?staff_id=${userId}`, "_blank");
+}
 
 </script>
 
