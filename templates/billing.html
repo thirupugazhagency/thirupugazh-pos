@@ -130,10 +130,6 @@ input, select {
 /* MOBILE CART PANEL */
 @media (max-width: 768px) {
 
-    .holds {
-        display: none; /* hide hold list on mobile main screen */
-    }
-
     .cart {
         position: fixed;
         bottom: -100%;
@@ -209,6 +205,7 @@ input, select {
 
     .holds {
         order: 3;
+        display: none;
     }
 
     #menuButtons button {
@@ -292,7 +289,9 @@ input, select {
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
-
+        <button onclick="toggleHolds()" style="width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#6b7280;color:white;font-weight:bold;">
+    View Hold Bills
+        </button>
         <button class="btn-hold" onclick="holdBill()">HOLD</button>
         <button class="btn-resume" onclick="showResume()">RESUME</button>
         <button class="btn-pay" onclick="payNow()">PAY</button>
@@ -622,6 +621,15 @@ async function loadMySales() {
         }
     } catch (error) {
         console.error("Failed to load daily sales");
+    }
+}
+
+function toggleHolds() {
+    const holds = document.querySelector(".holds");
+    if (holds.style.display === "none" || holds.style.display === "") {
+        holds.style.display = "block";
+    } else {
+        holds.style.display = "none";
     }
 }
 
