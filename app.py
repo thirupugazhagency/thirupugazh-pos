@@ -295,17 +295,23 @@ def held_carts():
 
         item_list = []
         for i in items:
-            item_list.append(f"{i.menu.name} x{i.quantity}")
+            # 🔥 SAFE CHECK
+            if i.menu:
+                item_list.append(f"{i.menu.name} x{i.quantity}")
+            else:
+                item_list.append(f"Deleted Item x{i.quantity}")
 
         result.append({
-    "cart_id": c.id,
-    "bill_no": f"HOLD-{c.id}",
-    "customer_name": c.customer_name or "",
-    "customer_phone": c.customer_phone or "",
-    "staff_name": staff.username if staff else "",
-    "items": ", ".join(item_list),
-    "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
-})
+            "cart_id": c.id,
+            "bill_no": f"HOLD-{c.id}",
+            "customer_name": c.customer_name or "",
+            "customer_phone": c.customer_phone or "",
+            "staff_name": staff.username if staff else "",
+            "items": ", ".join(item_list),
+            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
+        })
+
+    return jsonify(result)
 
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
