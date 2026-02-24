@@ -250,7 +250,7 @@ def held_carts():
     query = Cart.query.filter_by(status="HOLD")
 
     if role != "admin" and user_id:
-    query = query.filter_by(staff_id=int(user_id))
+        query = query.filter_by(staff_id=int(user_id))
 
     carts = query.order_by(Cart.created_at.desc()).all()
 
