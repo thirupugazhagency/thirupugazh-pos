@@ -298,13 +298,13 @@ def held_carts():
             item_list.append(f"{i.menu.name} x{i.quantity}")
 
         result.append({
-            "cart_id": c.id,
-            "customer_name": c.customer_name or "",
-            "customer_phone": c.customer_phone or "",
-            "staff_name": staff.username if staff else "",
-            "items": ", ".join(item_list),
-            "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
-        })
+    "cart_id": c.id,
+    "customer_name": c.customer_name or "",
+    "customer_phone": c.customer_phone or "",
+    "staff_name": staff.username if staff else "",
+    "items": ", ".join(item_list),
+    "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
+})
 
     return jsonify(result)
 
@@ -321,8 +321,6 @@ def resume_cart(cart_id):
             "customer_name": cart.customer_name,
             "customer_phone": cart.customer_phone
         })
-
-    return jsonify({"error": "Cart not found"}), 404
 
 # ==================================================
 # CHECKOUT (WITH BILL NUMBER)
