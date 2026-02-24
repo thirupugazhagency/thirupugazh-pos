@@ -112,6 +112,55 @@ input, select {
     margin-top: 6px;
 }
 
+/* MOBILE CART FLOAT BUTTON */
+.mobile-cart-btn {
+    display: none;
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    background: #16a34a;
+    color: white;
+    padding: 14px 18px;
+    border-radius: 50px;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+
+/* MOBILE CART PANEL */
+@media (max-width: 768px) {
+
+    .holds {
+        display: none; /* hide hold list on mobile main screen */
+    }
+
+    .cart {
+        position: fixed;
+        bottom: -100%;
+        left: 0;
+        width: 100%;
+        height: 70%;
+        background: white;
+        z-index: 999;
+        transition: 0.3s;
+        box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+        overflow-y: auto;
+    }
+
+    .cart.active {
+        bottom: 0;
+    }
+
+    .mobile-cart-btn {
+        display: block;
+    }
+
+    .btn-pay {
+        position: sticky;
+        bottom: 0;
+    }
+}
+
 /* Action Buttons */
 .btn-hold, .btn-resume, .btn-pay {
     width: 100%;
@@ -174,6 +223,10 @@ input, select {
 }
 </style>
 </head>
+
+<button class="mobile-cart-btn" onclick="toggleMobileCart()">
+    🛒 Cart
+</button>
 
 <body>
 
@@ -570,6 +623,11 @@ async function loadMySales() {
     } catch (error) {
         console.error("Failed to load daily sales");
     }
+}
+
+function toggleMobileCart() {
+    const cart = document.querySelector(".cart");
+    cart.classList.toggle("active");
 }
 
 </script>
