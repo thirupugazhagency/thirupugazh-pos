@@ -4,275 +4,140 @@
     <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #f3f4f6;
-}
+    <style>
+        body { margin:0; font-family:Arial,sans-serif; background:#f3f4f6; }
 
-/* Header */
-header {
-    background: #1e3a8a;
-    color: white;
-    padding: 10px 15px;
-}
+        header { background:#1e3a8a; color:white; padding:10px 15px; }
+        header img { height:30px; }
 
-header img {
-    height: 30px;
-}
+        #headerButtons button {
+            margin:4px 3px; padding:6px 10px;
+            border:none; border-radius:4px; cursor:pointer;
+        }
 
-#headerButtons button {
-    margin: 4px 3px;
-    padding: 6px 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
+        .btn-logout { background:#dc2626; color:white; }
+        .btn-admin { background:#2563eb; color:white; }
 
-.btn-logout {
-    background: #dc2626;
-    color: white;
-}
+        .container {
+            display:flex; gap:10px; padding:10px;
+            height:calc(100vh - 120px);
+        }
 
-.btn-admin {
-    background: #2563eb;
-    color: white;
-}
+        .menu,.cart,.holds {
+            background:white; padding:10px;
+            border-radius:8px; overflow-y:auto;
+        }
 
-/* Layout */
-.container {
-    display: flex;
-    gap: 10px;
-    padding: 10px;
-    height: calc(100vh - 120px);
-}
+        .menu { flex:2; }
+        .cart { flex:1.5; }
+        .holds { flex:1; }
 
-/* Sections */
-.menu, .cart, .holds {
-    background: white;
-    padding: 10px;
-    border-radius: 8px;
-    overflow-y: auto;
-}
+        input,select {
+            width:100%; padding:8px; margin-bottom:6px;
+            border-radius:5px; border:1px solid #ccc;
+        }
 
-.menu {
-    flex: 2;
-}
+        #menuButtons button {
+            width:100%; padding:12px; margin-bottom:6px;
+            border:none; border-radius:6px;
+            background:#e5e7eb; font-weight:bold;
+            cursor:pointer;
+        }
 
-.cart {
-    flex: 1.5;
-}
+        #menuButtons button:hover { background:#dbeafe; }
 
-.holds {
-    flex: 1;
-}
+        .cart-item {
+            display:flex; justify-content:space-between;
+            align-items:center; padding:6px 0;
+            border-bottom:1px solid #eee;
+        }
 
-/* Inputs */
-input, select {
-    width: 100%;
-    padding: 8px;
-    margin-bottom: 6px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-}
+        .total { font-weight:bold; margin-top:6px; }
 
-/* Menu Buttons */
-#menuButtons button {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 6px;
-    border: none;
-    border-radius: 6px;
-    background: #e5e7eb;
-    font-weight: bold;
-    cursor: pointer;
-}
+        .btn-hold,.btn-resume,.btn-pay {
+            width:100%; padding:10px; margin-top:6px;
+            border:none; border-radius:6px;
+            font-weight:bold; cursor:pointer;
+        }
 
-#menuButtons button:hover {
-    background: #dbeafe;
-}
+        .btn-hold { background:#f59e0b; color:white; }
+        .btn-resume { background:#2563eb; color:white; }
+        .btn-pay { background:#16a34a; color:white; }
 
-/* Cart Items */
-.cart-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid #eee;
-}
+        #resumeModal {
+            display:none; position:fixed;
+            top:15%; left:50%; transform:translateX(-50%);
+            background:white; padding:15px;
+            width:90%; max-width:400px;
+            border-radius:8px;
+            box-shadow:0 5px 15px rgba(0,0,0,0.3);
+        }
 
-.cart-item button {
-    padding: 4px 8px;
-}
+        #closingModal {
+            display:none; position:fixed;
+            top:20%; left:50%;
+            transform:translateX(-50%);
+            background:white; padding:20px;
+            width:90%; max-width:400px;
+            border-radius:8px;
+            box-shadow:0 5px 15px rgba(0,0,0,0.3);
+            z-index:2000;
+        }
 
-/* Totals */
-.total {
-    font-weight: bold;
-    margin-top: 6px;
-}
+        .mobile-cart-btn {
+            display:none; position:fixed;
+            bottom:15px; right:15px;
+            background:#16a34a; color:white;
+            padding:14px 18px; border-radius:50px;
+            font-weight:bold;
+            box-shadow:0 4px 12px rgba(0,0,0,0.3);
+            z-index:1000;
+        }
 
-/* MOBILE CART FLOAT BUTTON */
-.mobile-cart-btn {
-    display: none;
-    position: fixed;
-    bottom: 15px;
-    right: 15px;
-    background: #16a34a;
-    color: white;
-    padding: 14px 18px;
-    border-radius: 50px;
-    font-weight: bold;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    z-index: 1000;
-}
-
-/* MOBILE CART PANEL */
-@media (max-width: 768px) {
-
-    .cart {
-        position: fixed;
-        bottom: -100%;
-        left: 0;
-        width: 100%;
-        height: 70%;
-        background: white;
-        z-index: 999;
-        transition: 0.3s;
-        box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
-        overflow-y: auto;
-    }
-
-    .cart.active {
-        bottom: 0;
-    }
-
-    .mobile-cart-btn {
-        display: block;
-    }
-
-    .btn-pay {
-        position: sticky;
-        bottom: 0;
-    }
-}
-
-/* Action Buttons */
-.btn-hold, .btn-resume, .btn-pay {
-    width: 100%;
-    padding: 10px;
-    margin-top: 6px;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-.btn-hold { background: #f59e0b; color: white; }
-.btn-resume { background: #2563eb; color: white; }
-.btn-pay { background: #16a34a; color: white; }
-
-/* Resume Modal */
-#resumeModal {
-    display: none;
-    position: fixed;
-    top: 15%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    padding: 15px;
-    width: 90%;
-    max-width: 400px;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
-
-/* ================= MOBILE OPTIMIZATION ================= */
-@media (max-width: 768px) {
-
-    .container {
-        flex-direction: column;
-        height: auto;
-    }
-
-    .menu {
-        order: 1;
-    }
-
-    .cart {
-        order: 2;
-    }
-
-    .holds {
-        order: 3;
-        display: none;
-    }
-
-    #menuButtons button {
-        font-size: 16px;
-        padding: 16px;
-    }
-
-    .btn-hold, .btn-resume, .btn-pay {
-        font-size: 16px;
-        padding: 14px;
-    }
-}
-</style>
+        @media (max-width:768px){
+            .container{flex-direction:column;height:auto;}
+            .holds{display:none;}
+            .cart{
+                position:fixed; bottom:-100%;
+                left:0; width:100%; height:70%;
+                transition:.3s;
+            }
+            .cart.active{bottom:0;}
+            .mobile-cart-btn{display:block;}
+        }
+    </style>
 </head>
 
-<button class="mobile-cart-btn" onclick="toggleMobileCart()">
-    🛒 Cart
-</button>
+<body>
 
-<div id="closingModal" style="
-    display:none;
-    position:fixed;
-    top:20%;
-    left:50%;
-    transform:translateX(-50%);
-    background:white;
-    padding:20px;
-    width:90%;
-    max-width:400px;
-    border-radius:8px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.3);
-    z-index:2000;
-">
+<button class="mobile-cart-btn" onclick="toggleMobileCart()">🛒 Cart</button>
+
+<div id="closingModal">
     <h3>📊 Daily Closing Summary</h3>
     <div id="closingContent">Loading...</div>
     <button onclick="closeClosing()" 
-            style="margin-top:10px;padding:8px 12px;border:none;border-radius:5px;background:#ef4444;color:white;">
+        style="margin-top:10px;padding:8px 12px;border:none;border-radius:5px;background:#ef4444;color:white;">
         Close
     </button>
 </div>
 
-<body>
-
 <header>
-    <div style="display:flex; align-items:center; gap:10px;">
-        <img src="/static/logo.png" style="height:30px;">
-        <span id="headerTitle">Thirupugazh – POS</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+        <img src="/static/logo.png">
+        <span>Thirupugazh – POS</span>
         <span id="loggedUser" style="margin-left:10px;font-size:14px;font-weight:bold;"></span>
     </div>
 
-    <!-- Small Daily Sales Badge -->
-    <div style="
-        display:inline-block;
-        padding:6px 12px;
-        background:#e3f2fd;
-        color:#000;
-        border-radius:4px;
-        font-size:14px;
-        font-weight:bold;
-    ">
+    <div style="display:inline-block;padding:6px 12px;background:#e3f2fd;border-radius:4px;font-weight:bold;">
         <span id="mySales">Loading...</span>
     </div>
 
     <div id="headerButtons">
         <button onclick="goHome()">Home</button>
-        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
-        <button class="btn-admin" onclick="goStaff()">Staff Management</button>
+        <button class="btn-admin" onclick="window.location='/admin/breakdown'">
+    Admin Breakdown
+</button>
+        <button class="btn-admin" onclick="goStaff()">Staff</button>
         <button onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
@@ -280,20 +145,17 @@ input, select {
 
 <div class="container">
 
-    <!-- MENU -->
     <div class="menu">
         <h3>Menu</h3>
         <div id="menuButtons">Loading...</div>
     </div>
 
-    <!-- CART -->
     <div class="cart">
         <h3>Cart</h3>
 
         <input id="customerName" placeholder="Customer Name">
         <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
         <input id="transactionId" placeholder="Transaction ID">
-
         <input id="gpayNumber" placeholder="GPay Mobile Number" style="display:none;">
 
         <select id="paymentMode" onchange="toggleGpay()">
@@ -311,32 +173,12 @@ input, select {
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
-        <button onclick="toggleHolds()" style="width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#6b7280;color:white;font-weight:bold;">
-    View Hold Bills
-</button>
 
-<button class="btn-hold" onclick="holdBill()">HOLD</button>
-<button class="btn-resume" onclick="showResume()">RESUME</button>
-
-<button onclick="showClosingSummary()" 
-        style="width:100%;padding:10px;margin-top:6px;
-               border:none;border-radius:6px;
-               background:#0ea5e9;color:white;font-weight:bold;">
-    📊 Closing Summary
-</button>
-
-<button onclick="downloadClosingPDF()" 
-        style="width:100%;padding:10px;margin-top:6px;
-               border:none;border-radius:6px;
-               background:#16a34a;color:white;font-weight:bold;">
-    📥 Download PDF
-</button>
-
-<button class="btn-pay" onclick="payNow()">PAY</button>
-
+        <button class="btn-hold" onclick="holdBill()">HOLD</button>
+        <button class="btn-resume" onclick="showResume()">RESUME</button>
+        <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
-    <!-- HOLDS -->
     <div class="holds">
         <h3>Hold Bills</h3>
         <div id="holdList">No holds</div>
@@ -344,7 +186,6 @@ input, select {
 
 </div>
 
-<!-- RESUME MODAL -->
 <div id="resumeModal">
     <h3>Select Hold Bill</h3>
     <div id="resumeList"></div>
@@ -352,433 +193,6 @@ input, select {
 </div>
 
 <script>
-/* ================= AUTH GUARD ================= */
-if (!localStorage.getItem("user_id")) {
-    window.location.href = "/ui/login";
-}
-
-/* ================= ADMIN VISIBILITY ================= */
-const role = localStorage.getItem("role");
-if (role !== "admin") {
-    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
-}
-
-/* ================= STATE ================= */
-let cartId = null;
-let currentTotal = 0;
-
-/* ================= INIT (RENDER SAFE) ================= */
-document.addEventListener("DOMContentLoaded", async function () {
-
-    // SHOW USERNAME
-    const username = localStorage.getItem("username");
-    if (username) {
-        document.getElementById("loggedUser").innerText = "👤 " + username;
-    }
-
-    try {
-        await createCart();
-        await loadMenu();
-        await loadCart();
-        await loadHolds();
-    } catch (e) {
-        console.error("Billing init failed:", e);
-    }
-
-    try {
-        await loadMySales();
-    } catch (e) {
-        console.error("Daily sales failed:", e);
-    }
-});
-
-/* ================= MENU ================= */
-async function loadMenu() {
-    const div = document.getElementById("menuButtons");
-    if (!div) return;
-
-    try {
-        const res = await fetch("/menu");
-        const menu = await res.json();
-
-        div.innerHTML = "";
-
-        if (!menu.length) {
-            div.innerHTML = "<p>No menu items</p>";
-            return;
-        }
-
-        menu.forEach(item => {
-            const btn = document.createElement("button");
-            btn.textContent = `${item.name} - ₹${item.price}`;
-            btn.onclick = () => addToCart(item.id);
-            div.appendChild(btn);
-        });
-    } catch {
-        div.innerHTML = "<p>Error loading menu</p>";
-    }
-}
-
-/* ================= CART ================= */
-async function createCart() {
-    const res = await fetch("/cart/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            staff_id: localStorage.getItem("user_id")
-        })
-    });
-
-    if (!res.ok) {
-        console.error("Cart creation failed");
-        return;
-    }
-
-    const data = await res.json();
-    cartId = data.cart_id;
-    console.log("Cart created:", cartId);
-}
-
-async function addToCart(menuId) {
-    await fetch("/cart/add", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
-    });
-    loadCart();
-}
-
-async function removeFromCart(menuId) {
-    await fetch("/cart/remove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId
-        })
-    });
-
-    loadCart();
-}
-async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
-    const data = await res.json();
-
-    const cartDiv = document.getElementById("cartItems");
-    cartDiv.innerHTML = "";
-    currentTotal = data.total;
-
-    data.items.forEach(i => {
-        cartDiv.innerHTML += `
-            <div class="cart-item">
-                <span>${i.name}</span>
-                <span>
-                    <button onclick="removeFromCart(${i.menu_id})">−</button>
-                    ${i.quantity}
-                    <button onclick="addToCart(${i.menu_id})">+</button>
-                </span>
-                <span>₹${i.subtotal}</span>
-            </div>
-        `;
-    });
-
-    document.getElementById("subTotal").innerText = currentTotal;
-    recalculateTotal();
-}
-
-/* ================= TOTAL ================= */
-function recalculateTotal() {
-    const discount = Number(document.getElementById("discount").value || 0);
-    document.getElementById("finalTotal").innerText =
-        Math.max(currentTotal - discount, 0);
-}
-
-/* ================= GPAY ================= */
-function toggleGpay() {
-    const mode = document.getElementById("paymentMode").value;
-    const gpayInput = document.getElementById("gpayNumber");
-    gpayInput.style.display = mode === "GPAY" ? "block" : "none";
-    if (mode !== "GPAY") gpayInput.value = "";
-}
-
-/* ================= HOLD / RESUME ================= */
-async function holdBill() {
-    await fetch("/cart/hold", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            cart_id: cartId,
-            customer_name: customerName.value,
-            customer_phone: mobileNumber.value
-        })
-    });
-
-    await createCart();
-    loadCart();
-    loadHolds();
-}
-
-async function loadHolds() {
-    const res = await fetch(
-        `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
-    );
-
-    const holds = await res.json();
-    const div = document.getElementById("holdList");
-
-    div.innerHTML = holds.length ? "" : "No holds";
-
-    holds.forEach(h => {
-        div.innerHTML += `
-            <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
-                <strong>Cart #${h.cart_id}</strong><br>
-                👤 ${h.customer_name || "No Name"}<br>
-                📞 ${h.customer_phone || "No Number"}<br>
-                🧾 ${h.items}<br>
-                <small>${h.created_at}</small>
-            </div>
-        `;
-    });
-}
-
-async function showClosingSummary() {
-
-    const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("user_id");
-
-    if (!userId) return;
-
-    let salesData;
-    let holdData;
-    let cashData;
-
-    try {
-
-        const salesRes = await fetch(`/staff/report/daily?staff_id=${userId}`);
-        salesData = await salesRes.json();
-
-        const holdRes = await fetch(`/cart/held?role=${role}&user_id=${userId}`);
-        holdData = await holdRes.json();
-
-        const cashRes = await fetch(`/staff/report/cash-summary?staff_id=${userId}`);
-        cashData = await cashRes.json();
-
-    } catch (err) {
-        console.log("Closing fetch error:", err);
-        return;
-    }
-
-    const today = new Date().toLocaleDateString();
-
-    document.getElementById("closingContent").innerHTML = `
-        📅 <strong>Date:</strong> ${today}<br><br>
-        👤 <strong>Staff:</strong> ${localStorage.getItem("username")}<br><br>
-        🧾 <strong>Total Bills:</strong> ${salesData.bill_count}<br><br>
-        💰 <strong>Total Amount:</strong> ₹${salesData.total_amount}<br><br>
-        💵 <strong>Expected Cash:</strong> ₹${cashData.expected_cash}<br><br>
-
-        <hr><br>
-
-        💰 Enter Cash Counted:<br>
-        <input type="number" id="cashEntered" placeholder="Enter counted cash"><br><br>
-
-        <button onclick="calculateCashDifference(${cashData.expected_cash})"
-                style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:5px;">
-            Check Difference
-        </button>
-
-        <div id="cashResult" style="margin-top:15px;font-weight:bold;"></div>
-    `;
-
-    document.getElementById("closingModal").style.display = "block";
-}
-
-function calculateCashDifference(expected) {
-
-    const entered = Number(document.getElementById("cashEntered").value || 0);
-    const diff = entered - expected;
-
-    let message = "";
-
-    if (diff === 0) {
-        message = "✅ Perfect Match. No Difference.";
-    } else if (diff > 0) {
-        message = `🟢 Extra Cash: ₹${diff}`;
-    } else {
-        message = `🔴 Short Amount: ₹${Math.abs(diff)}`;
-    }
-
-    document.getElementById("cashResult").innerHTML = message;
-}
-
-function closeClosing() {
-    document.getElementById("closingModal").style.display = "none";
-}
-
-async function showResume() {
-    const res = await fetch(
-    `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
-);
-    const holds = await res.json();
-
-    const list = document.getElementById("resumeList");
-    list.innerHTML = "";
-
-    holds.forEach(h => {
-    list.innerHTML += `
-        <button onclick="resumeHold(${h.cart_id})">
-            Cart #${h.cart_id} | ${h.customer_name || "No Name"} | ${h.customer_phone || ""}<br>
-            ${h.items}
-        </button>
-    `;
-});
-
-    document.getElementById("resumeModal").style.display = "block";
-}
-
-function closeResume() {
-    document.getElementById("resumeModal").style.display = "none";
-}
-
-async function resumeHold(id) {
-    const res = await fetch(`/cart/resume/${id}`);
-    const data = await res.json();
-
-    cartId = data.cart_id;
-
-    customerName.value = data.customer_name || "";
-    mobileNumber.value = data.customer_phone || "";
-
-    closeResume();
-    loadCart();
-    loadHolds();
-}
-
-/* ================= PAY ================= */
-async function payNow() {
-
-    const payment = document.getElementById("paymentMode").value;
-    const name = document.getElementById("customerName").value.trim();
-    const mobile = document.getElementById("mobileNumber").value.trim();
-    const txn = document.getElementById("transactionId").value.trim();
-    const gpay = document.getElementById("gpayNumber").value.trim();
-
-    if (!payment) return alert("Select payment mode");
-    if (!name) return alert("Customer name required");
-    if (!/^\d{10}$/.test(mobile)) return alert("Valid 10-digit mobile required");
-    if (payment === "GPAY" && !/^\d{10}$/.test(gpay)) return alert("Enter valid GPay number");
-    if (payment !== "CASH" && payment !== "GPAY" && !txn) return alert("Transaction ID required");
-
-    const res = await fetch("/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: payment,
-            customer_name: name,
-            customer_phone: mobile,
-            transaction_id: txn,
-            gpay_number: gpay,
-            staff_id: localStorage.getItem("user_id")
-        })
-    });
-
-    const result = await res.json();
-
-// 🔔 Play sound safely
-try {
-    const sound = document.getElementById("paymentSound");
-    if (sound) {
-        sound.play().catch(() => {});
-    }
-} catch (e) {
-    console.log("Sound error:", e);
-}
-
-alert(`✅ Payment Successful
-Bill No: ${result.bill_no}
-Amount: ₹${result.total}`);
-
-    window.open(`/bill/${result.sale_id}/pdf`, "_blank");
-
-    const message = `Thank you for shopping at Thirupugazh Lottery Agency.
-Bill No: ${result.bill_no}
-Amount: ₹${result.total}`;
-
-    window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
-
-    await createCart();
-    loadCart();
-    loadHolds();
-}
-
-/* ================= NAV ================= */
-function goAdminReports() {
-    window.location.href = "/ui/admin-reports";
-}
-
-function goStaff() {
-    window.location.href = "/ui/admin-staff";
-}
-
-function goChangePassword() {
-    window.location.href = "/ui/change-password";
-}
-
-function goHome() {
-    window.location.href = "/ui/billing";
-}
-
-function logout() {
-    localStorage.removeItem("user_id");
-    localStorage.removeItem("role");
-    window.location.replace("/ui/login");
-}
-// ================= MY DAILY SALES =================
-async function loadMySales() {
-    const role = localStorage.getItem("role");
-    const userId = localStorage.getItem("user_id");
-
-    if (!userId) return;
-
-    try {
-        if (role === "staff") {
-            const res = await fetch(`/staff/report/daily?staff_id=${userId}`);
-            const data = await res.json();
-
-            document.getElementById("mySales").innerHTML =
-                `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
-        } 
-        else if (role === "admin") {
-            const res = await fetch(`/admin/report/daily`);
-            const data = await res.json();
-
-            document.getElementById("mySales").innerHTML =
-                `All Sales Today | Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
-        }
-    } catch (error) {
-        console.error("Failed to load daily sales");
-    }
-}
-
-function toggleHolds() {
-    const holds = document.querySelector(".holds");
-    if (holds.style.display === "none" || holds.style.display === "") {
-        holds.style.display = "block";
-    } else {
-        holds.style.display = "none";
-    }
-}
-
-function toggleMobileCart() {
-    const cart = document.querySelector(".cart");
-    cart.classList.toggle("active");
-}
-
-function downloadClosingPDF() {
-    const userId = localStorage.getItem("user_id");
-    window.open(`/staff/report/daily/pdf?staff_id=${userId}`, "_blank");
-}
 
 </script>
 
