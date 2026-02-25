@@ -247,6 +247,9 @@ def admin_dashboard():
         "monthly_bills": len(monthly_sales)
     })
 
+# ==================================================
+# ADMIN DAILY REPORT WITH BILL NUMBER
+# ==================================================
 @app.route("/admin/report/daily/data")
 def admin_daily_data():
 
@@ -262,6 +265,9 @@ def admin_daily_data():
         "bill_count": len(sales)
     })
 
+# ==================================================
+# ADMIN SALES VIEW
+# ==================================================
 @app.route("/admin/sales-breakdown")
 def admin_sales_breakdown():
 
