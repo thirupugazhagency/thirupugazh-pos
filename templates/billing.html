@@ -313,19 +313,16 @@ input, select {
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
         <button onclick="toggleHolds()" style="width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#6b7280;color:white;font-weight:bold;">
     View Hold Bills
-        </button>
-        <button class="btn-hold" onclick="holdBill()">HOLD</button>
-        <button class="btn-resume" onclick="showResume()">RESUME</button>
-        <button onclick="showClosingSummary()" 
+</button>
+
+<button class="btn-hold" onclick="holdBill()">HOLD</button>
+<button class="btn-resume" onclick="showResume()">RESUME</button>
+
+<button onclick="showClosingSummary()" 
         style="width:100%;padding:10px;margin-top:6px;
                border:none;border-radius:6px;
                background:#0ea5e9;color:white;font-weight:bold;">
     📊 Closing Summary
-</button>
-
-<button onclick="voidBill(${sale.id})"
-        style="background:#dc2626;color:white;padding:4px 8px;border:none;border-radius:4px;">
-    VOID
 </button>
 
 <button onclick="downloadClosingPDF()" 
@@ -335,8 +332,8 @@ input, select {
     📥 Download PDF
 </button>
 
-</button>
-        <button class="btn-pay" onclick="payNow()">PAY</button>
+<button class="btn-pay" onclick="payNow()">PAY</button>
+
     </div>
 
     <!-- HOLDS -->
