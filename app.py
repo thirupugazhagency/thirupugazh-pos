@@ -253,16 +253,19 @@ def admin_dashboard():
 @app.route("/admin/report/daily/data")
 def admin_daily_data():
 
+    # Reuse existing working route logic
     business_date = get_business_date()
 
-    sales = Sale.query.filter(
+    query = Sale.query.filter(
         Sale.business_date == business_date,
         Sale.status == "COMPLETED"
-    ).all()
+    )
+
+    sales = query.all()
 
     return jsonify({
-        "total_amount": sum(s.total for s in sales),
-        "bill_count": len(sales)
+        "bill_count": len(sales),
+        "total_amount": sum(s.total or 0 for s in sales)
     })
 
 # ==================================================
