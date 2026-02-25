@@ -193,6 +193,28 @@ function downloadMonthlyPDF() {
     window.location = `/admin/report/monthly/pdf?month=${m}&year=${y}`;
 }
 
+async function voidBill(id) {
+
+    if (!confirm("⚠ Are you sure you want to VOID this bill?")) return;
+
+    const res = await fetch("/admin/sale/void", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ sale_id: id })
+    });
+
+    const data = await res.json();
+
+    if (data.status === "ok") {
+        alert("Bill marked as VOID");
+        location.reload();
+    } else if (data.status === "already_void") {
+        alert("Bill already voided");
+    } else {
+        alert("Error voiding bill");
+    }
+}
+
 /* ================= NAV ================= */
 
 function goBilling() {

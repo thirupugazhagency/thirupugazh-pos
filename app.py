@@ -78,6 +78,7 @@ class Sale(db.Model):
     staff_id = db.Column(db.Integer)
     business_date = db.Column(db.Date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default="COMPLETED")
 
 # ==================================================
 # BILL NUMBER GENERATOR
@@ -127,6 +128,27 @@ def ui_change_password():
 @app.route("/ui/admin-staff")
 def ui_admin_staff():
     return render_template("admin_staff.html")
+
+# ==================================================
+# ADMIN VOID BILL
+# ==================================================
+@app.route("/admin/sale/void", methods=["POST"])
+def admin_void_sale():
+    data = request.json
+    sale_id = data.get("sale_id")
+
+    sale = Sale.query.get(sale_id)
+
+    if not sale:
+        return jsonify({"status": "not_found"}), 404
+
+    if sale.status == "VOID":
+        return jsonify({"status": "already_void"})
+
+    sale.status = "VOID"
+    db.session.commit()
+
+    return jsonify({"status": "ok"})
 
 # ==================================================
 # AUTH
@@ -403,9 +425,10 @@ def staff_daily_report():
         })
 
     sales = Sale.query.filter_by(
-        staff_id=staff_id,
-        business_date=get_business_date()
-    ).all()
+    staff_id=staff_id,
+    business_date=get_business_date(),
+    status="COMPLETED"
+).all()
 
     return jsonify({
         "bill_count": len(sales),
@@ -425,7 +448,10 @@ def admin_daily_report():
         if date_str else get_business_date()
     )
 
-    query = Sale.query.filter(Sale.business_date == business_date)
+    query = Sale.query.filter(
+    Sale.business_date == business_date,
+    Sale.status == "COMPLETED"
+)
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -449,7 +475,10 @@ def admin_daily_excel():
         if date_str else get_business_date()
     )
 
-    query = Sale.query.filter(Sale.business_date == business_date)
+    query = Sale.query.filter(
+    Sale.business_date == business_date,
+    Sale.status == "COMPLETED"
+)
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -496,7 +525,10 @@ def admin_daily_pdf():
         if date_str else get_business_date()
     )
 
-    query = Sale.query.filter(Sale.business_date == business_date)
+    query = Sale.query.filter(
+    Sale.business_date == business_date,
+    Sale.status == "COMPLETED"
+)
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -561,9 +593,10 @@ def admin_monthly_report():
     year = int(request.args.get("year"))
 
     sales = Sale.query.filter(
-        db.extract("month", Sale.business_date) == month,
-        db.extract("year", Sale.business_date) == year
-    ).order_by(Sale.id.asc()).all()
+    db.extract("month", Sale.business_date) == month,
+    db.extract("year", Sale.business_date) == year,
+    Sale.status == "COMPLETED"
+).order_by(Sale.id.asc()).all()
 
     return jsonify({
         "bill_count": len(sales),
@@ -671,9 +704,10 @@ def admin_monthly_excel():
     end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
 
     query = Sale.query.filter(
-        Sale.business_date >= start_date.date(),
-        Sale.business_date < end_date.date()
-    )
+    Sale.business_date >= start_date.date(),
+    Sale.business_date < end_date.date(),
+    Sale.status == "COMPLETED"
+)
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -726,9 +760,10 @@ def admin_monthly_pdf():
     end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
 
     query = Sale.query.filter(
-        Sale.business_date >= start_date.date(),
-        Sale.business_date < end_date.date()
-    )
+    Sale.business_date >= start_date.date(),
+    Sale.business_date < end_date.date(),
+    Sale.status == "COMPLETED"
+)
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -811,10 +846,11 @@ def staff_daily_pdf():
     business_date = get_business_date()
     day_name = business_date.strftime("%A")
 
-    sales = Sale.query.filter_by(
-        staff_id=staff_id,
-        business_date=business_date
-    ).order_by(Sale.id.asc()).all()
+    sales = Sale.query.filter(
+    Sale.staff_id == staff_id,
+    Sale.business_date == business_date,
+    Sale.status == "COMPLETED"
+).order_by(Sale.id.asc()).all()
 
     hold_count = Cart.query.filter_by(
         staff_id=staff_id,
