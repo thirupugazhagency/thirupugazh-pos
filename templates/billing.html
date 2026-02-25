@@ -750,7 +750,7 @@ async function loadMySales() {
                 `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
         } 
         else if (role === "admin") {
-            const res = await fetch(`/admin/report/daily`);
+            const res = await fetch(`/admin/report/daily/data`);
             const data = await res.json();
 
             document.getElementById("mySales").innerHTML =
