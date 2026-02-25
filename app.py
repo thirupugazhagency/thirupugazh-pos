@@ -413,94 +413,6 @@ def staff_daily_report():
     })
 
 # ==================================================
-# STAFF DAILY CLOSING PDF (UPGRADED)
-# ==================================================
-@app.route("/staff/report/daily/pdf")
-def staff_daily_pdf():
-    staff_id = request.args.get("staff_id")
-
-    if not staff_id:
-        return "Staff ID required", 400
-
-    business_date = get_business_date()
-    day_name = business_date.strftime("%A")  # Sunday, Monday etc.
-
-    sales = Sale.query.filter_by(
-        staff_id=staff_id,
-        business_date=business_date
-    ).order_by(Sale.id.asc()).all()
-
-    hold_count = Cart.query.filter_by(
-        staff_id=staff_id,
-        status="HOLD"
-    ).count()
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-
-    y = 800
-
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, y, "Thirupugazh Lottery Agency")
-    y -= 30
-
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(50, y, "Daily Closing Report")
-    y -= 30
-
-    pdf.setFont("Helvetica", 11)
-    pdf.drawString(50, y, f"Business Date: {business_date} ({day_name})")
-    y -= 20
-
-    staff = User.query.get(staff_id)
-    pdf.drawString(50, y, f"Staff: {staff.username if staff else ''}")
-    y -= 30
-
-    total_amount = 0
-
-    # Table Header
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(50, y, "Bill No")
-    pdf.drawString(130, y, "Customer")
-    pdf.drawString(250, y, "Payment")
-    pdf.drawString(350, y, "Amount")
-    y -= 20
-
-    pdf.setFont("Helvetica", 9)
-
-    for s in sales:
-        pdf.drawString(50, y, s.bill_no or "")
-        pdf.drawString(130, y, (s.customer_name or "")[:15])
-        pdf.drawString(250, y, s.payment_method or "")
-        pdf.drawString(350, y, f"₹{s.total}")
-
-        total_amount += s.total
-        y -= 18
-
-        if y < 50:
-            pdf.showPage()
-            y = 800
-            pdf.setFont("Helvetica", 9)
-
-    y -= 20
-    pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawString(50, y, f"Total Bills: {len(sales)}")
-    y -= 20
-    pdf.drawString(50, y, f"Total Amount: ₹{total_amount}")
-    y -= 20
-    pdf.drawString(50, y, f"Active Holds: {hold_count}")
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"closing_report_{business_date}.pdf",
-        mimetype="application/pdf"
-    )
-
-# ==================================================
 # ADMIN DAILY REPORT (WITH STAFF FILTER)
 # ==================================================
 @app.route("/admin/report/daily")
@@ -1003,6 +915,7 @@ def staff_daily_pdf():
         download_name=f"closing_report_{business_date}.pdf",
         mimetype="application/pdf"
     )
+
 # ==================================================
 # INIT DB
 # ==================================================
