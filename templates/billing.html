@@ -321,11 +321,12 @@ input, select {
                border:none;border-radius:6px;
                background:#0ea5e9;color:white;font-weight:bold;">
     📊 Closing Summary
+</button>
 
 <button onclick="downloadClosingPDF()" 
-        style="margin-top:8px;padding:8px 12px;
-               border:none;border-radius:5px;
-               background:#16a34a;color:white;">
+        style="width:100%;padding:10px;margin-top:6px;
+               border:none;border-radius:6px;
+               background:#16a34a;color:white;font-weight:bold;">
     📥 Download PDF
 </button>
 
@@ -426,8 +427,14 @@ async function createCart() {
         })
     });
 
+    if (!res.ok) {
+        console.error("Cart creation failed");
+        return;
+    }
+
     const data = await res.json();
     cartId = data.cart_id;
+    console.log("Cart created:", cartId);
 }
 
 async function addToCart(menuId) {
@@ -643,18 +650,19 @@ async function payNow() {
 
     const result = await res.json();
 
-    // 🔔 Play sound AFTER successful checkout
-    try {
-        const sound = new Audio("/static/payment-success.mp3");
-        sound.play();
-    } catch (e) {
-        console.log("Sound error:", e);
+// 🔔 Play sound safely
+try {
+    const sound = document.getElementById("paymentSound");
+    if (sound) {
+        sound.play().catch(() => {});
     }
+} catch (e) {
+    console.log("Sound error:", e);
+}
 
-    alert(`✅ Payment Successful
+alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
-showPopup(`Payment Successful | Bill: ${result.bill_no} | ₹${result.total}`, "success");
 
     window.open(`/bill/${result.sale_id}/pdf`, "_blank");
 

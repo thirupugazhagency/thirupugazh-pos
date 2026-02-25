@@ -253,11 +253,9 @@ async function updateUsername(staffId) {
 /* ===== RESET PASSWORD ===== */
 async function resetPassword(id) {
     const pwd = document.getElementById(`pwd_${id}`).value;
+
     if (!pwd || pwd.length < 4) {
-    showPopup("Password must be at least 4 characters", "warning");
-    return;
-}
-        showPopup("Enter new password", "warning");
+        showPopup("Password must be at least 4 characters", "warning");
         return;
     }
 
