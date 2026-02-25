@@ -863,6 +863,29 @@ def admin_monthly_pdf():
         download_name=f"monthly_sales_{month}_{year}.pdf",
         mimetype="application/pdf"
     )
+
+# ==================================================
+# ADMIN UPDATE STAFF USERNAME
+# ==================================================
+@app.route("/admin/staff/update-username", methods=["POST"])
+def admin_update_staff_username():
+    data = request.json
+    staff = User.query.get(data.get("staff_id"))
+
+    if not staff or staff.role == "admin":
+        return jsonify({"status": "error"}), 400
+
+    new_username = data.get("new_username").strip()
+
+    # Prevent duplicate usernames
+    if User.query.filter_by(username=new_username).first():
+        return jsonify({"status": "exists"}), 400
+
+    staff.username = new_username
+    db.session.commit()
+
+    return jsonify({"status": "ok"})
+
 # ==================================================
 # INIT DB
 # ==================================================
