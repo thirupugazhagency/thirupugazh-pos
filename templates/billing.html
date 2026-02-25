@@ -4,128 +4,128 @@
     <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body { margin:0; font-family:Arial,sans-serif; background:#f3f4f6; }
+<style>
+body { margin:0; font-family:Arial; background:#f3f4f6; }
 
-        header { background:#1e3a8a; color:white; padding:10px 15px; }
-        header img { height:30px; }
+header { background:#1e3a8a; color:white; padding:10px 15px; }
+header img { height:30px; }
 
-        #headerButtons button {
-            margin:4px 3px; padding:6px 10px;
-            border:none; border-radius:4px; cursor:pointer;
-        }
+#headerButtons button {
+    margin:4px 3px;
+    padding:6px 10px;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+}
 
-        .btn-logout { background:#dc2626; color:white; }
-        .btn-admin { background:#2563eb; color:white; }
+.btn-logout { background:#dc2626; color:white; }
+.btn-admin { background:#2563eb; color:white; }
 
-        .container {
-            display:flex; gap:10px; padding:10px;
-            height:calc(100vh - 120px);
-        }
+.container {
+    display:flex;
+    gap:10px;
+    padding:10px;
+    height:calc(100vh - 120px);
+}
 
-        .menu,.cart,.holds {
-            background:white; padding:10px;
-            border-radius:8px; overflow-y:auto;
-        }
+.menu,.cart,.holds {
+    background:white;
+    padding:10px;
+    border-radius:8px;
+    overflow-y:auto;
+}
 
-        .menu { flex:2; }
-        .cart { flex:1.5; }
-        .holds { flex:1; }
+.menu { flex:2; }
+.cart { flex:1.5; }
+.holds { flex:1; }
 
-        input,select {
-            width:100%; padding:8px; margin-bottom:6px;
-            border-radius:5px; border:1px solid #ccc;
-        }
+input,select {
+    width:100%;
+    padding:8px;
+    margin-bottom:6px;
+    border-radius:5px;
+    border:1px solid #ccc;
+}
 
-        #menuButtons button {
-            width:100%; padding:12px; margin-bottom:6px;
-            border:none; border-radius:6px;
-            background:#e5e7eb; font-weight:bold;
-            cursor:pointer;
-        }
+#menuButtons button {
+    width:100%;
+    padding:12px;
+    margin-bottom:6px;
+    border:none;
+    border-radius:6px;
+    background:#e5e7eb;
+    font-weight:bold;
+    cursor:pointer;
+}
 
-        #menuButtons button:hover { background:#dbeafe; }
+#menuButtons button:hover { background:#dbeafe; }
 
-        .cart-item {
-            display:flex; justify-content:space-between;
-            align-items:center; padding:6px 0;
-            border-bottom:1px solid #eee;
-        }
+.cart-item {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 0;
+    border-bottom:1px solid #eee;
+}
 
-        .total { font-weight:bold; margin-top:6px; }
+.total { font-weight:bold; margin-top:6px; }
 
-        .btn-hold,.btn-resume,.btn-pay {
-            width:100%; padding:10px; margin-top:6px;
-            border:none; border-radius:6px;
-            font-weight:bold; cursor:pointer;
-        }
+.btn-hold,.btn-resume,.btn-pay {
+    width:100%;
+    padding:10px;
+    margin-top:6px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
+}
 
-        .btn-hold { background:#f59e0b; color:white; }
-        .btn-resume { background:#2563eb; color:white; }
-        .btn-pay { background:#16a34a; color:white; }
+.btn-hold { background:#f59e0b; color:white; }
+.btn-resume { background:#2563eb; color:white; }
+.btn-pay { background:#16a34a; color:white; }
 
-        #resumeModal {
-            display:none; position:fixed;
-            top:15%; left:50%; transform:translateX(-50%);
-            background:white; padding:15px;
-            width:90%; max-width:400px;
-            border-radius:8px;
-            box-shadow:0 5px 15px rgba(0,0,0,0.3);
-        }
+.mobile-cart-btn {
+    display:none;
+    position:fixed;
+    bottom:15px;
+    right:15px;
+    background:#16a34a;
+    color:white;
+    padding:14px 18px;
+    border-radius:50px;
+    font-weight:bold;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    z-index:1000;
+}
 
-        #closingModal {
-            display:none; position:fixed;
-            top:20%; left:50%;
-            transform:translateX(-50%);
-            background:white; padding:20px;
-            width:90%; max-width:400px;
-            border-radius:8px;
-            box-shadow:0 5px 15px rgba(0,0,0,0.3);
-            z-index:2000;
-        }
-
-        .mobile-cart-btn {
-            display:none; position:fixed;
-            bottom:15px; right:15px;
-            background:#16a34a; color:white;
-            padding:14px 18px; border-radius:50px;
-            font-weight:bold;
-            box-shadow:0 4px 12px rgba(0,0,0,0.3);
-            z-index:1000;
-        }
-
-        @media (max-width:768px){
-            .container{flex-direction:column;height:auto;}
-            .holds{display:none;}
-            .cart{
-                position:fixed; bottom:-100%;
-                left:0; width:100%; height:70%;
-                transition:.3s;
-            }
-            .cart.active{bottom:0;}
-            .mobile-cart-btn{display:block;}
-        }
-    </style>
+@media (max-width:768px){
+    .container{flex-direction:column;height:auto;}
+    .holds{display:none;}
+    .cart{
+        position:fixed;
+        bottom:-100%;
+        left:0;
+        width:100%;
+        height:70%;
+        transition:.3s;
+        background:white;
+        z-index:999;
+    }
+    .cart.active{bottom:0;}
+    .mobile-cart-btn{display:block;}
+}
+</style>
 </head>
 
 <body>
 
 <button class="mobile-cart-btn" onclick="toggleMobileCart()">🛒 Cart</button>
 
-<div id="closingModal">
-    <h3>📊 Daily Closing Summary</h3>
-    <div id="closingContent">Loading...</div>
-    <button onclick="closeClosing()" 
-        style="margin-top:10px;padding:8px 12px;border:none;border-radius:5px;background:#ef4444;color:white;">
-        Close
-    </button>
-</div>
-
 <header>
     <div style="display:flex;align-items:center;gap:10px;">
         <img src="/static/logo.png">
         <span>Thirupugazh – POS</span>
-        <span id="loggedUser" style="margin-left:10px;font-size:14px;font-weight:bold;"></span>
+        <span id="loggedUser" style="margin-left:10px;font-weight:bold;"></span>
     </div>
 
     <div style="display:inline-block;padding:6px 12px;background:#e3f2fd;border-radius:4px;font-weight:bold;">
@@ -134,9 +134,7 @@
 
     <div id="headerButtons">
         <button onclick="goHome()">Home</button>
-        <button class="btn-admin" onclick="window.location='/admin/breakdown'">
-    Admin Breakdown
-</button>
+        <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
         <button class="btn-admin" onclick="goStaff()">Staff</button>
         <button onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
@@ -145,55 +143,281 @@
 
 <div class="container">
 
-    <div class="menu">
-        <h3>Menu</h3>
-        <div id="menuButtons">Loading...</div>
-    </div>
+<div class="menu">
+    <h3>Menu</h3>
+    <div id="menuButtons">Loading...</div>
+</div>
 
-    <div class="cart">
-        <h3>Cart</h3>
+<div class="cart">
+    <h3>Cart</h3>
 
-        <input id="customerName" placeholder="Customer Name">
-        <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
-        <input id="transactionId" placeholder="Transaction ID">
-        <input id="gpayNumber" placeholder="GPay Mobile Number" style="display:none;">
+    <input id="customerName" placeholder="Customer Name">
+    <input id="mobileNumber" placeholder="Mobile Number (10 digits)">
+    <input id="transactionId" placeholder="Transaction ID">
 
-        <select id="paymentMode" onchange="toggleGpay()">
-            <option value="">Select Payment Mode</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="GPAY">GPay</option>
-            <option value="ONLINE">Online</option>
-            <option value="MIXED">Mixed</option>
-        </select>
+    <input id="gpayNumber" placeholder="GPay Mobile Number" style="display:none;">
 
-        <div id="cartItems"></div>
+    <select id="paymentMode" onchange="toggleGpay()">
+        <option value="">Select Payment Mode</option>
+        <option value="CASH">Cash</option>
+        <option value="UPI">UPI</option>
+        <option value="GPAY">GPay</option>
+        <option value="ONLINE">Online</option>
+        <option value="MIXED">Mixed</option>
+    </select>
 
-        <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
+    <div id="cartItems"></div>
 
-        <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
-        <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
+    <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
 
-        <button class="btn-hold" onclick="holdBill()">HOLD</button>
-        <button class="btn-resume" onclick="showResume()">RESUME</button>
-        <button class="btn-pay" onclick="payNow()">PAY</button>
-    </div>
+    <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
+    <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
 
-    <div class="holds">
-        <h3>Hold Bills</h3>
-        <div id="holdList">No holds</div>
-    </div>
+    <button class="btn-hold" onclick="holdBill()">HOLD</button>
+    <button class="btn-resume" onclick="showResume()">RESUME</button>
+    <button class="btn-pay" onclick="payNow()">PAY</button>
+</div>
+
+<div class="holds">
+    <h3>Hold Bills</h3>
+    <div id="holdList">No holds</div>
+</div>
 
 </div>
 
-<div id="resumeModal">
+<div id="resumeModal" style="display:none;position:fixed;top:15%;left:50%;transform:translateX(-50%);background:white;padding:15px;width:90%;max-width:400px;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,0.3);">
     <h3>Select Hold Bill</h3>
     <div id="resumeList"></div>
     <button onclick="closeResume()">Close</button>
 </div>
 
 <script>
+if (!localStorage.getItem("user_id")) {
+    window.location.href = "/ui/login";
+}
 
+const role = localStorage.getItem("role");
+if (role !== "admin") {
+    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
+}
+
+let cartId = null;
+let currentTotal = 0;
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    document.getElementById("loggedUser").innerText =
+        "👤 " + (localStorage.getItem("username") || "");
+
+    await createCart();
+    await loadMenu();
+    await loadCart();
+    await loadHolds();
+    await loadMySales();
+});
+
+/* MENU */
+async function loadMenu(){
+    const res = await fetch("/menu");
+    const menu = await res.json();
+    const div = document.getElementById("menuButtons");
+    div.innerHTML="";
+    menu.forEach(item=>{
+        const btn=document.createElement("button");
+        btn.textContent=`${item.name} - ₹${item.price}`;
+        btn.onclick=()=>addToCart(item.id);
+        div.appendChild(btn);
+    });
+}
+
+/* CART */
+async function createCart(){
+    const res = await fetch("/cart/create",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({staff_id:localStorage.getItem("user_id")})
+    });
+    const data = await res.json();
+    cartId=data.cart_id;
+}
+
+async function addToCart(menuId){
+    await fetch("/cart/add",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({cart_id:cartId,menu_id:menuId})
+    });
+    loadCart();
+}
+
+async function removeFromCart(menuId){
+    await fetch("/cart/remove",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({cart_id:cartId,menu_id:menuId})
+    });
+    loadCart();
+}
+
+async function loadCart(){
+    const res = await fetch(`/cart/${cartId}`);
+    const data = await res.json();
+    currentTotal=data.total;
+    const div=document.getElementById("cartItems");
+    div.innerHTML="";
+    data.items.forEach(i=>{
+        div.innerHTML+=`
+        <div class="cart-item">
+            <span>${i.name}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">−</button>
+                ${i.quantity}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+            <span>₹${i.subtotal}</span>
+        </div>`;
+    });
+    document.getElementById("subTotal").innerText=currentTotal;
+    recalculateTotal();
+}
+
+function recalculateTotal(){
+    const discount=Number(document.getElementById("discount").value||0);
+    document.getElementById("finalTotal").innerText=
+        Math.max(currentTotal-discount,0);
+}
+
+function toggleGpay(){
+    const mode=document.getElementById("paymentMode").value;
+    const g=document.getElementById("gpayNumber");
+    g.style.display=mode==="GPAY"?"block":"none";
+    if(mode!=="GPAY") g.value="";
+}
+
+/* HOLD */
+async function holdBill(){
+    await fetch("/cart/hold",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            cart_id:cartId,
+            customer_name:customerName.value,
+            customer_phone:mobileNumber.value
+        })
+    });
+    await createCart();
+    loadCart();
+    loadHolds();
+}
+
+async function loadHolds(){
+    const res=await fetch(`/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`);
+    const holds=await res.json();
+    const div=document.getElementById("holdList");
+    div.innerHTML=holds.length?"":"No holds";
+    holds.forEach(h=>{
+        div.innerHTML+=`
+        <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
+            <strong>Cart #${h.cart_id}</strong><br>
+            👤 ${h.customer_name||""}<br>
+            📞 ${h.customer_phone||""}
+        </div>`;
+    });
+}
+
+/* RESUME */
+async function showResume(){
+    const res=await fetch(`/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`);
+    const holds=await res.json();
+    const list=document.getElementById("resumeList");
+    list.innerHTML="";
+    holds.forEach(h=>{
+        list.innerHTML+=`<button onclick="resumeHold(${h.cart_id})">
+        Cart #${h.cart_id}</button>`;
+    });
+    document.getElementById("resumeModal").style.display="block";
+}
+
+function closeResume(){
+    document.getElementById("resumeModal").style.display="none";
+}
+
+async function resumeHold(id){
+    const res=await fetch(`/cart/resume/${id}`);
+    const data=await res.json();
+    cartId=data.cart_id;
+    customerName.value=data.customer_name||"";
+    mobileNumber.value=data.customer_phone||"";
+    closeResume();
+    loadCart();
+    loadHolds();
+}
+
+/* PAY */
+async function payNow(){
+    const payment=document.getElementById("paymentMode").value;
+    const name=customerName.value.trim();
+    const mobile=mobileNumber.value.trim();
+    const txn=transactionId.value.trim();
+    const gpay=gpayNumber.value.trim();
+
+    if(!payment) return alert("Select payment mode");
+    if(!name) return alert("Customer name required");
+    if(!/^\d{10}$/.test(mobile)) return alert("Valid mobile required");
+
+    const res=await fetch("/checkout",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            cart_id:cartId,
+            payment_method:payment,
+            customer_name:name,
+            customer_phone:mobile,
+            transaction_id:txn,
+            gpay_number:gpay,
+            staff_id:localStorage.getItem("user_id")
+        })
+    });
+
+    const result=await res.json();
+
+    alert(`Payment Success\nBill No: ${result.bill_no}\nAmount: ₹${result.total}`);
+
+    window.open(`/bill/${result.sale_id}/pdf`,"_blank");
+
+    await createCart();
+    loadCart();
+    loadHolds();
+}
+
+/* SALES BADGE */
+async function loadMySales(){
+    const userId=localStorage.getItem("user_id");
+    if(role==="staff"){
+        const res=await fetch(`/staff/report/daily?staff_id=${userId}`);
+        const d=await res.json();
+        document.getElementById("mySales").innerText=
+            `Bills: ${d.bill_count} | ₹${d.total_amount}`;
+    } else {
+        const res=await fetch(`/admin/report/daily`);
+        const d=await res.json();
+        document.getElementById("mySales").innerText=
+            `All Sales | Bills: ${d.bill_count} | ₹${d.total_amount}`;
+    }
+}
+
+/* NAV */
+function goAdminReports(){ window.location="/ui/admin-reports"; }
+function goStaff(){ window.location="/ui/admin-staff"; }
+function goChangePassword(){ window.location="/ui/change-password"; }
+function goHome(){ window.location="/ui/billing"; }
+function logout(){
+    localStorage.clear();
+    window.location="/ui/login";
+}
+function toggleMobileCart(){
+    document.querySelector(".cart").classList.toggle("active");
+}
 </script>
 
 <audio id="paymentSound" src="/static/payment-success.mp3" preload="auto"></audio>
