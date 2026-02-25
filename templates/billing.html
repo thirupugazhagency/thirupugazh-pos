@@ -288,6 +288,7 @@ input, select {
     <div id="headerButtons">
         <button onclick="goHome()">Home</button>
         <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
+        <button class="btn-admin" onclick="goSalesBreakdown()">Sales Breakdown</button>
         <button class="btn-admin" onclick="goStaff()">Staff Management</button>
         <button onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
@@ -778,6 +779,10 @@ function toggleMobileCart() {
 function downloadClosingPDF() {
     const userId = localStorage.getItem("user_id");
     window.open(`/staff/report/daily/pdf?staff_id=${userId}`, "_blank");
+}
+
+function goSalesBreakdown(){
+    window.location.href = "/ui/admin-breakdown";
 }
 
 </script>

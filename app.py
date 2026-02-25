@@ -129,6 +129,10 @@ def ui_change_password():
 def ui_admin_staff():
     return render_template("admin_staff.html")
 
+@app.route("/ui/admin-breakdown")
+def ui_admin_breakdown():
+    return render_template("admin_breakdown.html")
+
 # ==================================================
 # STAFF CASH CLOSING DATA
 # ==================================================

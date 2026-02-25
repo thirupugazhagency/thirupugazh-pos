@@ -1,23 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sales Breakdown</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial; background:#f3f4f6; padding:20px; }
+        .card {
+            background:white;
+            padding:20px;
+            border-radius:8px;
+            margin-bottom:15px;
+        }
+        button {
+            padding:10px 15px;
+            border:none;
+            border-radius:6px;
+            background:#1e3a8a;
+            color:white;
+            font-weight:bold;
+            cursor:pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h2>📊 Sales Breakdown (Today)</h2>
+
+<button onclick="loadBreakdown()">Refresh</button>
+
+<div class="card">
+    <h3>Summary</h3>
+    <p>Total Bills: <span id="totalBills">0</span></p>
+    <p>Total Sales: ₹<span id="totalSales">0</span></p>
+</div>
+
+<div class="card">
+    <h3>Payment Mode Breakdown</h3>
+    <div id="paymentData"></div>
+</div>
+
 <script>
-async function showBreakdown() {
+async function loadBreakdown() {
 
     const res = await fetch("/admin/sales-breakdown");
     const data = await res.json();
 
-    const box = document.getElementById("breakdownBox");
+    document.getElementById("totalBills").innerText = data.total_bills;
+    document.getElementById("totalSales").innerText = data.total_sales;
 
-    let html = `
-        <h3>📊 Sales Breakdown (Today)</h3>
-        <p><strong>Total Bills:</strong> ${data.total_bills}</p>
-        <p><strong>Total Sales:</strong> ₹${data.total_sales}</p>
-        <hr>
-    `;
+    const container = document.getElementById("paymentData");
+    container.innerHTML = "";
 
     for (const mode in data.payment_breakdown) {
-        html += `<p>${mode} : ₹${data.payment_breakdown[mode]}</p>`;
+        container.innerHTML += `<p>${mode}: ₹${data.payment_breakdown[mode]}</p>`;
     }
-
-    box.innerHTML = html;
-    box.style.display = "block";
 }
+
+loadBreakdown();
 </script>
+
+</body>
+</html>
