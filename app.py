@@ -245,22 +245,37 @@ def admin_dashboard():
 
 @app.route("/admin/report/daily/data")
 def admin_daily_data():
+
     from sqlalchemy import func
-    from datetime import date
+    from datetime import datetime
 
-    today = date.today()
+    today = datetime.now().date()
 
-    total_amount = db.session.query(func.sum(Sale.total_amount))\
-        .filter(Sale.sale_date == today).scalar() or 0
+    try:
+        # Adjust model name here if needed
+        total_amount = db.session.query(
+            func.sum(Bill.total_amount)
+        ).filter(
+            func.date(Bill.created_at) == today
+        ).scalar() or 0
 
-    bill_count = db.session.query(func.count(Sale.id))\
-        .filter(Sale.sale_date == today).scalar() or 0
+        bill_count = db.session.query(
+            func.count(Bill.id)
+        ).filter(
+            func.date(Bill.created_at) == today
+        ).scalar() or 0
 
-    return jsonify({
-        "total_amount": total_amount,
-        "bill_count": bill_count
-    })
+        return jsonify({
+            "total_amount": float(total_amount),
+            "bill_count": bill_count
+        })
 
+    except Exception as e:
+        print("Admin daily data error:", e)
+        return jsonify({
+            "total_amount": 0,
+            "bill_count": 0
+        }), 500
 @app.route("/admin/sales-breakdown")
 def admin_sales_breakdown():
     from sqlalchemy import func
