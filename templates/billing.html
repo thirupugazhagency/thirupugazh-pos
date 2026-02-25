@@ -654,6 +654,7 @@ async function payNow() {
     alert(`✅ Payment Successful
 Bill No: ${result.bill_no}
 Amount: ₹${result.total}`);
+showPopup(`Payment Successful | Bill: ${result.bill_no} | ₹${result.total}`, "success");
 
     window.open(`/bill/${result.sale_id}/pdf`, "_blank");
 

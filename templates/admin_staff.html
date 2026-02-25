@@ -155,7 +155,7 @@ async function updateUsername(staffId) {
     const data = await res.json();
 
     if (data.status === "ok") {
-        alert("Username updated successfully");
+        showPopup("Username updated successfully", "success");
         loadStaff();
     } else if (data.status === "exists") {
         alert("Username already exists");
@@ -178,7 +178,7 @@ async function resetPassword(id) {
         })
     });
 
-    alert("Password reset successfully");
+    showPopup("Password reset successfully", "success");
     document.getElementById(`pwd_${id}`).value = "";
 }
 
@@ -192,7 +192,77 @@ function goBilling() {
 }
 
 loadStaff();
+
+<script>
+
+/* ===== SECURITY CHECK ===== */
+if (localStorage.getItem("role") !== "admin") {
+    alert("Unauthorized");
+    location.href = "/ui/login";
+}
+
+/* ===== LOAD STAFF ===== */
+async function loadStaff() {
+    ...
+}
+
+/* ===== TOGGLE STAFF ===== */
+async function toggleStaff(id) {
+    ...
+}
+
+/* ===== UPDATE USERNAME ===== */
+async function updateUsername(staffId) {
+    ...
+}
+
+/* ===== RESET PASSWORD ===== */
+async function resetPassword(id) {
+    ...
+}
+
+/* ================= POPUP FUNCTION ================= */
+function showPopup(message, type="success") {
+    const popup = document.getElementById("popup");
+
+    popup.innerText = message;
+
+    if (type === "success") {
+        popup.style.background = "#16a34a";
+    } else if (type === "error") {
+        popup.style.background = "#dc2626";
+    } else if (type === "warning") {
+        popup.style.background = "#f59e0b";
+    } else {
+        popup.style.background = "#2563eb";
+    }
+
+    popup.style.display = "block";
+
+    setTimeout(() => {
+        popup.style.display = "none";
+    }, 3000);
+}
+
+loadStaff();
+
 </script>
+
+</script>
+
+<div id="popup" style="
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    display: none;
+    z-index: 9999;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+">
+</div>
 
 </body>
 </html>
