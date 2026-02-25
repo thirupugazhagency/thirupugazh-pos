@@ -130,6 +130,33 @@ def ui_admin_staff():
     return render_template("admin_staff.html")
 
 # ==================================================
+# STAFF CASH CLOSING DATA
+# ==================================================
+@app.route("/staff/report/cash-summary")
+def staff_cash_summary():
+    staff_id = request.args.get("staff_id")
+
+    if not staff_id:
+        return jsonify({"expected_cash": 0})
+
+    business_date = get_business_date()
+
+    sales = Sale.query.filter_by(
+        staff_id=staff_id,
+        business_date=business_date
+    ).all()
+
+    expected_cash = 0
+
+    for s in sales:
+        if s.payment_method == "CASH":
+            expected_cash += s.total
+
+    return jsonify({
+        "expected_cash": expected_cash
+    })
+
+# ==================================================
 # ADMIN VOID BILL
 # ==================================================
 @app.route("/admin/sale/void", methods=["POST"])
