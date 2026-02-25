@@ -433,6 +433,25 @@ async function loadMenu() {
     }
 }
 
+async function loadMySales(){
+    const userId = localStorage.getItem("user_id");
+
+    if(role === "staff"){
+        const res = await fetch(`/staff/report/daily?staff_id=${userId}`);
+        const d = await res.json();
+
+        document.getElementById("mySales").innerText =
+            `Bills: ${d.bill_count} | ₹${d.total_amount}`;
+    }
+    else {
+        const res = await fetch(`/admin/report/daily/data`);
+        const d = await res.json();
+
+        document.getElementById("mySales").innerText =
+            `All Sales | Bills: ${d.bill_count} | ₹${d.total_amount}`;
+    }
+}
+
 /* ================= CART ================= */
 async function createCart() {
     const res = await fetch("/cart/create", {

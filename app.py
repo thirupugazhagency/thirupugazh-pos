@@ -243,6 +243,24 @@ def admin_dashboard():
         "monthly_bills": len(monthly_sales)
     })
 
+@app.route("/admin/report/daily/data")
+def admin_daily_data():
+    from sqlalchemy import func
+    from datetime import date
+
+    today = date.today()
+
+    total_amount = db.session.query(func.sum(Sale.total_amount))\
+        .filter(Sale.sale_date == today).scalar() or 0
+
+    bill_count = db.session.query(func.count(Sale.id))\
+        .filter(Sale.sale_date == today).scalar() or 0
+
+    return jsonify({
+        "total_amount": total_amount,
+        "bill_count": bill_count
+    })
+
 @app.route("/admin/sales-breakdown")
 def admin_sales_breakdown():
     from sqlalchemy import func
