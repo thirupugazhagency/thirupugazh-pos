@@ -1,66 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Admin Sales Breakdown</title>
-<style>
-body { font-family:Arial; background:#f3f4f6; padding:20px; }
-.card {
-    background:white; padding:15px;
-    margin-bottom:15px;
-    border-radius:8px;
-}
-h2 { margin-top:0; }
-</style>
-</head>
-<body>
-
-<h2>📊 Sales Breakdown</h2>
-
-<input type="date" id="datePicker">
-<button onclick="loadReport()">Load</button>
-
-<div class="card">
-    <h3>Total Summary</h3>
-    <p>Total Sales: ₹<span id="totalSales">0</span></p>
-    <p>Total Discount: ₹<span id="totalDiscount">0</span></p>
-    <p>Total Bills: <span id="totalBills">0</span></p>
-</div>
-
-<div class="card">
-    <h3>💰 Payment Mode Breakdown</h3>
-    <div id="paymentBreakdown"></div>
-</div>
-
-<div class="card">
-    <h3>👨‍💼 Staff Sales Breakdown</h3>
-    <div id="staffBreakdown"></div>
-</div>
-
 <script>
-async function loadReport() {
-    const date = document.getElementById("datePicker").value;
-    const res = await fetch(`/admin/report/breakdown?date=${date}`);
+async function showBreakdown() {
+
+    const res = await fetch("/admin/sales-breakdown");
     const data = await res.json();
 
-    document.getElementById("totalSales").innerText = data.total_sales;
-    document.getElementById("totalDiscount").innerText = data.total_discount;
-    document.getElementById("totalBills").innerText = data.total_bills;
+    const box = document.getElementById("breakdownBox");
 
-    const paymentDiv = document.getElementById("paymentBreakdown");
-    paymentDiv.innerHTML = "";
+    let html = `
+        <h3>📊 Sales Breakdown (Today)</h3>
+        <p><strong>Total Bills:</strong> ${data.total_bills}</p>
+        <p><strong>Total Sales:</strong> ₹${data.total_sales}</p>
+        <hr>
+    `;
+
     for (const mode in data.payment_breakdown) {
-        paymentDiv.innerHTML += `<p>${mode}: ₹${data.payment_breakdown[mode]}</p>`;
+        html += `<p>${mode} : ₹${data.payment_breakdown[mode]}</p>`;
     }
 
-    const staffDiv = document.getElementById("staffBreakdown");
-    staffDiv.innerHTML = "";
-    for (const staff in data.staff_breakdown) {
-        staffDiv.innerHTML += `<p>${staff}: ₹${data.staff_breakdown[staff]}</p>`;
-    }
+    box.innerHTML = html;
+    box.style.display = "block";
 }
-
-loadReport();
 </script>
-
-</body>
-</html>

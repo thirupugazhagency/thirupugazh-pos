@@ -243,63 +243,34 @@ def admin_dashboard():
         "monthly_bills": len(monthly_sales)
     })
 
-@app.route("/admin/breakdown")
-def admin_breakdown_page():
-    return render_template("admin_breakdown.html")
+@app.route("/admin/sales-breakdown")
+def admin_sales_breakdown():
     from sqlalchemy import func
     from datetime import date
 
-    selected_date = request.args.get("date")
-    if not selected_date:
-        selected_date = date.today().isoformat()
+    today = date.today()
 
     # Total sales
-    total_sales = db.session.query(func.sum(Bill.total_amount))\
-        .filter(Bill.bill_date == selected_date,
-                Bill.status == "PAID")\
-        .scalar() or 0
+    total_sales = db.session.query(func.sum(Sale.total_amount))\
+        .filter(Sale.sale_date == today).scalar() or 0
 
-    # Total discount
-    total_discount = db.session.query(func.sum(Bill.discount))\
-        .filter(Bill.bill_date == selected_date,
-                Bill.status == "PAID")\
-        .scalar() or 0
+    total_bills = db.session.query(func.count(Sale.id))\
+        .filter(Sale.sale_date == today).scalar() or 0
 
-    # Payment mode breakdown
-    payment_modes = db.session.query(
-        Bill.payment_mode,
-        func.sum(Bill.total_amount)
+    # Payment breakdown
+    payment_data = db.session.query(
+        Sale.payment_method,
+        func.sum(Sale.total_amount)
     ).filter(
-        Bill.bill_date == selected_date,
-        Bill.status == "PAID"
-    ).group_by(Bill.payment_mode).all()
+        Sale.sale_date == today
+    ).group_by(Sale.payment_method).all()
 
-    payment_data = {mode: amount for mode, amount in payment_modes}
-
-    # Staff breakdown
-    staff_sales = db.session.query(
-        User.username,
-        func.sum(Bill.total_amount)
-    ).join(User, Bill.staff_id == User.id)\
-     .filter(Bill.bill_date == selected_date,
-             Bill.status == "PAID")\
-     .group_by(User.username).all()
-
-    staff_data = {staff: amount for staff, amount in staff_sales}
-
-    # Total bills
-    total_bills = db.session.query(func.count(Bill.id))\
-        .filter(Bill.bill_date == selected_date,
-                Bill.status == "PAID")\
-        .scalar() or 0
+    breakdown = {mode: amount for mode, amount in payment_data}
 
     return jsonify({
-        "date": selected_date,
         "total_sales": total_sales,
-        "total_discount": total_discount,
         "total_bills": total_bills,
-        "payment_breakdown": payment_data,
-        "staff_breakdown": staff_data
+        "payment_breakdown": breakdown
     })
 
 # ==================================================
