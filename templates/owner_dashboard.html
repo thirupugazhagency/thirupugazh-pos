@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Owner Dashboard – Thirupugazh POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body { font-family: Arial; background:#f3f4f6; margin:0; padding:15px; }
+        .card {
+            background:white;
+            padding:15px;
+            border-radius:8px;
+            margin-bottom:15px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2 { margin-top:0; }
+    </style>
+</head>
+
+<body>
+
+<h2>📊 Owner Live Dashboard</h2>
+
+<div class="card" id="todaySummary">Loading...</div>
+<div class="card" id="staffPerformance"></div>
+<div class="card" id="monthlySummary"></div>
+
+<script>
+
+async function loadDashboard() {
+
+    const res = await fetch("/owner/dashboard");
+    const data = await res.json();
+
+    document.getElementById("todaySummary").innerHTML = `
+        <h3>Today Summary</h3>
+        Total Sales: ₹${data.total_today}<br>
+        Total Bills: ${data.bill_count}<br>
+        Cash: ₹${data.cash_total}<br>
+        UPI: ₹${data.upi_total}<br>
+        GPay: ₹${data.gpay_total}<br>
+        Online: ₹${data.online_total}<br>
+        Active Holds: ${data.hold_count}
+    `;
+
+    let staffHtml = "<h3>Staff Performance</h3>";
+    data.staff_performance.forEach(s => {
+        staffHtml += `${s.staff} – ₹${s.total}<br>`;
+    });
+
+    document.getElementById("staffPerformance").innerHTML = staffHtml;
+
+    document.getElementById("monthlySummary").innerHTML = `
+        <h3>Monthly Summary</h3>
+        Monthly Total: ₹${data.monthly_total}
+    `;
+}
+
+loadDashboard();
+
+</script>
+
+</body>
+</html>

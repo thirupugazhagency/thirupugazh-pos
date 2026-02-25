@@ -553,15 +553,18 @@ async function showClosingSummary() {
 
     let salesData;
     let holdData;
+    let cashData;
 
     try {
-        // Get staff sales
+
         const salesRes = await fetch(`/staff/report/daily?staff_id=${userId}`);
         salesData = await salesRes.json();
 
-        // Get hold carts
         const holdRes = await fetch(`/cart/held?role=${role}&user_id=${userId}`);
         holdData = await holdRes.json();
+
+        const cashRes = await fetch(`/staff/report/cash-summary?staff_id=${userId}`);
+        cashData = await cashRes.json();
 
     } catch (err) {
         console.log("Closing fetch error:", err);
@@ -571,14 +574,44 @@ async function showClosingSummary() {
     const today = new Date().toLocaleDateString();
 
     document.getElementById("closingContent").innerHTML = `
-        📅 <strong>Business Date:</strong> ${today}<br><br>
+        📅 <strong>Date:</strong> ${today}<br><br>
         👤 <strong>Staff:</strong> ${localStorage.getItem("username")}<br><br>
         🧾 <strong>Total Bills:</strong> ${salesData.bill_count}<br><br>
         💰 <strong>Total Amount:</strong> ₹${salesData.total_amount}<br><br>
-        📦 <strong>Active Holds:</strong> ${holdData.length}
+        💵 <strong>Expected Cash:</strong> ₹${cashData.expected_cash}<br><br>
+
+        <hr><br>
+
+        💰 Enter Cash Counted:<br>
+        <input type="number" id="cashEntered" placeholder="Enter counted cash"><br><br>
+
+        <button onclick="calculateCashDifference(${cashData.expected_cash})"
+                style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:5px;">
+            Check Difference
+        </button>
+
+        <div id="cashResult" style="margin-top:15px;font-weight:bold;"></div>
     `;
 
     document.getElementById("closingModal").style.display = "block";
+}
+
+function calculateCashDifference(expected) {
+
+    const entered = Number(document.getElementById("cashEntered").value || 0);
+    const diff = entered - expected;
+
+    let message = "";
+
+    if (diff === 0) {
+        message = "✅ Perfect Match. No Difference.";
+    } else if (diff > 0) {
+        message = `🟢 Extra Cash: ₹${diff}`;
+    } else {
+        message = `🔴 Short Amount: ₹${Math.abs(diff)}`;
+    }
+
+    document.getElementById("cashResult").innerHTML = message;
 }
 
 function closeClosing() {

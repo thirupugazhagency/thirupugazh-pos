@@ -130,6 +130,62 @@ def ui_admin_staff():
     return render_template("admin_staff.html")
 
 # ==================================================
+# OWNER LIVE DASHBOARD SUMMARY
+# ==================================================
+@app.route("/owner/dashboard")
+def owner_dashboard():
+    business_date = get_business_date()
+
+    sales_today = Sale.query.filter_by(
+        business_date=business_date
+    ).all()
+
+    total_today = sum(s.total for s in sales_today)
+    bill_count = len(sales_today)
+
+    # Payment breakdown
+    cash_total = sum(s.total for s in sales_today if s.payment_method == "CASH")
+    upi_total = sum(s.total for s in sales_today if s.payment_method == "UPI")
+    gpay_total = sum(s.total for s in sales_today if s.payment_method == "GPAY")
+    online_total = sum(s.total for s in sales_today if s.payment_method == "ONLINE")
+
+    hold_count = Cart.query.filter_by(status="HOLD").count()
+
+    # Staff performance
+    staff_data = {}
+    for s in sales_today:
+        staff = User.query.get(s.staff_id)
+        if staff:
+            staff_data.setdefault(staff.username, 0)
+            staff_data[staff.username] += s.total
+
+    staff_performance = [
+        {"staff": name, "total": amount}
+        for name, amount in staff_data.items()
+    ]
+
+    # Monthly summary
+    now = datetime.now()
+    monthly_sales = Sale.query.filter(
+        db.extract("month", Sale.business_date) == now.month,
+        db.extract("year", Sale.business_date) == now.year
+    ).all()
+
+    monthly_total = sum(s.total for s in monthly_sales)
+
+    return jsonify({
+        "total_today": total_today,
+        "bill_count": bill_count,
+        "cash_total": cash_total,
+        "upi_total": upi_total,
+        "gpay_total": gpay_total,
+        "online_total": online_total,
+        "hold_count": hold_count,
+        "staff_performance": staff_performance,
+        "monthly_total": monthly_total
+    })
+
+# ==================================================
 # STAFF CASH CLOSING DATA
 # ==================================================
 @app.route("/staff/report/cash-summary")
@@ -252,6 +308,13 @@ def get_menu():
         {"id": m.id, "name": m.name, "price": m.price}
         for m in Menu.query.all()
     ])
+
+# ==================================================
+# owner-dashboard
+# ==================================================
+@app.route("/ui/owner-dashboard")
+def ui_owner_dashboard():
+    return render_template("owner_dashboard.html")
 
 # ==================================================
 # CART
