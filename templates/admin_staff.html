@@ -31,6 +31,7 @@
         .btn-back { background: #444; color: white; }
         .btn-toggle { background: orange; color: white; }
         .btn-reset { background: green; color: white; }
+        .btn-update { background: #1565c0; color: white; }
 
         .container {
             padding: 15px;
@@ -63,8 +64,10 @@
 
 <header>
     <span>👥 Staff Management</span>
-    <button class="btn-back" onclick="goBack()">Back</button>
-    <button class="btn-blue" onclick="goBilling()">Home</button>
+    <div>
+        <button class="btn-back" onclick="goBack()">Back</button>
+        <button class="btn-back" onclick="goBilling()">Home</button>
+    </div>
 </header>
 
 <div class="container">
@@ -72,13 +75,14 @@
         <thead>
             <tr>
                 <th>Username</th>
+                <th>Edit Username</th>
                 <th>Status</th>
                 <th>Enable / Disable</th>
                 <th>Reset Password</th>
             </tr>
         </thead>
         <tbody id="staffTable">
-            <tr><td colspan="4">Loading...</td></tr>
+            <tr><td colspan="5">Loading...</td></tr>
         </tbody>
     </table>
 </div>
@@ -101,12 +105,20 @@ async function loadStaff() {
         table.innerHTML += `
             <tr>
                 <td>${s.username}</td>
+
+                <td>
+                    <input type="text" id="name_${s.id}" value="${s.username}">
+                    <button class="btn-update" onclick="updateUsername(${s.id})">Update</button>
+                </td>
+
                 <td>${s.status}</td>
+
                 <td>
                     <button class="btn-toggle" onclick="toggleStaff(${s.id})">
                         ${s.status === "ACTIVE" ? "Disable" : "Enable"}
                     </button>
                 </td>
+
                 <td>
                     <input type="password" id="pwd_${s.id}" placeholder="New password">
                     <button class="btn-reset" onclick="resetPassword(${s.id})">Reset</button>
@@ -124,6 +136,32 @@ async function toggleStaff(id) {
         body: JSON.stringify({ staff_id: id })
     });
     loadStaff();
+}
+
+/* ===== UPDATE USERNAME ===== */
+async function updateUsername(staffId) {
+    const newName = document.getElementById(`name_${staffId}`).value.trim();
+    if (!newName) return alert("Username cannot be empty");
+
+    const res = await fetch("/admin/staff/update-username", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            staff_id: staffId,
+            new_username: newName
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.status === "ok") {
+        alert("Username updated successfully");
+        loadStaff();
+    } else if (data.status === "exists") {
+        alert("Username already exists");
+    } else {
+        alert("Error updating username");
+    }
 }
 
 /* ===== RESET PASSWORD ===== */
@@ -146,6 +184,10 @@ async function resetPassword(id) {
 
 /* ===== NAV ===== */
 function goBack() {
+    location.href = "/ui/billing";
+}
+
+function goBilling() {
     location.href = "/ui/billing";
 }
 
