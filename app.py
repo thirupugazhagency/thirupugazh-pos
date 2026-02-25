@@ -900,22 +900,5 @@ def init_db():
 
 init_db()
 
-@app.route("/admin/update-staff-names")
-def update_staff_names():
-    staff1 = User.query.filter_by(username="staff1").first()
-    staff2 = User.query.filter_by(username="staff2").first()
-    staff3 = User.query.filter_by(username="staff3").first()
-
-    if staff1:
-        staff1.username = "Mr.Kathir"
-    if staff2:
-        staff2.username = "Mr.SK"
-    if staff3:
-        staff3.username = "Ms.Divya"
-
-    db.session.commit()
-
-    return "Staff names updated successfully"
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
