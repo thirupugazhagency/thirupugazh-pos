@@ -246,64 +246,47 @@ def admin_dashboard():
 @app.route("/admin/report/daily/data")
 def admin_daily_data():
 
-    from sqlalchemy import func
-    from datetime import datetime
+    business_date = get_business_date()
 
-    today = datetime.now().date()
+    sales = Sale.query.filter(
+        Sale.business_date == business_date,
+        Sale.status == "COMPLETED"
+    ).all()
 
-    try:
-        # Adjust model name here if needed
-        total_amount = db.session.query(
-            func.sum(Bill.total_amount)
-        ).filter(
-            func.date(Bill.created_at) == today
-        ).scalar() or 0
+    return jsonify({
+        "total_amount": sum(s.total for s in sales),
+        "bill_count": len(sales)
+    })
 
-        bill_count = db.session.query(
-            func.count(Bill.id)
-        ).filter(
-            func.date(Bill.created_at) == today
-        ).scalar() or 0
-
-        return jsonify({
-            "total_amount": float(total_amount),
-            "bill_count": bill_count
-        })
-
-    except Exception as e:
-        print("Admin daily data error:", e)
-        return jsonify({
-            "total_amount": 0,
-            "bill_count": 0
-        }), 500
 @app.route("/admin/sales-breakdown")
 def admin_sales_breakdown():
-    from sqlalchemy import func
-    from datetime import date
 
-    today = date.today()
+    business_date = get_business_date()
 
-    # Total sales
-    total_sales = db.session.query(func.sum(Sale.total_amount))\
-        .filter(Sale.sale_date == today).scalar() or 0
+    sales = Sale.query.filter(
+        Sale.business_date == business_date,
+        Sale.status == "COMPLETED"
+    ).all()
 
-    total_bills = db.session.query(func.count(Sale.id))\
-        .filter(Sale.sale_date == today).scalar() or 0
+    total_sales = sum(s.total for s in sales)
+    total_bills = len(sales)
 
-    # Payment breakdown
-    payment_data = db.session.query(
-        Sale.payment_method,
-        func.sum(Sale.total_amount)
-    ).filter(
-        Sale.sale_date == today
-    ).group_by(Sale.payment_method).all()
+    payment_totals = {
+        "CASH": 0,
+        "UPI": 0,
+        "GPAY": 0,
+        "ONLINE": 0,
+        "MIXED": 0
+    }
 
-    breakdown = {mode: amount for mode, amount in payment_data}
+    for s in sales:
+        if s.payment_method in payment_totals:
+            payment_totals[s.payment_method] += s.total
 
     return jsonify({
         "total_sales": total_sales,
         "total_bills": total_bills,
-        "payment_breakdown": breakdown
+        "payment_breakdown": payment_totals
     })
 
 # ==================================================
