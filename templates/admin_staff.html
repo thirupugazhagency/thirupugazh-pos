@@ -57,6 +57,19 @@
             padding: 6px;
             width: 140px;
         }
+
+        #popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 
@@ -87,7 +100,10 @@
     </table>
 </div>
 
+<div id="popup"></div>
+
 <script>
+
 /* ===== SECURITY CHECK ===== */
 if (localStorage.getItem("role") !== "admin") {
     alert("Unauthorized");
@@ -141,7 +157,10 @@ async function toggleStaff(id) {
 /* ===== UPDATE USERNAME ===== */
 async function updateUsername(staffId) {
     const newName = document.getElementById(`name_${staffId}`).value.trim();
-    if (!newName) return alert("Username cannot be empty");
+    if (!newName) {
+        showPopup("Username cannot be empty", "warning");
+        return;
+    }
 
     const res = await fetch("/admin/staff/update-username", {
         method: "POST",
@@ -158,16 +177,19 @@ async function updateUsername(staffId) {
         showPopup("Username updated successfully", "success");
         loadStaff();
     } else if (data.status === "exists") {
-        alert("Username already exists");
+        showPopup("Username already exists", "error");
     } else {
-        alert("Error updating username");
+        showPopup("Error updating username", "error");
     }
 }
 
 /* ===== RESET PASSWORD ===== */
 async function resetPassword(id) {
     const pwd = document.getElementById(`pwd_${id}`).value;
-    if (!pwd) return alert("Enter new password");
+    if (!pwd) {
+        showPopup("Enter new password", "warning");
+        return;
+    }
 
     await fetch("/admin/staff/reset-password", {
         method: "POST",
@@ -182,6 +204,23 @@ async function resetPassword(id) {
     document.getElementById(`pwd_${id}`).value = "";
 }
 
+/* ===== POPUP FUNCTION ===== */
+function showPopup(message, type="success") {
+    const popup = document.getElementById("popup");
+    popup.innerText = message;
+
+    if (type === "success") popup.style.background = "#16a34a";
+    else if (type === "error") popup.style.background = "#dc2626";
+    else if (type === "warning") popup.style.background = "#f59e0b";
+    else popup.style.background = "#2563eb";
+
+    popup.style.display = "block";
+
+    setTimeout(() => {
+        popup.style.display = "none";
+    }, 3000);
+}
+
 /* ===== NAV ===== */
 function goBack() {
     location.href = "/ui/billing";
@@ -193,76 +232,7 @@ function goBilling() {
 
 loadStaff();
 
-<script>
-
-/* ===== SECURITY CHECK ===== */
-if (localStorage.getItem("role") !== "admin") {
-    alert("Unauthorized");
-    location.href = "/ui/login";
-}
-
-/* ===== LOAD STAFF ===== */
-async function loadStaff() {
-    ...
-}
-
-/* ===== TOGGLE STAFF ===== */
-async function toggleStaff(id) {
-    ...
-}
-
-/* ===== UPDATE USERNAME ===== */
-async function updateUsername(staffId) {
-    ...
-}
-
-/* ===== RESET PASSWORD ===== */
-async function resetPassword(id) {
-    ...
-}
-
-/* ================= POPUP FUNCTION ================= */
-function showPopup(message, type="success") {
-    const popup = document.getElementById("popup");
-
-    popup.innerText = message;
-
-    if (type === "success") {
-        popup.style.background = "#16a34a";
-    } else if (type === "error") {
-        popup.style.background = "#dc2626";
-    } else if (type === "warning") {
-        popup.style.background = "#f59e0b";
-    } else {
-        popup.style.background = "#2563eb";
-    }
-
-    popup.style.display = "block";
-
-    setTimeout(() => {
-        popup.style.display = "none";
-    }, 3000);
-}
-
-loadStaff();
-
 </script>
-
-</script>
-
-<div id="popup" style="
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 20px;
-    border-radius: 8px;
-    color: white;
-    font-weight: bold;
-    display: none;
-    z-index: 9999;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-">
-</div>
 
 </body>
 </html>
