@@ -614,9 +614,9 @@ def admin_daily_excel():
     )
 
     query = Sale.query.filter(
-    Sale.business_date == business_date,
-    Sale.status == "COMPLETED"
-)
+        Sale.business_date == business_date,
+        Sale.status == "COMPLETED"
+    )
 
     if staff_id:
         query = query.filter(Sale.staff_id == int(staff_id))
@@ -627,15 +627,15 @@ def admin_daily_excel():
 
     for s in sales:
         staff = User.query.get(s.staff_id)
+
         data.append({
-            "Bill Number": s.bill_no,
-            "Staff ID": s.staff_id,
+            "Bill Number": s.bill_no or "",
             "Staff Name": staff.username if staff else "",
             "Customer Name": s.customer_name or "",
             "Mobile": s.customer_phone or "",
-            "Payment Mode": s.payment_method,
-            "Amount (₹)": s.total,
-            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+            "Payment Mode": s.payment_method or "",
+            "Amount (₹)": s.total or 0,
+            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
         })
 
     df = pd.DataFrame(data)
@@ -650,6 +650,7 @@ def admin_daily_excel():
         download_name=f"daily_sales_{business_date}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 # ==================================================
 # ADMIN DAILY PDF (WITH BILL NO)
 # ==================================================
