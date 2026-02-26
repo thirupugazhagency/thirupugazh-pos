@@ -24,9 +24,25 @@ else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///thirupugazh_pos.db"
     print("⚠️ DATABASE_URL not set. Using local SQLite DB")
 
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db = SQLAlchemy(app)
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,      # 🔥 prevents dead connections
+        "pool_recycle": 280,        # 🔥 recycle before timeout
+        "pool_size": 5,
+        "max_overflow": 2
+    }
+
+else:
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///thirupugazh_pos.db"
+
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # ==================================================
 # BUSINESS DATE (3 PM – 3 PM)
 # ==================================================

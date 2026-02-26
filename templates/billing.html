@@ -713,6 +713,31 @@ Amount: ₹${result.total}`;
     loadHolds();
 }
 
+/* ===== MOBILE HEADER CLEAN ===== */
+@media (max-width:768px){
+
+    header {
+        padding:8px 10px;
+    }
+
+    #headerButtons {
+        display:flex;
+        flex-wrap:wrap;
+        gap:5px;
+        margin-top:5px;
+    }
+
+    #headerButtons button{
+        flex:1;
+        font-size:13px;
+        padding:6px;
+    }
+
+    #mySales{
+        font-size:13px;
+    }
+}
+
 /* ================= NAV ================= */
 function goAdminReports() {
     window.location.href = "/ui/admin-reports";
