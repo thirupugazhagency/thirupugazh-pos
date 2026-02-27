@@ -23,11 +23,12 @@ if DATABASE_URL:
     app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,   # prevents dead connections
-        "pool_recycle": 300,     # recycle before SSL timeout
-        "pool_size": 5,
-        "max_overflow": 2
-    }
+    "pool_pre_ping": True,
+    "pool_recycle": 180,
+    "pool_size": 3,
+    "max_overflow": 2,
+    "pool_timeout": 30
+}
 
 else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///thirupugazh_pos.db"
@@ -78,8 +79,12 @@ class CartItem(db.Model):
 
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    bill_no = db.Column(db.String(30), unique=True)  # ✅ BILL NUMBER
-    total = db.Column(db.Integer, nullable=False)
+    bill_no = db.Column(db.String(30), unique=True)
+
+    subtotal = db.Column(db.Integer, nullable=False)   # NEW
+    discount = db.Column(db.Integer, default=0)       # NEW
+    total = db.Column(db.Integer, nullable=False)     # FINAL AFTER DISCOUNT
+
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
@@ -512,25 +517,29 @@ def checkout():
 
     d = request.json or {}
     cart_id = d.get("cart_id")
+    discount = int(d.get("discount") or 0)
 
-    # ✅ Cart ID validation
     if not cart_id:
         return jsonify({"error": "Cart ID missing"}), 400
 
     items = CartItem.query.filter_by(cart_id=cart_id).all()
 
-    # ✅ Empty cart check
     if not items:
         return jsonify({"error": "Cart empty"}), 400
 
-    # ✅ Calculate total
-    total = sum(i.menu.price * i.quantity for i in items if i.menu)
+    # Calculate subtotal
+    subtotal = sum(i.menu.price * i.quantity for i in items if i.menu)
+
+    # Apply discount safely
+    final_total = max(subtotal - discount, 0)
 
     bill_no = generate_bill_no()
 
     sale = Sale(
         bill_no=bill_no,
-        total=total,
+        subtotal=subtotal,
+        discount=discount,
+        total=final_total,
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
         customer_phone=d.get("customer_phone"),
@@ -547,7 +556,9 @@ def checkout():
     db.session.commit()
 
     return jsonify({
-        "total": total,
+        "subtotal": subtotal,
+        "discount": discount,
+        "total": final_total,
         "bill_no": bill_no,
         "sale_id": sale.id
     })
@@ -631,9 +642,11 @@ def admin_daily_report():
     sales = query.order_by(Sale.id.asc()).all()
 
     return jsonify({
-        "bill_count": len(sales),
-        "total_amount": sum(s.total for s in sales)
-    })
+    "bill_count": len(sales),
+    "total_amount": sum(s.total for s in sales),
+    "total_discount": sum(s.discount for s in sales)
+})
+
 # ==================================================
 # ADMIN DAILY EXCEL (WITH BILL NO)
 # ==================================================
@@ -663,14 +676,16 @@ def admin_daily_excel():
         staff = User.query.get(s.staff_id)
 
         data.append({
-            "Bill Number": s.bill_no or "",
-            "Staff Name": staff.username if staff else "",
-            "Customer Name": s.customer_name or "",
-            "Mobile": s.customer_phone or "",
-            "Payment Mode": s.payment_method or "",
-            "Amount (₹)": s.total or 0,
-            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
-        })
+    "Bill Number": s.bill_no or "",
+    "Staff Name": staff.username if staff else "",
+    "Customer Name": s.customer_name or "",
+    "Mobile": s.customer_phone or "",
+    "Payment Mode": s.payment_method or "",
+    "Subtotal (₹)": s.subtotal or 0,
+    "Discount (₹)": s.discount or 0,
+    "Final Amount (₹)": s.total or 0,
+    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
+})
 
     df = pd.DataFrame(data)
 
@@ -684,6 +699,29 @@ def admin_daily_excel():
         download_name=f"daily_sales_{business_date}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+# ==================================================
+# STAFF TODAY DISCOUNT SUMMARY
+# ==================================================
+@app.route("/staff/report/discount")
+def staff_discount_report():
+    staff_id = request.args.get("staff_id")
+
+    if not staff_id:
+        return jsonify({"total_discount": 0})
+
+    sales = Sale.query.filter_by(
+        staff_id=staff_id,
+        business_date=get_business_date(),
+        status="COMPLETED"
+    ).all()
+
+    total_discount = sum(s.discount or 0 for s in sales)
+
+    return jsonify({
+        "total_discount": total_discount,
+        "bill_count": len(sales)
+    })
 
 # ==================================================
 # ADMIN DAILY PDF (WITH BILL NO)
@@ -758,6 +796,34 @@ def admin_daily_pdf():
     )
 
 # ==================================================
+# ADMIN TOTAL DISCOUNT (ALL STAFF - TODAY)
+# ==================================================
+@app.route("/admin/report/discount")
+def admin_discount_report():
+
+    business_date = get_business_date()
+
+    sales = Sale.query.filter(
+        Sale.business_date == business_date,
+        Sale.status == "COMPLETED"
+    ).all()
+
+    total_discount = sum(s.discount or 0 for s in sales)
+
+    staff_summary = {}
+
+    for s in sales:
+        staff = User.query.get(s.staff_id)
+        if staff:
+            staff_summary.setdefault(staff.username, 0)
+            staff_summary[staff.username] += s.discount or 0
+
+    return jsonify({
+        "total_discount": total_discount,
+        "staff_breakdown": staff_summary
+    })
+
+# ==================================================
 # ADMIN MONTHLY REPORT (WITH BILL NUMBERS)
 # ==================================================
 @app.route("/admin/report/monthly")
@@ -772,16 +838,10 @@ def admin_monthly_report():
 ).order_by(Sale.id.asc()).all()
 
     return jsonify({
-        "bill_count": len(sales),
-        "total_amount": sum(s.total for s in sales),
-        "bills": [
-            {
-                "bill_no": s.bill_no,
-                "amount": s.total
-            }
-            for s in sales
-        ]
-    })
+    "bill_count": len(sales),
+    "total_amount": sum(s.total for s in sales),
+    "total_discount": sum(s.discount for s in sales)  # NEW
+})
 
 # ==================================================
 # Bill PDF for Each Transaction
@@ -840,7 +900,11 @@ def generate_bill_pdf(sale_id):
 
     # ================= TOTAL SECTION =================
     pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, y, f"Total Amount: ₹{sale.total}")
+pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
+y -= 20
+pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
+y -= 20
+pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
 
     y -= 40
 
@@ -892,15 +956,17 @@ def admin_monthly_excel():
     for s in sales:
         staff = User.query.get(s.staff_id)
         data.append({
-            "Bill Number": s.bill_no,
-            "Staff ID": s.staff_id,
-            "Staff Name": staff.username if staff else "",
-            "Customer Name": s.customer_name or "",
-            "Mobile": s.customer_phone or "",
-            "Payment Mode": s.payment_method,
-            "Amount (₹)": s.total,
-            "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
-        })
+    "Bill Number": s.bill_no,
+    "Staff ID": s.staff_id,
+    "Staff Name": staff.username if staff else "",
+    "Customer Name": s.customer_name or "",
+    "Mobile": s.customer_phone or "",
+    "Payment Mode": s.payment_method,
+    "Subtotal (₹)": s.subtotal,
+    "Discount (₹)": s.discount,
+    "Final Amount (₹)": s.total,
+    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+})
 
     df = pd.DataFrame(data)
 
@@ -1125,6 +1191,10 @@ def staff_daily_pdf():
         mimetype="application/pdf"
     )
 
+@app.route("/health")
+def health():
+    return "OK", 200
+
 # ==================================================
 # INIT DB
 # ==================================================
@@ -1156,6 +1226,7 @@ def init_db():
                 Menu(name="Full Set", price=580),
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
+
             ])
 
         db.session.commit()

@@ -314,6 +314,9 @@ input, select {
         <button onclick="goHome()">Home</button>
         <button class="btn-admin" onclick="goAdminReports()">Admin Reports</button>
         <button class="btn-admin" onclick="goSalesBreakdown()">Sales Breakdown</button>
+<button class="btn-admin" onclick="showAdminDiscount()">
+    💸 Total Discount
+</button>
         <button class="btn-admin" onclick="goStaff()">Staff Management</button>
         <button onclick="goChangePassword()">Change Password</button>
         <button class="btn-logout" onclick="logout()">Logout</button>
@@ -363,6 +366,11 @@ input, select {
                border:none;border-radius:6px;
                background:#0ea5e9;color:white;font-weight:bold;">
     📊 Closing Summary
+<button onclick="showTodayDiscount()" 
+        style="width:100%;padding:10px;margin-top:6px;
+               border:none;border-radius:6px;
+               background:#9333ea;color:white;font-weight:bold;">
+    💸 Today Discount Given
 </button>
 
 <button onclick="downloadClosingPDF()" 
@@ -424,6 +432,49 @@ async function safeFetch(url, options = {}) {
         if (!retry.ok) throw new Error("Retry failed");
 
         return await retry.json();
+    }
+}
+
+async function showAdminDiscount(){
+
+    try{
+        const res = await fetch("/admin/report/discount");
+        const data = await res.json();
+
+        let message = "💸 Today's Discount Summary (All Staff)\n\n";
+        message += "Total Discount: ₹" + data.total_discount + "\n\n";
+
+        message += "Staff Wise:\n";
+
+        for (const staff in data.staff_breakdown){
+            message += staff + " : ₹" + data.staff_breakdown[staff] + "\n";
+        }
+
+        alert(message);
+
+    }catch(e){
+        console.log("Admin discount error:", e);
+    }
+}
+
+async function showTodayDiscount() {
+
+    const userId = localStorage.getItem("user_id");
+
+    if (!userId) return;
+
+    try {
+        const res = await fetch(`/staff/report/discount?staff_id=${userId}`);
+        const data = await res.json();
+
+        alert(
+            "💸 Today's Discount Summary\n\n" +
+            "Total Bills: " + data.bill_count + "\n" +
+            "Total Discount Given: ₹" + data.total_discount
+        );
+
+    } catch (e) {
+        console.log("Discount fetch error:", e);
     }
 }
 
