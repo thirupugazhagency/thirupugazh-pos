@@ -406,6 +406,27 @@ if (role !== "admin") {
 let cartId = null;
 let currentTotal = 0;
 
+// ================= SAFE FETCH (IDLE PROTECTION) =================
+async function safeFetch(url, options = {}) {
+    try {
+        const res = await fetch(url, options);
+
+        if (!res.ok) throw new Error("Server error");
+
+        return await res.json();
+    } catch (e) {
+        console.log("First request failed. Retrying...", e);
+
+        // wait 1 second
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const retry = await fetch(url, options);
+        if (!retry.ok) throw new Error("Retry failed");
+
+        return await retry.json();
+    }
+}
+
 /* ================= INIT (RENDER SAFE) ================= */
 document.addEventListener("DOMContentLoaded", async function () {
 
@@ -434,8 +455,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 /* ================= MENU ================= */
 async function loadMenu() {
     try {
-        const res = await fetch("/menu");
-        const data = await res.json();
+
+        const data = await safeFetch("/menu");
 
         const menuDiv = document.getElementById("menuButtons");
         menuDiv.innerHTML = "";
@@ -494,8 +515,7 @@ async function removeFromCart(menuId) {
     loadCart();
 }
 async function loadCart() {
-    const res = await fetch(`/cart/${cartId}`);
-    const data = await res.json();
+    const data = await safeFetch(`/cart/${cartId}`);
 
     const cartDiv = document.getElementById("cartItems");
     cartDiv.innerHTML = "";
