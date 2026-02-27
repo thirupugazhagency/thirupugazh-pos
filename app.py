@@ -511,8 +511,11 @@ def resume_cart(cart_id):
 def checkout():
     d = request.json
     cart_id = d.get("cart_id")
+
 if not cart_id:
-    return jsonify({"error": "Cart ID missing"}), 400
+        return jsonify({"error": "Cart ID missing"}), 400
+
+    return jsonify({"status": "ok"})
 
 items = CartItem.query.filter_by(cart_id=cart_id).all()
 
@@ -1153,11 +1156,8 @@ init_db()
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    import traceback
-    print("Unhandled error:")
-    traceback.print_exc()
+    print("Unhandled error:", e)
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
