@@ -476,7 +476,9 @@ async function createCart() {
 async function addToCart(menuId) {
     await fetch("/cart/add", {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: {"Content-Type":"appl
+
+ication/json"},
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
@@ -674,15 +676,15 @@ async function payNow() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            cart_id: cartId,
-            payment_method: payment,
-            customer_name: name,
-            customer_phone: mobile,
-            transaction_id: txn,
-            gpay_number: gpay,
-            staff_id: localStorage.getItem("user_id")
-        })
-    });
+    cart_id: cartId,
+    payment_method: payment,
+    customer_name: name,
+    customer_phone: mobile,
+    transaction_id: txn,
+    gpay_number: gpay,
+    discount: document.getElementById("discount").value || 0,
+    staff_id: localStorage.getItem("user_id")
+})
 
     const result = await res.json();
 
@@ -736,27 +738,28 @@ function logout() {
     window.location.replace("/ui/login");
 }
 // ================= MY DAILY SALES =================
-async function loadMySales() {
+async function loadMySales(){
     try {
-        const res = await fetch("/admin/report/daily/data");
-        if (!res.ok) return;
+        const role = localStorage.getItem("role");
+        const userId = localStorage.getItem("user_id");
 
-        const data = await res.json();
+        let res;
 
-        const el = document.getElementById("mySales");
-        if (el) {
-            el.innerText = `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
+        if(role === "staff"){
+            res = await fetch(`/staff/report/daily?staff_id=${userId}`);
+        } else {
+            res = await fetch(`/admin/report/daily/data`);
         }
-    } catch (e) {
-        console.log("Sales error", e);
-    }
-}
-function toggleHolds() {
-    const holds = document.querySelector(".holds");
-    if (holds.style.display === "none" || holds.style.display === "") {
-        holds.style.display = "block";
-    } else {
-        holds.style.display = "none";
+
+        if(!res.ok) return;
+
+        const d = await res.json();
+
+        document.getElementById("mySales").innerText =
+            `Bills: ${d.bill_count} | ₹${d.total_amount}`;
+
+    } catch(e){
+        console.log("Daily sales error:", e);
     }
 }
 
