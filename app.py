@@ -898,14 +898,16 @@ def generate_bill_pdf(sale_id):
 
     y -= 40
 
-    # ================= TOTAL SECTION =================
+        # ================= TOTAL SECTION =================
     pdf.setFont("Helvetica-Bold", 14)
-pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
-y -= 20
-pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
-y -= 20
-pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
 
+    pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
+    y -= 20
+
+    pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
+    y -= 20
+
+    pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
     y -= 40
 
     pdf.setFont("Helvetica-Oblique", 10)
