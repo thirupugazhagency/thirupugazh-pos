@@ -372,7 +372,6 @@ input, select {
     📥 Download PDF
 </button>
 
-</button>
         <button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
@@ -434,47 +433,23 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 /* ================= MENU ================= */
 async function loadMenu() {
-    const div = document.getElementById("menuButtons");
-    if (!div) return;
-
     try {
         const res = await fetch("/menu");
-        const menu = await res.json();
+        const data = await res.json();
 
-        div.innerHTML = "";
+        const menuDiv = document.getElementById("menuButtons");
+        menuDiv.innerHTML = "";
 
-        if (!menu.length) {
-            div.innerHTML = "<p>No menu items</p>";
-            return;
-        }
-
-        menu.forEach(item => {
-            const btn = document.createElement("button");
-            btn.textContent = `${item.name} - ₹${item.price}`;
-            btn.onclick = () => addToCart(item.id);
-            div.appendChild(btn);
+        data.forEach(item => {
+            menuDiv.innerHTML += `
+                <button onclick="addToCart(${item.id})">
+                    ${item.name} - ₹${item.price}
+                </button>
+            `;
         });
-    } catch {
-        div.innerHTML = "<p>Error loading menu</p>";
-    }
-}
 
-async function loadMySales(){
-    const userId = localStorage.getItem("user_id");
-
-    if(role === "staff"){
-        const res = await fetch(`/staff/report/daily?staff_id=${userId}`);
-        const d = await res.json();
-
-        document.getElementById("mySales").innerText =
-            `Bills: ${d.bill_count} | ₹${d.total_amount}`;
-    }
-    else {
-        const res = await fetch(`/admin/report/daily/data`);
-        const d = await res.json();
-
-        document.getElementById("mySales").innerText =
-            `All Sales | Bills: ${d.bill_count} | ₹${d.total_amount}`;
+    } catch (e) {
+        console.log("Menu error:", e);
     }
 }
 
@@ -798,6 +773,7 @@ function downloadClosingPDF() {
 function goSalesBreakdown(){
     window.location.href = "/ui/admin-breakdown";
 }
+
 
 </script>
 
