@@ -509,18 +509,22 @@ def resume_cart(cart_id):
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
-    d = request.json
+
+    d = request.json or {}
     cart_id = d.get("cart_id")
 
-if not cart_id:
+    # ✅ Cart ID validation
+    if not cart_id:
         return jsonify({"error": "Cart ID missing"}), 400
 
-    return jsonify({"status": "ok"})
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
 
-items = CartItem.query.filter_by(cart_id=cart_id).all()
+    # ✅ Empty cart check
+    if not items:
+        return jsonify({"error": "Cart empty"}), 400
 
-if not items:
-    return jsonify({"error": "Cart empty"}), 400
+    # ✅ Calculate total
+    total = sum(i.menu.price * i.quantity for i in items if i.menu)
 
     bill_no = generate_bill_no()
 
@@ -535,14 +539,18 @@ if not items:
     )
 
     db.session.add(sale)
-    Cart.query.get(d["cart_id"]).status = "PAID"
+
+    cart = Cart.query.get(cart_id)
+    if cart:
+        cart.status = "PAID"
+
     db.session.commit()
 
     return jsonify({
-    "total": total,
-    "bill_no": bill_no,
-    "sale_id": sale.id
-})
+        "total": total,
+        "bill_no": bill_no,
+        "sale_id": sale.id
+    })
 
 # ==================================================
 # ADMIN STAFF MANAGEMENT
