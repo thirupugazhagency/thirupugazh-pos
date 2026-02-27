@@ -372,7 +372,7 @@ input, select {
     📥 Download PDF
 </button>
 
-        <button class="btn-pay" onclick="payNow()">PAY</button>
+<button class="btn-pay" onclick="payNow()">PAY</button>
     </div>
 
     <!-- HOLDS -->
@@ -476,14 +476,11 @@ async function createCart() {
 async function addToCart(menuId) {
     await fetch("/cart/add", {
         method: "POST",
-        headers: {"Content-Type":"appl
-
-ication/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
-
 async function removeFromCart(menuId) {
     await fetch("/cart/remove", {
         method: "POST",
@@ -672,19 +669,20 @@ async function payNow() {
     if (payment === "GPAY" && !/^\d{10}$/.test(gpay)) return alert("Enter valid GPay number");
     if (payment !== "CASH" && payment !== "GPAY" && !txn) return alert("Transaction ID required");
 
-    const res = await fetch("/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-    cart_id: cartId,
-    payment_method: payment,
-    customer_name: name,
-    customer_phone: mobile,
-    transaction_id: txn,
-    gpay_number: gpay,
-    discount: document.getElementById("discount").value || 0,
-    staff_id: localStorage.getItem("user_id")
-})
+ const res = await fetch("/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        cart_id: cartId,
+        payment_method: payment,
+        customer_name: name,
+        customer_phone: mobile,
+        transaction_id: txn,
+        gpay_number: gpay,
+        discount: document.getElementById("discount").value || 0,
+        staff_id: localStorage.getItem("user_id")
+    })
+});
 
     const result = await res.json();
 
@@ -698,15 +696,17 @@ try {
     console.log("Sound error:", e);
 }
 
-alert(`✅ Payment Successful
-Bill No: ${result.bill_no}
-Amount: ₹${result.total}`);
-
+alert(
+    "✅ Payment Successful\n\n" +
+    "Bill No: " + result.bill_no + "\n" +
+    "Amount: ₹" + result.total
+);
     window.open(`/bill/${result.sale_id}/pdf`, "_blank");
 
-    const message = `Thank you for shopping at Thirupugazh Lottery Agency.
-Bill No: ${result.bill_no}
-Amount: ₹${result.total}`;
+    const message =
+    "Thank you for shopping at Thirupugazh Lottery Agency.\n" +
+    "Bill No: " + result.bill_no + "\n" +
+    "Amount: ₹" + result.total;
 
     window.open(`https://wa.me/${mobile}?text=${encodeURIComponent(message)}`);
 
