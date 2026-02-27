@@ -4,6 +4,30 @@
     <title>Thirupugazh – POS</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+/* ===== MOBILE HEADER CLEAN ===== */
+@media (max-width:768px){
+
+    header {
+        padding:8px 10px;
+    }
+
+    #headerButtons {
+        display:flex;
+        flex-wrap:wrap;
+        gap:5px;
+        margin-top:5px;
+    }
+
+    #headerButtons button{
+        flex:1;
+        font-size:13px;
+        padding:6px;
+    }
+
+    #mySales{
+        font-size:13px;
+    }
+}
 <style>
 body {
     margin: 0;
@@ -713,32 +737,6 @@ Amount: ₹${result.total}`;
     loadHolds();
 }
 
-/* ===== MOBILE HEADER CLEAN ===== */
-@media (max-width:768px){
-
-    header {
-        padding:8px 10px;
-    }
-
-    #headerButtons {
-        display:flex;
-        flex-wrap:wrap;
-        gap:5px;
-        margin-top:5px;
-    }
-
-    #headerButtons button{
-        flex:1;
-        font-size:13px;
-        padding:6px;
-    }
-
-    #mySales{
-        font-size:13px;
-    }
-}
-
-
 /* ================= NAV ================= */
 function goAdminReports() {
     window.location.href = "/ui/admin-reports";
@@ -764,38 +762,19 @@ function logout() {
 // ================= MY DAILY SALES =================
 async function loadMySales() {
     try {
-        const role = localStorage.getItem("role");
-        const userId = localStorage.getItem("user_id");
-
-        if (!userId) {
-            document.getElementById("mySales").innerText = "";
-            return;
-        }
-
-        let res;
-
-        if (role === "admin") {
-            res = await fetch("/admin/report/daily/data");
-        } else {
-            res = await fetch(`/staff/report/daily?staff_id=${userId}`);
-        }
-
-        if (!res.ok) {
-            document.getElementById("mySales").innerText = "₹0";
-            return;
-        }
+        const res = await fetch("/admin/report/daily/data");
+        if (!res.ok) return;
 
         const data = await res.json();
 
-        document.getElementById("mySales").innerText =
-            `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
-
-    } catch (error) {
-        console.log("Daily sales error:", error);
-        document.getElementById("mySales").innerText = "₹0";
+        const el = document.getElementById("mySales");
+        if (el) {
+            el.innerText = `Bills: ${data.bill_count} | Total: ₹${data.total_amount}`;
+        }
+    } catch (e) {
+        console.log("Sales error", e);
     }
 }
-
 function toggleHolds() {
     const holds = document.querySelector(".holds");
     if (holds.style.display === "none" || holds.style.display === "") {
