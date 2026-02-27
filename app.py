@@ -19,22 +19,12 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
-else:
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///thirupugazh_pos.db"
-    print("⚠️ DATABASE_URL not set. Using local SQLite DB")
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
-
-if DATABASE_URL:
-    if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_pre_ping": True,      # 🔥 prevents dead connections
-        "pool_recycle": 280,        # 🔥 recycle before timeout
+        "pool_pre_ping": True,   # prevents dead connections
+        "pool_recycle": 300,     # recycle before SSL timeout
         "pool_size": 5,
         "max_overflow": 2
     }
@@ -43,6 +33,8 @@ else:
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///thirupugazh_pos.db"
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+
 # ==================================================
 # BUSINESS DATE (3 PM – 3 PM)
 # ==================================================
@@ -518,8 +510,14 @@ def resume_cart(cart_id):
 @app.route("/checkout", methods=["POST"])
 def checkout():
     d = request.json
-    items = CartItem.query.filter_by(cart_id=d["cart_id"]).all()
-    total = sum(i.menu.price * i.quantity for i in items)
+    cart_id = d.get("cart_id")
+if not cart_id:
+    return jsonify({"error": "Cart ID missing"}), 400
+
+items = CartItem.query.filter_by(cart_id=cart_id).all()
+
+if not items:
+    return jsonify({"error": "Cart empty"}), 400
 
     bill_no = generate_bill_no()
 
@@ -1153,5 +1151,13 @@ def init_db():
 
 init_db()
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    print("Unhandled error:")
+    traceback.print_exc()
+    return jsonify({"error": "Internal server error"}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
