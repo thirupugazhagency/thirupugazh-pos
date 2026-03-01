@@ -4,6 +4,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os, io
 import pandas as pd
+
+# ==================================================
+# IST CONVERSION HELPER
+# ==================================================
+def to_ist(dt):
+    if not dt:
+        return None
+    return dt + timedelta(hours=5, minutes=30)
+
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Image
@@ -756,7 +765,7 @@ def admin_daily_excel():
     "Subtotal (₹)": s.subtotal or 0,
     "Discount (₹)": s.discount or 0,
     "Final Amount (₹)": s.total or 0,
-    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
+    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
 })
 
     df = pd.DataFrame(data)
@@ -927,10 +936,11 @@ def admin_monthly_report():
 })
 
 # ==================================================
-# Bill PDF for Each Transaction
+# Bill PDF for Each Transaction (IST TIME VERSION)
 # ==================================================
 @app.route("/bill/<int:sale_id>/pdf")
 def generate_bill_pdf(sale_id):
+
     sale = Sale.query.get_or_404(sale_id)
 
     buffer = io.BytesIO()
@@ -975,9 +985,76 @@ def generate_bill_pdf(sale_id):
     y -= 20
 
     pdf.setFont("Helvetica", 11)
+
+    # 🔥 CONVERT TO IST HERE
+    ist_time = to_ist(sale.created_at)
+
     pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
     y -= 18
-    pdf.drawString(50, y, f"Date: {sale.created_at.strftime('%d-%m-%Y %I:%M %p')}")
+
+    pdf.drawString(
+        50,
+        y,
+        f"Date: {ist_time.strftime('%d-%m-%Y %I:%M %p')} IST"
+    )
+    y -= 18
+
+    pdf.drawString(50, y, f"Customer Name: {sale.customer_name}")
+    y -= 18
+
+    pdf.drawString(50, y, f"Mobile: {sale.customer_phone}")
+    y -= 18
+
+    pdf.drawString(50, y, f"Payment Mode: {sale.payment_method}")
+    y -= 40
+
+    # ================= TOTAL SECTION =================
+    pdf.setFont("Helvetica-Bold", 14)
+
+    pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
+    y -= 20
+
+    pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
+    y -= 20
+
+    pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
+    y -= 40
+
+    pdf.setFont("Helvetica-Oblique", 10)
+    pdf.drawString(50, y, "Thank you for choosing Thirupugazh Lottery Agency!")
+    pdf.drawString(50, y - 15, "We appreciate your business.")
+
+    pdf.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{sale.bill_no}.pdf",
+        mimetype="application/pdf"
+    )
+
+    # ================= SHOP NAME =================
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawString(140, height - 60, "Thirupugazh Lottery Agency")
+
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(140, height - 80, "M.Pudur, Govindhapuram, Palakad (Dt) , Kerala - 678507")
+    pdf.drawString(140, height - 95, "Phone: 04923 - 276225")
+
+    pdf.setFillColorRGB(0, 0, 0)
+
+    y = height - 140
+
+    # ================= BILL DETAILS =================
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, "Bill Details")
+    y -= 20
+
+    pdf.setFont("Helvetica", 11)
+    pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
+    y -= 18
+    pdf.drawString(50, y, f"Date: to_ist(sale.created_at).strftime('%d-%m-%Y %I:%M %p')
     y -= 18
     pdf.drawString(50, y, f"Customer Name: {sale.customer_name}")
     y -= 18
@@ -1088,7 +1165,7 @@ def admin_monthly_excel():
     "Subtotal (₹)": s.subtotal,
     "Discount (₹)": s.discount,
     "Final Amount (₹)": s.total,
-    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
+    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p")
 })
 
     df = pd.DataFrame(data)
