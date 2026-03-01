@@ -482,6 +482,16 @@ def admin_delete_hold(cart_id):
     return jsonify({"status": "deleted"})
 
 # ==================================================
+# SERVER TIME CHECK (TEMPORARY DEBUG)
+# ==================================================
+@app.route("/time-check")
+def time_check():
+    from datetime import datetime
+    return {
+        "server_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+# ==================================================
 # HOLD / RESUME
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
