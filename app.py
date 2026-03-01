@@ -497,12 +497,13 @@ def held_carts():
 
     now = datetime.now()
 
-    # 🔥 AFTER 3 PM — ONLY ADMIN CAN SEE HOLDS
+    # 🔥 After 3PM — Staff cannot see holds
     if now.hour >= 15 and role != "admin":
         return jsonify([])
 
     query = Cart.query.filter_by(status="HOLD")
 
+    # Before 3PM — staff see only their holds
     if role != "admin" and user_id:
         query = query.filter_by(staff_id=int(user_id))
 
@@ -534,10 +535,9 @@ def held_carts():
 def resume_cart(cart_id):
 
     role = request.args.get("role")
-
     now = datetime.now()
 
-    # 🔥 AFTER 3 PM — STAFF CANNOT RESUME
+    # After 3PM only admin can resume
     if now.hour >= 15 and role != "admin":
         return jsonify({"error": "Hold expired"}), 403
 
@@ -554,7 +554,6 @@ def resume_cart(cart_id):
         })
 
     return jsonify({"error": "Not found"}), 404
-
 # ==================================================
 # # ==================================================
 # CHECKOUT (WITH BILL NUMBER + ITEM STORAGE)

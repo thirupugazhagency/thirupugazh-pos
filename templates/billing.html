@@ -781,6 +781,42 @@ function closeClosing() {
     document.getElementById("closingModal").style.display = "none";
 }
 
+async function resumeHold(id) {
+
+    const role = localStorage.getItem("role");
+
+    try {
+
+        const res = await fetch(
+            `/cart/resume/${id}?role=${role}`
+        );
+
+        if (!res.ok) {
+            alert("Hold not allowed after 3 PM");
+            return;
+        }
+
+        const data = await res.json();
+
+        // Update current cart
+        cartId = data.cart_id;
+
+        document.getElementById("customerName").value =
+            data.customer_name || "";
+
+        document.getElementById("mobileNumber").value =
+            data.customer_phone || "";
+
+        closeResume();
+        loadCart();
+        loadHolds();
+
+    } catch (err) {
+        console.log("Resume error:", err);
+        alert("Unable to resume hold");
+    }
+}
+
 async function showResume() {
 
     const role = localStorage.getItem("role");
