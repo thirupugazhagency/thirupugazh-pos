@@ -4,6 +4,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os, io
 import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Image
+from reportlab.lib.utils import ImageReader
 
 # ==================================================
 # IST CONVERSION HELPER
@@ -12,11 +16,6 @@ def to_ist(dt):
     if not dt:
         return None
     return dt + timedelta(hours=5, minutes=30)
-
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Image
-from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 
