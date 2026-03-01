@@ -456,6 +456,25 @@ def view_cart(cart_id):
     })
 
 # ==================================================
+# ADMIN DELETE HOLD BILL
+# ==================================================
+@app.route("/admin/hold/delete/<int:cart_id>", methods=["DELETE"])
+def admin_delete_hold(cart_id):
+
+    cart = Cart.query.get(cart_id)
+
+    if not cart or cart.status != "HOLD":
+        return jsonify({"error": "Hold not found"}), 404
+
+    # Delete related cart items first
+    CartItem.query.filter_by(cart_id=cart_id).delete()
+
+    db.session.delete(cart)
+    db.session.commit()
+
+    return jsonify({"status": "deleted"})
+
+# ==================================================
 # HOLD / RESUME
 # ==================================================
 @app.route("/cart/hold", methods=["POST"])
@@ -476,6 +495,12 @@ def held_carts():
     role = request.args.get("role")
     user_id = request.args.get("user_id")
 
+    now = datetime.now()
+
+    # 🔥 AFTER 3 PM — ONLY ADMIN CAN SEE HOLDS
+    if now.hour >= 15 and role != "admin":
+        return jsonify([])
+
     query = Cart.query.filter_by(status="HOLD")
 
     if role != "admin" and user_id:
@@ -491,15 +516,11 @@ def held_carts():
 
         item_list = []
         for i in items:
-            # 🔥 SAFE CHECK
-            if i.menu:
-                item_list.append(f"{i.menu.name} x{i.quantity}")
-            else:
-                item_list.append(f"Deleted Item x{i.quantity}")
+            name = i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item")
+            item_list.append(f"{name} x{i.quantity}")
 
         result.append({
             "cart_id": c.id,
-            "bill_no": f"HOLD-{c.id}",
             "customer_name": c.customer_name or "",
             "customer_phone": c.customer_phone or "",
             "staff_name": staff.username if staff else "",
@@ -511,6 +532,15 @@ def held_carts():
 
 @app.route("/cart/resume/<int:cart_id>")
 def resume_cart(cart_id):
+
+    role = request.args.get("role")
+
+    now = datetime.now()
+
+    # 🔥 AFTER 3 PM — STAFF CANNOT RESUME
+    if now.hour >= 15 and role != "admin":
+        return jsonify({"error": "Hold expired"}), 403
+
     cart = Cart.query.get(cart_id)
 
     if cart and cart.status == "HOLD":
@@ -522,6 +552,8 @@ def resume_cart(cart_id):
             "customer_name": cart.customer_name,
             "customer_phone": cart.customer_phone
         })
+
+    return jsonify({"error": "Not found"}), 404
 
 # ==================================================
 # # ==================================================

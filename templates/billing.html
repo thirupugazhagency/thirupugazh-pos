@@ -174,17 +174,20 @@ input, select {
 
 /* Resume Modal */
 #resumeModal {
-    display: none;
-    position: fixed;
-    top: 15%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    padding: 15px;
-    width: 90%;
-    max-width: 400px;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    display:none;
+    position:fixed;
+    top:10%;
+    left:50%;
+    transform:translateX(-50%);
+    background:white;
+    padding:15px;
+    width:95%;
+    max-width:400px;
+    border-radius:8px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.3);
+    z-index:2000;
+    max-height:80vh;
+    overflow-y:auto;
 }
 
 /* ===== MOBILE HEADER CLEAN ===== */
@@ -415,7 +418,7 @@ input, select {
 <!-- RESUME MODAL -->
 <div id="resumeModal">
     <h3>Select Hold Bill</h3>
-    <div id="resumeList"></div>
+    <div id="resumeList" style="max-height:300px;overflow-y:auto;"></div>
     <button onclick="closeResume()">Close</button>
 </div>
 
@@ -726,6 +729,17 @@ async function loadHolds() {
     });
 }
 
+async function deleteHold(cartId) {
+
+    if (!confirm("Delete this hold bill?")) return;
+
+    await fetch(`/admin/hold/delete/${cartId}`, {
+        method: "DELETE"
+    });
+
+    showResume(); // refresh list
+}
+
 async function showClosingSummary() {
 
     const role = localStorage.getItem("role");
@@ -768,42 +782,54 @@ function closeClosing() {
 }
 
 async function showResume() {
+
+    const role = localStorage.getItem("role");
+
     const res = await fetch(
-    `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
-);
+        `/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`
+    );
+
     const holds = await res.json();
 
     const list = document.getElementById("resumeList");
     list.innerHTML = "";
 
+    if (!holds.length) {
+        list.innerHTML = "<p>No hold bills available</p>";
+    }
+
     holds.forEach(h => {
-    list.innerHTML += `
-        <button onclick="resumeHold(${h.cart_id})">
-            Cart #${h.cart_id} | ${h.customer_name || "No Name"} | ${h.customer_phone || ""}<br>
-            ${h.items}
-        </button>
-    `;
-});
+
+        let deleteBtn = "";
+
+        if (role === "admin") {
+            deleteBtn = `
+                <button onclick="deleteHold(${h.cart_id})"
+                    style="padding:6px 10px;background:#ef4444;color:white;border:none;border-radius:4px;margin-left:5px;">
+                    Delete
+                </button>
+            `;
+        }
+
+        list.innerHTML += `
+            <div style="border:1px solid #ddd;padding:10px;margin-bottom:8px;border-radius:6px;">
+                <strong>Cart #${h.cart_id}</strong><br>
+                👤 ${h.customer_name || "No Name"}<br>
+                📞 ${h.customer_phone || ""}<br>
+                🧾 ${h.items}<br>
+                🕒 ${h.created_at}<br><br>
+
+                <button onclick="resumeHold(${h.cart_id})"
+                    style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:4px;">
+                    Resume
+                </button>
+
+                ${deleteBtn}
+            </div>
+        `;
+    });
 
     document.getElementById("resumeModal").style.display = "block";
-}
-
-function closeResume() {
-    document.getElementById("resumeModal").style.display = "none";
-}
-
-async function resumeHold(id) {
-    const res = await fetch(`/cart/resume/${id}`);
-    const data = await res.json();
-
-    cartId = data.cart_id;
-
-    customerName.value = data.customer_name || "";
-    mobileNumber.value = data.customer_phone || "";
-
-    closeResume();
-    loadCart();
-    loadHolds();
 }
 
 /* ================= PAY ================= */
