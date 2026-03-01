@@ -936,7 +936,7 @@ def admin_monthly_report():
 })
 
 # ==================================================
-# Bill PDF for Each Transaction (IST TIME VERSION)
+# Bill PDF for Each Transaction (CLEAN IST VERSION)
 # ==================================================
 @app.route("/bill/<int:sale_id>/pdf")
 def generate_bill_pdf(sale_id):
@@ -948,7 +948,7 @@ def generate_bill_pdf(sale_id):
 
     width, height = A4
 
-    # ================= COLORED HEADER STRIP =================
+    # ================= HEADER STRIP =================
     pdf.setFillColorRGB(0.12, 0.23, 0.54)
     pdf.rect(0, height - 100, width, 100, fill=1)
 
@@ -972,28 +972,25 @@ def generate_bill_pdf(sale_id):
     pdf.drawString(140, height - 60, "Thirupugazh Lottery Agency")
 
     pdf.setFont("Helvetica", 11)
-    pdf.drawString(140, height - 80, "M.Pudur, Govindhapuram, Palakad (Dt) , Kerala - 678507")
+    pdf.drawString(140, height - 80, "M.Pudur, Govindhapuram, Palakad (Dt), Kerala - 678507")
     pdf.drawString(140, height - 95, "Phone: 04923 - 276225")
 
     pdf.setFillColorRGB(0, 0, 0)
 
     y = height - 140
 
-       # ================= BILL DETAILS =================
+    # ================= BILL DETAILS =================
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, y, "Bill Details")
     y -= 20
 
     pdf.setFont("Helvetica", 11)
 
-    # Convert UTC to IST safely
     ist_time = to_ist(sale.created_at)
 
-    # Bill Number
     pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
     y -= 18
 
-    # Date (IST)
     pdf.drawString(
         50,
         y,
@@ -1001,28 +998,25 @@ def generate_bill_pdf(sale_id):
     )
     y -= 18
 
-    # Customer Name
     pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
     y -= 18
 
-    # Mobile
     pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
     y -= 18
 
-    # Payment Mode
     pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
     y -= 40
 
     # ================= TOTAL SECTION =================
     pdf.setFont("Helvetica-Bold", 14)
 
-    pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
+    pdf.drawString(50, y, "Subtotal: ₹" + str(sale.subtotal or 0))
     y -= 20
 
-    pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
+    pdf.drawString(50, y, "Discount: ₹" + str(sale.discount or 0))
     y -= 20
 
-    pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
+    pdf.drawString(50, y, "Final Total: ₹" + str(sale.total or 0))
     y -= 40
 
     pdf.setFont("Helvetica-Oblique", 10)
@@ -1035,111 +1029,7 @@ def generate_bill_pdf(sale_id):
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=f"{sale.bill_no}.pdf",
-        mimetype="application/pdf"
-    )
-
-    # ================= SHOP NAME =================
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(140, height - 60, "Thirupugazh Lottery Agency")
-
-    pdf.setFont("Helvetica", 11)
-    pdf.drawString(140, height - 80, "M.Pudur, Govindhapuram, Palakad (Dt) , Kerala - 678507")
-    pdf.drawString(140, height - 95, "Phone: 04923 - 276225")
-
-    pdf.setFillColorRGB(0, 0, 0)
-
-    y = height - 140
-
-# ================= BILL DETAILS =================
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(50, y, "Bill Details")
-    y -= 20
-
-    pdf.setFont("Helvetica", 11)
-
-    # Convert UTC to IST safely
-    ist_time = to_ist(sale.created_at)
-
-    # Bill Number
-    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
-    y -= 18
-
-    # Date (IST)
-    pdf.drawString(
-        50,
-        y,
-        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
-    )
-    y -= 18
-
-    # Customer Name
-    pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
-    y -= 18
-
-    # Mobile
-    pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
-    y -= 18
-
-    # Payment Mode
-    pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
-    y -= 40
-
-# ================= ITEM TABLE HEADER =================
-    pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawString(50, y, "Item")
-    pdf.drawString(250, y, "Qty")
-    pdf.drawString(300, y, "Price")
-    pdf.drawString(380, y, "Total")
-    y -= 15
-
-    pdf.line(50, y, 500, y)
-    y -= 15
-
-    pdf.setFont("Helvetica", 10)
-
-# ================= ITEM LIST =================
-    if sale.items_json:
-        for item in sale.items_json:
-            pdf.drawString(50, y, str(item.get("name", ""))[:25])
-            pdf.drawString(250, y, str(item.get("quantity", "")))
-            pdf.drawString(300, y, f"₹{item.get('price', 0)}")
-            pdf.drawString(380, y, f"₹{item.get('subtotal', 0)}")
-
-            y -= 18
-
-            if y < 100:
-                pdf.showPage()
-                y = 800
-                pdf.setFont("Helvetica", 10)
-
-    y -= 10
-    pdf.line(50, y, 500, y)
-    y -= 25
-
-        # ================= TOTAL SECTION =================
-    pdf.setFont("Helvetica-Bold", 12)
-
-    pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
-    y -= 20
-
-    pdf.drawString(50, y, f"Discount: ₹{sale.discount}")
-    y -= 20
-
-    pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
-    y -= 30
-
-    pdf.setFont("Helvetica-Oblique", 10)
-    pdf.drawString(50, y, "Thank you for choosing Thirupugazh Lottery Agency!")
-    pdf.drawString(50, y - 15, "We appreciate your business.")
-
-    pdf.save()
-    buffer.seek(0)
-
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f"{sale.bill_no}.pdf",
+        download_name=str(sale.bill_no) + ".pdf",
         mimetype="application/pdf"
     )
 
