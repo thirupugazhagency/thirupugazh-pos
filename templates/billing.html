@@ -349,7 +349,22 @@ input, select {
             <option value="ONLINE">Online</option>
             <option value="MIXED">Mixed</option>
         </select>
+<!-- Custom Amount Section -->
+<div style="margin-top:10px;padding:10px;border:1px solid #ddd;border-radius:6px;background:#f9fafb;">
 
+    <strong>➕ Custom Amount</strong>
+
+    <input id="customItemName" placeholder="Item Name (Optional)">
+    <input id="customAmountInput" type="number" min="1" placeholder="Enter Amount ₹">
+
+    <button onclick="addCustomAmount()" 
+            style="width:100%;padding:8px;margin-top:5px;
+                   border:none;border-radius:6px;
+                   background:#2563eb;color:white;font-weight:bold;">
+        Add Custom Item
+    </button>
+
+</div>
         <div id="cartItems"></div>
 
         <input id="discount" type="number" min="0" placeholder="Discount ₹" oninput="recalculateTotal()">
@@ -459,6 +474,36 @@ async function showAdminDiscount(){
     }catch(e){
         console.log("Admin discount error:", e);
     }
+}
+
+async function addCustomAmount(){
+
+    const amount = Number(document.getElementById("customAmountInput").value);
+    const nameInput = document.getElementById("customItemName");
+
+    if (!amount || amount <= 0){
+        alert("Enter valid amount");
+        return;
+    }
+
+    const customName = nameInput.value.trim() || "Custom Item";
+
+    // Create temporary custom menu entry
+    await safeFetch("/cart/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: 0,  // dummy id
+            custom_price: amount
+        })
+    });
+
+    // Clear inputs
+    document.getElementById("customAmountInput").value = "";
+    nameInput.value = "";
+
+    loadCart();
 }
 
 async function showTodayDiscount() {

@@ -79,6 +79,7 @@ class CartItem(db.Model):
     custom_price = db.Column(db.Integer)  # NEW
 
     menu = db.relationship("Menu")
+
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bill_no = db.Column(db.String(30), unique=True)
@@ -408,20 +409,12 @@ def add_to_cart():
 
     custom_price = d.get("custom_price")
 
-    item = CartItem.query.filter_by(
+    db.session.add(CartItem(
         cart_id=d["cart_id"],
-        menu_id=d["menu_id"]
-    ).first()
-
-    if item:
-        item.quantity += 1
-    else:
-        db.session.add(CartItem(
-            cart_id=d["cart_id"],
-            menu_id=d["menu_id"],
-            quantity=1,
-            custom_price=custom_price
-        ))
+        menu_id=d["menu_id"],
+        quantity=1,
+        custom_price=custom_price
+    ))
 
     db.session.commit()
     return jsonify({"status": "ok"})
@@ -444,16 +437,16 @@ def view_cart(cart_id):
     total = 0
     result = []
     for i in items:
-        price = i.custom_price if i.custom_price is not None else i.menu.price
-        subtotal = price * i.quantity
-        total += subtotal
-        result.append({
-            "menu_id": i.menu.id,
-            "name": i.menu.name,
-            "quantity": i.quantity,
-            "subtotal": subtotal
-        })
-    return jsonify({"items": result, "total": total})
+    price = i.custom_price if i.custom_price is not None else i.menu.price
+    subtotal = price * i.quantity
+    total += subtotal
+
+    result.append({
+    "menu_id": i.menu.id if i.menu else 0,
+    "name": i.menu.name if i.menu else "Custom Item",
+    "quantity": i.quantity,
+    "subtotal": subtotal
+})
 
 # ==================================================
 # HOLD / RESUME
