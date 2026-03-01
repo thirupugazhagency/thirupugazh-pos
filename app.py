@@ -486,10 +486,17 @@ def admin_delete_hold(cart_id):
 # ==================================================
 @app.route("/time-check")
 def time_check():
-    from datetime import datetime
-    return jsonify({
-        "server_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    })
+    from datetime import datetime, timedelta
+
+def get_business_date():
+    # Convert UTC to IST (UTC + 5:30)
+    now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    # 3PM IST business cycle
+    if now.hour < 15:
+        return (now - timedelta(days=1)).date()
+
+    return now.date()
 # ==================================================
 # HOLD / RESUME
 # ==================================================
