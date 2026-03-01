@@ -524,7 +524,8 @@ def resume_cart(cart_id):
         })
 
 # ==================================================
-# CHECKOUT (WITH BILL NUMBER)
+# # ==================================================
+# CHECKOUT (WITH BILL NUMBER + ITEM STORAGE)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -541,10 +542,23 @@ def checkout():
     if not items:
         return jsonify({"error": "Cart empty"}), 400
 
-    # Calculate subtotal
-    subtotal = sum(i.menu.price * i.quantity for i in items if i.menu)
+    subtotal = 0
+    items_data = []
 
-    # Apply discount safely
+    for i in items:
+        price = i.custom_price if i.custom_price is not None else (i.menu.price if i.menu else 0)
+        name = i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item")
+
+        item_subtotal = price * i.quantity
+        subtotal += item_subtotal
+
+        items_data.append({
+            "name": name,
+            "quantity": i.quantity,
+            "price": price,
+            "subtotal": item_subtotal
+        })
+
     final_total = max(subtotal - discount, 0)
 
     bill_no = generate_bill_no()
@@ -554,12 +568,12 @@ def checkout():
         subtotal=subtotal,
         discount=discount,
         total=final_total,
+        items_json=items_data,  # 
         payment_method=d.get("payment_method"),
         customer_name=d.get("customer_name"),
         customer_phone=d.get("customer_phone"),
         staff_id=d.get("staff_id"),
-        business_date=get_business_date()
-        items_json=items_data,   # NEW
+        business_date=get_business_date()  # 
     )
 
     db.session.add(sale)
