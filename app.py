@@ -416,13 +416,21 @@ def create_cart():
 def add_to_cart():
     d = request.json
 
-    db.session.add(CartItem(
+    item = CartItem.query.filter_by(
         cart_id=d["cart_id"],
-        menu_id=d.get("menu_id"),
-        quantity=1,
-        custom_price=d.get("custom_price"),
-        custom_name=d.get("custom_name")
-    ))
+        menu_id=d["menu_id"]
+    ).first()
+
+    if item:
+        item.quantity += 1
+    else:
+        db.session.add(
+            CartItem(
+                cart_id=d["cart_id"],
+                menu_id=d["menu_id"],
+                quantity=1
+            )
+        )
 
     db.session.commit()
     return jsonify({"status": "ok"})

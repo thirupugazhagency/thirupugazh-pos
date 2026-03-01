@@ -654,22 +654,33 @@ async function addCustomAmount(){
 }
 
 async function loadCart() {
+
     const data = await safeFetch(`/cart/${cartId}`);
+
     const cartDiv = document.getElementById("cartItems");
     cartDiv.innerHTML = "";
+
     currentTotal = data.total || 0;
 
+    // 🔥 THIS LOOP IS IMPORTANT
     data.items.forEach(i => {
-        cartDiv.innerHTML += `
-        <div class="cart-item">
-            <span>${i.name}</span>
+
+        const row = document.createElement("div");
+        row.className = "cart-item";
+
+        row.innerHTML = `
+            <span style="flex:1">${i.name}</span>
+
             <span>
                 <button onclick="removeFromCart(${i.menu_id})">−</button>
-                ${i.quantity}
+                <strong style="margin:0 8px">${i.quantity}</strong>
                 <button onclick="addToCart(${i.menu_id})">+</button>
             </span>
+
             <span>₹${i.subtotal}</span>
-        </div>`;
+        `;
+
+        cartDiv.appendChild(row);
     });
 
     document.getElementById("subTotal").innerText = currentTotal;
