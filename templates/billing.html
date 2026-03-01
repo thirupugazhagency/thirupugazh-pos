@@ -174,21 +174,32 @@ input, select {
 
 /* Resume Modal */
 #resumeModal {
-    display:none;
-    position:fixed;
-    top:10%;
-    left:50%;
-    transform:translateX(-50%);
-    background:white;
-    padding:15px;
-    width:95%;
-    max-width:400px;
-    border-radius:8px;
-    box-shadow:0 5px 15px rgba(0,0,0,0.3);
-    z-index:2000;
-    max-height:80vh;
-    overflow-y:auto;
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    padding: 15px;
+    z-index: 3000;
+    overflow-y: auto;
 }
+
+<button onclick="closeResume()" 
+    style="
+        position:fixed;
+        top:10px;
+        right:15px;
+        background:#ef4444;
+        color:white;
+        border:none;
+        padding:8px 12px;
+        border-radius:6px;
+        font-weight:bold;
+    ">
+    Close
+</button>
 
 /* ===== MOBILE HEADER CLEAN ===== */
 @media (max-width:768px){
@@ -625,34 +636,6 @@ async function removeFromCart(menuId) {
     loadCart();
 }
 
-async function addCustomAmount(){
-
-    const amount = Number(document.getElementById("customAmountInput").value);
-    const nameInput = document.getElementById("customItemName");
-
-    if (!amount || amount <= 0){
-        alert("Enter valid amount");
-        return;
-    }
-
-    const customName = nameInput.value.trim() || "Custom Item";
-
-    await safeFetch("/cart/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            custom_price: amount,
-            custom_name: customName
-        })
-    });
-
-    document.getElementById("customAmountInput").value = "";
-    nameInput.value = "";
-
-    loadCart();
-}
-
 async function loadCart() {
 
     const data = await safeFetch(`/cart/${cartId}`);
@@ -859,25 +842,64 @@ async function showResume() {
         }
 
         list.innerHTML += `
-            <div style="border:1px solid #ddd;padding:10px;margin-bottom:8px;border-radius:6px;">
-                <strong>Cart #${h.cart_id}</strong><br>
-                👤 ${h.customer_name || "No Name"}<br>
-                📞 ${h.customer_phone || ""}<br>
-                🧾 ${h.items}<br>
-                🕒 ${h.created_at}<br><br>
+            list.innerHTML += `
+    <div style="
+        border:1px solid #ccc;
+        padding:12px;
+        margin-bottom:12px;
+        border-radius:8px;
+        background:#f9fafb;
+    ">
 
-                <button onclick="resumeHold(${h.cart_id})"
-                    style="padding:6px 10px;background:#16a34a;color:white;border:none;border-radius:4px;">
-                    Resume
+        <div style="font-weight:bold;font-size:16px;">
+            Cart #${h.cart_id}
+        </div>
+
+        <div style="margin-top:5px;">
+            👤 ${h.customer_name || "No Name"}
+        </div>
+
+        <div>
+            📞 ${h.customer_phone || "No Number"}
+        </div>
+
+        <div style="margin-top:5px;font-size:14px;color:#555;">
+            🕒 ${h.created_at}
+        </div>
+
+        <div style="margin-top:10px;">
+            <button onclick="resumeHold(${h.cart_id})"
+                style="
+                    width:48%;
+                    padding:10px;
+                    background:#16a34a;
+                    color:white;
+                    border:none;
+                    border-radius:6px;
+                    font-weight:bold;
+                ">
+                Resume
+            </button>
+
+            ${role === "admin" ? `
+                <button onclick="deleteHold(${h.cart_id})"
+                    style="
+                        width:48%;
+                        padding:10px;
+                        background:#ef4444;
+                        color:white;
+                        border:none;
+                        border-radius:6px;
+                        font-weight:bold;
+                        float:right;
+                    ">
+                    Delete
                 </button>
+            ` : ""}
+        </div>
 
-                ${deleteBtn}
-            </div>
-        `;
-    });
-
-    document.getElementById("resumeModal").style.display = "block";
-}
+    </div>
+`;
 
 /* ================= PAY ================= */
 async function payNow() {
