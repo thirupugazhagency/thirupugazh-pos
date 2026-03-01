@@ -294,7 +294,7 @@ def admin_sales_breakdown():
         Sale.status == "COMPLETED"
     ).all()
 
-    total_sales = sum(s.total for s in sales)
+    total_sales = sum((s.total or 0) for s in sales)
     total_bills = len(sales)
 
     payment_totals = {
@@ -307,7 +307,7 @@ def admin_sales_breakdown():
 
     for s in sales:
         if s.payment_method in payment_totals:
-            payment_totals[s.payment_method] += s.total
+            payment_totals[s.payment_method] += (s.total or 0)
 
     return jsonify({
         "total_sales": total_sales,
@@ -643,8 +643,8 @@ def admin_daily_report():
 
     return jsonify({
     "bill_count": len(sales),
-    "total_amount": sum(s.total for s in sales),
-    "total_discount": sum(s.discount for s in sales)
+    "total_amount": sum((s.total or 0) for s in sales),
+    "total_discount": sum((s.discount or 0) for s in sales)
 })
 
 # ==================================================
@@ -773,7 +773,7 @@ def admin_daily_pdf():
         pdf.drawString(220, y, s.payment_method or "")
         pdf.drawString(320, y, f"₹{s.total}")
 
-        total_amount += s.total
+        total_amount += (s.total or 0)
         y -= 18
 
         if y < 50:
@@ -850,7 +850,7 @@ def admin_monthly_report():
 
     return jsonify({
     "bill_count": len(sales),
-    "total_amount": sum(s.total for s in sales),
+    "total_amount": sum((s.total or 0) for s in sales),
     "total_discount": sum(s.discount for s in sales)  # NEW
 })
 
@@ -1157,11 +1157,11 @@ def staff_daily_pdf():
         pdf.drawString(250, y, s.payment_method or "")
         pdf.drawString(350, y, f"₹{s.total}")
 
-        total_amount += s.total
+        total_amount += (s.total or 0)
 
         # Add to payment breakdown
         if s.payment_method in payment_totals:
-            payment_totals[s.payment_method] += s.total
+            payment_totals[s.payment_method] += (s.total or 0)
 
         y -= 18
 
