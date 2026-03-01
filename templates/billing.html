@@ -622,6 +622,34 @@ async function removeFromCart(menuId) {
     loadCart();
 }
 
+async function addCustomAmount(){
+
+    const amount = Number(document.getElementById("customAmountInput").value);
+    const nameInput = document.getElementById("customItemName");
+
+    if (!amount || amount <= 0){
+        alert("Enter valid amount");
+        return;
+    }
+
+    const customName = nameInput.value.trim() || "Custom Item";
+
+    await safeFetch("/cart/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            cart_id: cartId,
+            custom_price: amount,
+            custom_name: customName
+        })
+    });
+
+    document.getElementById("customAmountInput").value = "";
+    nameInput.value = "";
+
+    loadCart();
+}
+
 async function loadCart() {
     const data = await safeFetch(`/cart/${cartId}`);
     const cartDiv = document.getElementById("cartItems");

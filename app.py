@@ -77,6 +77,7 @@ class CartItem(db.Model):
     quantity = db.Column(db.Integer, default=1)
 
     custom_price = db.Column(db.Integer)  # NEW
+    custom_name = db.Column(db.String(100))   # NEW
 
     menu = db.relationship("Menu")
 
@@ -87,7 +88,7 @@ class Sale(db.Model):
     subtotal = db.Column(db.Integer, nullable=False)   # NEW
     discount = db.Column(db.Integer, default=0)       # NEW
     total = db.Column(db.Integer, nullable=False)     # FINAL AFTER DISCOUNT
-
+    items_json = db.Column(db.JSON)
     payment_method = db.Column(db.String(20))
     customer_name = db.Column(db.String(100))
     customer_phone = db.Column(db.String(20))
@@ -407,13 +408,12 @@ def create_cart():
 def add_to_cart():
     d = request.json
 
-    custom_price = d.get("custom_price")
-
     db.session.add(CartItem(
         cart_id=d["cart_id"],
-        menu_id=d["menu_id"],
+        menu_id=d.get("menu_id"),
         quantity=1,
-        custom_price=custom_price
+        custom_price=d.get("custom_price"),
+        custom_name=d.get("custom_name")
     ))
 
     db.session.commit()
@@ -442,11 +442,11 @@ def view_cart(cart_id):
     total += subtotal
 
     result.append({
-    "menu_id": i.menu.id if i.menu else 0,
-    "name": i.menu.name if i.menu else "Custom Item",
-    "quantity": i.quantity,
-    "subtotal": subtotal
-})
+        "menu_id": i.menu.id if i.menu else 0,
+        "name": i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item"),
+        "quantity": i.quantity,
+        "subtotal": subtotal
+    })
 
 # ==================================================
 # HOLD / RESUME
@@ -552,6 +552,7 @@ def checkout():
         customer_phone=d.get("customer_phone"),
         staff_id=d.get("staff_id"),
         business_date=get_business_date()
+        items_json=items_data   # NEW
     )
 
     db.session.add(sale)
@@ -874,16 +875,23 @@ def generate_bill_pdf(sale_id):
     width, height = A4
 
     # ================= COLORED HEADER STRIP =================
-    pdf.setFillColorRGB(0.12, 0.23, 0.54)  # Dark blue
+    pdf.setFillColorRGB(0.12, 0.23, 0.54)
     pdf.rect(0, height - 100, width, 100, fill=1)
 
-    # Reset text color to white
     pdf.setFillColorRGB(1, 1, 1)
 
     # ================= LOGO =================
     logo_path = os.path.join(app.root_path, "static", "logo.png")
     if os.path.exists(logo_path):
-        pdf.drawImage(logo_path, 50, height - 85, width=70, height=50, preserveAspectRatio=True, mask='auto')
+        pdf.drawImage(
+            logo_path,
+            50,
+            height - 85,
+            width=70,
+            height=50,
+            preserveAspectRatio=True,
+            mask='auto'
+        )
 
     # ================= SHOP NAME =================
     pdf.setFont("Helvetica-Bold", 18)
@@ -892,8 +900,7 @@ def generate_bill_pdf(sale_id):
     pdf.setFont("Helvetica", 11)
     pdf.drawString(140, height - 80, "M.Pudur, Govindhapuram, Palakad (Dt) , Kerala - 678507")
     pdf.drawString(140, height - 95, "Phone: 04923 - 276225")
-    
-    # Reset text color to black
+
     pdf.setFillColorRGB(0, 0, 0)
 
     y = height - 140
@@ -914,10 +921,42 @@ def generate_bill_pdf(sale_id):
     y -= 18
     pdf.drawString(50, y, f"Payment Mode: {sale.payment_method}")
 
-    y -= 40
+    y -= 30
+
+# ================= ITEM TABLE HEADER =================
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(50, y, "Item")
+    pdf.drawString(250, y, "Qty")
+    pdf.drawString(300, y, "Price")
+    pdf.drawString(380, y, "Total")
+    y -= 15
+
+    pdf.line(50, y, 500, y)
+    y -= 15
+
+    pdf.setFont("Helvetica", 10)
+
+# ================= ITEM LIST =================
+    if sale.items_json:
+        for item in sale.items_json:
+            pdf.drawString(50, y, str(item.get("name", ""))[:25])
+            pdf.drawString(250, y, str(item.get("quantity", "")))
+            pdf.drawString(300, y, f"₹{item.get('price', 0)}")
+            pdf.drawString(380, y, f"₹{item.get('subtotal', 0)}")
+
+            y -= 18
+
+            if y < 100:
+                pdf.showPage()
+                y = 800
+                pdf.setFont("Helvetica", 10)
+
+    y -= 10
+    pdf.line(50, y, 500, y)
+    y -= 25
 
         # ================= TOTAL SECTION =================
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont("Helvetica-Bold", 12)
 
     pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal}")
     y -= 20
@@ -926,7 +965,7 @@ def generate_bill_pdf(sale_id):
     y -= 20
 
     pdf.drawString(50, y, f"Final Total: ₹{sale.total}")
-    y -= 40
+    y -= 30
 
     pdf.setFont("Helvetica-Oblique", 10)
     pdf.drawString(50, y, "Thank you for choosing Thirupugazh Lottery Agency!")
