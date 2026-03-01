@@ -559,7 +559,7 @@ def checkout():
         customer_phone=d.get("customer_phone"),
         staff_id=d.get("staff_id"),
         business_date=get_business_date()
-        items_json=items_data   # NEW
+        items_json=items_data,   # NEW
     )
 
     db.session.add(sale)
