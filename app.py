@@ -456,20 +456,27 @@ def view_cart(cart_id):
     })
 
 # ==================================================
-# ADMIN DELETE HOLD BILL
+# ADMIN DELETE HOLD BILL (SAFE VERSION)
 # ==================================================
 @app.route("/admin/hold/delete/<int:cart_id>", methods=["DELETE"])
 def admin_delete_hold(cart_id):
 
     cart = Cart.query.get(cart_id)
 
-    if not cart or cart.status != "HOLD":
-        return jsonify({"error": "Hold not found"}), 404
+    if not cart:
+        return jsonify({"error": "Not found"}), 404
 
-    # Delete related cart items first
-    CartItem.query.filter_by(cart_id=cart_id).delete()
+    if cart.status != "HOLD":
+        return jsonify({"error": "Not a hold bill"}), 400
 
+    # Delete cart items first
+    items = CartItem.query.filter_by(cart_id=cart_id).all()
+    for item in items:
+        db.session.delete(item)
+
+    # Then delete cart
     db.session.delete(cart)
+
     db.session.commit()
 
     return jsonify({"status": "deleted"})
@@ -497,13 +504,12 @@ def held_carts():
 
     now = datetime.now()
 
-    # 🔥 After 3PM — Staff cannot see holds
+    # After 3PM staff cannot see holds
     if now.hour >= 15 and role != "admin":
         return jsonify([])
 
     query = Cart.query.filter_by(status="HOLD")
 
-    # Before 3PM — staff see only their holds
     if role != "admin" and user_id:
         query = query.filter_by(staff_id=int(user_id))
 
@@ -512,20 +518,10 @@ def held_carts():
     result = []
 
     for c in carts:
-        items = CartItem.query.filter_by(cart_id=c.id).all()
-        staff = User.query.get(c.staff_id)
-
-        item_list = []
-        for i in items:
-            name = i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item")
-            item_list.append(f"{name} x{i.quantity}")
-
         result.append({
             "cart_id": c.id,
             "customer_name": c.customer_name or "",
             "customer_phone": c.customer_phone or "",
-            "staff_name": staff.username if staff else "",
-            "items": ", ".join(item_list),
             "created_at": c.created_at.strftime("%d-%m-%Y %I:%M %p")
         })
 
