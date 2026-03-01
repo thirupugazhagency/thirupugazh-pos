@@ -979,33 +979,38 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-    # ================= BILL DETAILS =================
+       # ================= BILL DETAILS =================
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, y, "Bill Details")
     y -= 20
 
     pdf.setFont("Helvetica", 11)
 
-    # 🔥 CONVERT TO IST HERE
+    # Convert UTC to IST safely
     ist_time = to_ist(sale.created_at)
 
-    pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
+    # Bill Number
+    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
     y -= 18
 
+    # Date (IST)
     pdf.drawString(
         50,
         y,
-        f"Date: {ist_time.strftime('%d-%m-%Y %I:%M %p')} IST"
+        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
     )
     y -= 18
 
-    pdf.drawString(50, y, f"Customer Name: {sale.customer_name}")
+    # Customer Name
+    pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
     y -= 18
 
-    pdf.drawString(50, y, f"Mobile: {sale.customer_phone}")
+    # Mobile
+    pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
     y -= 18
 
-    pdf.drawString(50, y, f"Payment Mode: {sale.payment_method}")
+    # Payment Mode
+    pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
     y -= 40
 
     # ================= TOTAL SECTION =================
