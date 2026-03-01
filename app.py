@@ -801,27 +801,38 @@ def admin_daily_pdf():
 @app.route("/admin/report/discount")
 def admin_discount_report():
 
-    business_date = get_business_date()
+    try:
+        business_date = get_business_date()
 
-    sales = Sale.query.filter(
-        Sale.business_date == business_date,
-        Sale.status == "COMPLETED"
-    ).all()
+        sales = Sale.query.filter(
+            Sale.business_date == business_date,
+            Sale.status == "COMPLETED"
+        ).all()
 
-    total_discount = sum(s.discount or 0 for s in sales)
+        total_discount = 0
+        staff_summary = {}
 
-    staff_summary = {}
+        for s in sales:
+            discount_value = s.discount if s.discount else 0
+            total_discount += discount_value
 
-    for s in sales:
-        staff = User.query.get(s.staff_id)
-        if staff:
-            staff_summary.setdefault(staff.username, 0)
-            staff_summary[staff.username] += s.discount or 0
+            if s.staff_id:
+                staff = User.query.get(s.staff_id)
+                if staff:
+                    staff_summary.setdefault(staff.username, 0)
+                    staff_summary[staff.username] += discount_value
 
-    return jsonify({
-        "total_discount": total_discount,
-        "staff_breakdown": staff_summary
-    })
+        return jsonify({
+            "total_discount": total_discount,
+            "staff_breakdown": staff_summary
+        })
+
+    except Exception as e:
+        print("Discount route error:", e)
+        return jsonify({
+            "total_discount": 0,
+            "staff_breakdown": {}
+        })
 
 # ==================================================
 # ADMIN MONTHLY REPORT (WITH BILL NUMBERS)

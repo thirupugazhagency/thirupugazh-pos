@@ -441,13 +441,17 @@ async function showAdminDiscount(){
         const res = await fetch("/admin/report/discount");
         const data = await res.json();
 
-        let message = "💸 Today's Discount Summary (All Staff)\n\n";
-        message += "Total Discount: ₹" + data.total_discount + "\n\n";
+        console.log("Admin Discount Data:", data);
 
+        const total = data.total_discount || data.total || 0;
+        const staffData = data.staff_breakdown || data.staff || {};
+
+        let message = "💸 Today's Discount Summary (All Staff)\n\n";
+        message += "Total Discount: ₹" + total + "\n\n";
         message += "Staff Wise:\n";
 
-        for (const staff in data.staff_breakdown){
-            message += staff + " : ₹" + data.staff_breakdown[staff] + "\n";
+        for (const staff in staffData){
+            message += staff + " : ₹" + staffData[staff] + "\n";
         }
 
         alert(message);
