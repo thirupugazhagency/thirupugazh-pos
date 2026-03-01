@@ -434,18 +434,25 @@ def remove_from_cart():
 @app.route("/cart/<int:cart_id>")
 def view_cart(cart_id):
     items = CartItem.query.filter_by(cart_id=cart_id).all()
+
     total = 0
     result = []
-    for i in items:
-    price = i.custom_price if i.custom_price is not None else i.menu.price
-    subtotal = price * i.quantity
-    total += subtotal
 
-    result.append({
-        "menu_id": i.menu.id if i.menu else 0,
-        "name": i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item"),
-        "quantity": i.quantity,
-        "subtotal": subtotal
+    for i in items:
+        price = i.custom_price if i.custom_price is not None else (i.menu.price if i.menu else 0)
+        subtotal = price * i.quantity
+        total += subtotal
+
+        result.append({
+            "menu_id": i.menu.id if i.menu else 0,
+            "name": i.custom_name if i.custom_name else (i.menu.name if i.menu else "Custom Item"),
+            "quantity": i.quantity,
+            "subtotal": subtotal
+        })
+
+    return jsonify({
+        "items": result,
+        "total": total
     })
 
 # ==================================================
