@@ -1174,6 +1174,22 @@ def admin_monthly_pdf():
     )
 
 # ==================================================
+# BUSINESS DATE DEBUG CHECK
+# ==================================================
+@app.route("/business-date-check")
+def business_date_check():
+    from datetime import datetime, timedelta
+
+    # Convert UTC to IST
+    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    return jsonify({
+        "utc_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+        "ist_time": ist_now.strftime("%Y-%m-%d %H:%M:%S"),
+        "business_date": str(get_business_date())
+    })
+
+# ==================================================
 # ADMIN UPDATE STAFF USERNAME
 # ==================================================
 @app.route("/admin/staff/update-username", methods=["POST"])
