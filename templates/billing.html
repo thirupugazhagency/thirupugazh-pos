@@ -404,6 +404,15 @@ if (!localStorage.getItem("user_id")) {
     window.location.href = "/ui/login";
 }
 
+const role = localStorage.getItem("role");
+if (role !== "admin") {
+    document.querySelectorAll(".btn-admin")
+        .forEach(btn => btn.style.display = "none");
+}
+
+let cartId = null;
+let currentTotal = 0;
+
 /* ================= ADMIN VISIBILITY ================= */
 const role = localStorage.getItem("role");
 if (role !== "admin") {
@@ -414,23 +423,15 @@ if (role !== "admin") {
 let cartId = null;
 let currentTotal = 0;
 
-// ================= SAFE FETCH (IDLE PROTECTION) =================
+// ================= /* ================= SAFE FETCH ================= */
 async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url, options);
-
-        if (!res.ok) throw new Error("Server error");
-
+        if (!res.ok) throw new Error("Network");
         return await res.json();
     } catch (e) {
-        console.log("First request failed. Retrying...", e);
-
-        // wait 1 second
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        await new Promise(r => setTimeout(r, 1000));
         const retry = await fetch(url, options);
-        if (!retry.ok) throw new Error("Retry failed");
-
         return await retry.json();
     }
 }
@@ -478,10 +479,12 @@ async function showTodayDiscount() {
     }
 }
 
-/* ================= INIT (RENDER SAFE) ================= */
+/* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", async function () {
 
-    // SHOW USERNAME
+    // 🔥 HEALTH WAKE FIX
+    try { await fetch("/health"); } catch {}
+
     const username = localStorage.getItem("username");
     if (username) {
         document.getElementById("loggedUser").innerText = "👤 " + username;
@@ -492,14 +495,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         await loadMenu();
         await loadCart();
         await loadHolds();
-    } catch (e) {
-        console.error("Billing init failed:", e);
-    }
-
-    try {
         await loadMySales();
     } catch (e) {
-        console.error("Daily sales failed:", e);
+        console.error("Init failed:", e);
     }
 });
 
@@ -527,63 +525,51 @@ async function loadMenu() {
 
 /* ================= CART ================= */
 async function createCart() {
-    const res = await fetch("/cart/create", {
+    const data = await safeFetch("/cart/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             staff_id: localStorage.getItem("user_id")
         })
     });
-
-    if (!res.ok) {
-        console.error("Cart creation failed");
-        return;
-    }
-
-    const data = await res.json();
     cartId = data.cart_id;
-    console.log("Cart created:", cartId);
 }
 
 async function addToCart(menuId) {
-    await fetch("/cart/add", {
+    await safeFetch("/cart/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
     loadCart();
 }
+
 async function removeFromCart(menuId) {
-    await fetch("/cart/remove", {
+    await safeFetch("/cart/remove", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            cart_id: cartId,
-            menu_id: menuId
-        })
+        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
     });
-
     loadCart();
 }
+
 async function loadCart() {
     const data = await safeFetch(`/cart/${cartId}`);
-
     const cartDiv = document.getElementById("cartItems");
     cartDiv.innerHTML = "";
-    currentTotal = data.total;
+    currentTotal = data.total || 0;
 
     data.items.forEach(i => {
         cartDiv.innerHTML += `
-            <div class="cart-item">
-                <span>${i.name}</span>
-                <span>
-                    <button onclick="removeFromCart(${i.menu_id})">−</button>
-                    ${i.quantity}
-                    <button onclick="addToCart(${i.menu_id})">+</button>
-                </span>
-                <span>₹${i.subtotal}</span>
-            </div>
-        `;
+        <div class="cart-item">
+            <span>${i.name}</span>
+            <span>
+                <button onclick="removeFromCart(${i.menu_id})">−</button>
+                ${i.quantity}
+                <button onclick="addToCart(${i.menu_id})">+</button>
+            </span>
+            <span>₹${i.subtotal}</span>
+        </div>`;
     });
 
     document.getElementById("subTotal").innerText = currentTotal;
@@ -622,14 +608,13 @@ async function holdBill() {
     loadHolds();
 }
 
+/* ================= HOLDS ================= */
 async function loadHolds() {
-    const res = await fetch(
-        `/cart/held?role=${localStorage.getItem("role")}&user_id=${localStorage.getItem("user_id")}`
+    const holds = await safeFetch(
+        `/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`
     );
 
-    const holds = await res.json();
     const div = document.getElementById("holdList");
-
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
@@ -640,8 +625,7 @@ async function loadHolds() {
                 📞 ${h.customer_phone || "No Number"}<br>
                 🧾 ${h.items}<br>
                 <small>${h.created_at}</small>
-            </div>
-        `;
+            </div>`;
     });
 }
 
@@ -808,32 +792,22 @@ function logout() {
     localStorage.removeItem("role");
     window.location.replace("/ui/login");
 }
-// ================= MY DAILY SALES =================
+/* ================= SALES BADGE ================= */
 async function loadMySales(){
-    try {
-        const role = localStorage.getItem("role");
-        const userId = localStorage.getItem("user_id");
+    const userId = localStorage.getItem("user_id");
 
-        let res;
+    const url = role === "staff"
+        ? `/staff/report/daily?staff_id=${userId}`
+        : `/admin/report/daily/data`;
 
-        if(role === "staff"){
-            res = await fetch(`/staff/report/daily?staff_id=${userId}`);
-        } else {
-            res = await fetch(`/admin/report/daily/data`);
-        }
+    const d = await safeFetch(url);
 
-        if(!res.ok) return;
+    const el = document.getElementById("mySales");
+    if (!el) return;
 
-        const d = await res.json();
-
-        document.getElementById("mySales").innerText =
-            `Bills: ${d.bill_count} | ₹${d.total_amount}`;
-
-    } catch(e){
-        console.log("Daily sales error:", e);
-    }
+    el.innerText =
+        `Bills: ${d.bill_count || 0} | ₹${d.total_amount || 0}`;
 }
-
 function toggleMobileCart() {
     const cart = document.querySelector(".cart");
     cart.classList.toggle("active");
@@ -847,7 +821,6 @@ function downloadClosingPDF() {
 function goSalesBreakdown(){
     window.location.href = "/ui/admin-breakdown";
 }
-
 
 </script>
 
