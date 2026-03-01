@@ -536,11 +536,35 @@ async function createCart() {
 }
 
 async function addToCart(menuId) {
+
+    let customPrice = null;
+
+    const menuButtons = document.getElementById("menuButtons");
+
+    const clickedButton = event.target.innerText;
+
+    if (clickedButton.includes("Custom Amount")) {
+
+        const entered = prompt("Enter Amount:");
+
+        if (!entered || isNaN(entered) || Number(entered) <= 0) {
+            alert("Invalid amount");
+            return;
+        }
+
+        customPrice = Number(entered);
+    }
+
     await safeFetch("/cart/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_id: cartId, menu_id: menuId })
+        body: JSON.stringify({
+            cart_id: cartId,
+            menu_id: menuId,
+            custom_price: customPrice
+        })
     });
+
     loadCart();
 }
 

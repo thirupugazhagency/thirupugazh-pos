@@ -75,8 +75,10 @@ class CartItem(db.Model):
     cart_id = db.Column(db.Integer, db.ForeignKey("cart.id"))
     menu_id = db.Column(db.Integer, db.ForeignKey("menu.id"))
     quantity = db.Column(db.Integer, default=1)
-    menu = db.relationship("Menu")
 
+    custom_price = db.Column(db.Integer)  # NEW
+
+    menu = db.relationship("Menu")
 class Sale(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bill_no = db.Column(db.String(30), unique=True)
@@ -266,7 +268,6 @@ def admin_dashboard():
 @app.route("/admin/report/daily/data")
 def admin_daily_data():
 
-    # Reuse existing working route logic
     business_date = get_business_date()
 
     query = Sale.query.filter(
@@ -280,7 +281,6 @@ def admin_daily_data():
         "bill_count": len(sales),
         "total_amount": sum(s.total or 0 for s in sales)
     })
-
 # ==================================================
 # ADMIN SALES VIEW
 # ==================================================
@@ -405,11 +405,24 @@ def create_cart():
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     d = request.json
-    item = CartItem.query.filter_by(cart_id=d["cart_id"], menu_id=d["menu_id"]).first()
+
+    custom_price = d.get("custom_price")
+
+    item = CartItem.query.filter_by(
+        cart_id=d["cart_id"],
+        menu_id=d["menu_id"]
+    ).first()
+
     if item:
         item.quantity += 1
     else:
-        db.session.add(CartItem(cart_id=d["cart_id"], menu_id=d["menu_id"], quantity=1))
+        db.session.add(CartItem(
+            cart_id=d["cart_id"],
+            menu_id=d["menu_id"],
+            quantity=1,
+            custom_price=custom_price
+        ))
+
     db.session.commit()
     return jsonify({"status": "ok"})
 
@@ -431,7 +444,8 @@ def view_cart(cart_id):
     total = 0
     result = []
     for i in items:
-        subtotal = i.menu.price * i.quantity
+        price = i.custom_price if i.custom_price is not None else i.menu.price
+        subtotal = price * i.quantity
         total += subtotal
         result.append({
             "menu_id": i.menu.id,
@@ -1239,6 +1253,7 @@ def init_db():
                 Menu(name="Full Set", price=580),
                 Menu(name="Half Set", price=300),
                 Menu(name="Three Tickets", price=150)
+                Menu(name="Custom Amount", price=0)  # NEW
 
             ])
 
