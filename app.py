@@ -1051,23 +1051,39 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-    # ================= BILL DETAILS =================
+# ================= BILL DETAILS =================
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, y, "Bill Details")
     y -= 20
 
     pdf.setFont("Helvetica", 11)
-    pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
-    y -= 18
-    pdf.drawString(50, y, f"Date: to_ist(sale.created_at).strftime('%d-%m-%Y %I:%M %p')
-    y -= 18
-    pdf.drawString(50, y, f"Customer Name: {sale.customer_name}")
-    y -= 18
-    pdf.drawString(50, y, f"Mobile: {sale.customer_phone}")
-    y -= 18
-    pdf.drawString(50, y, f"Payment Mode: {sale.payment_method}")
 
-    y -= 30
+    # Convert UTC to IST safely
+    ist_time = to_ist(sale.created_at)
+
+    # Bill Number
+    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
+    y -= 18
+
+    # Date (IST)
+    pdf.drawString(
+        50,
+        y,
+        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
+    )
+    y -= 18
+
+    # Customer Name
+    pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
+    y -= 18
+
+    # Mobile
+    pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
+    y -= 18
+
+    # Payment Mode
+    pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
+    y -= 40
 
 # ================= ITEM TABLE HEADER =================
     pdf.setFont("Helvetica-Bold", 11)
