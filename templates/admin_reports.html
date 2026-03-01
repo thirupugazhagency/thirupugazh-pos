@@ -152,33 +152,22 @@
 <script>
 /* ================= DAILY ================= */
 
-async function viewDaily() {
-    const date = document.getElementById("dailyDate").value;
-    const url = date
-        ? `/admin/report/daily?date=${date}`
-        : `/admin/report/daily`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    document.getElementById("dailyResult").innerText =
-        `Bills: ${data.bill_count}, Total: ₹${data.total_amount}`;
-}
-
 function downloadDailyExcel() {
     const date = document.getElementById("dailyDate").value;
-    window.location = date
-        ? `/admin/report/daily/excel?date=${date}`
-        : `/admin/report/daily/excel`;
-}
+    const staffId = document.getElementById("staffSelect").value;
 
-function downloadDailyPDF() {
-    const date = document.getElementById("dailyDate").value;
-    window.location = date
-        ? `/admin/report/daily/pdf?date=${date}`
-        : `/admin/report/daily/pdf`;
-}
+    let url = `/admin/report/daily/excel`;
+    const params = [];
 
+    if (date) params.push(`date=${date}`);
+    if (staffId) params.push(`staff_id=${staffId}`);
+
+    if (params.length > 0) {
+        url += "?" + params.join("&");
+    }
+
+    window.location = url;
+}
 /* ================= MONTHLY ================= */
 
 function downloadMonthlyExcel() {

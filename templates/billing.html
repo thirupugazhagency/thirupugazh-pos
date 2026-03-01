@@ -356,16 +356,22 @@ input, select {
 
         <div class="total">Sub Total: ₹<span id="subTotal">0</span></div>
         <div class="total">Final Total: ₹<span id="finalTotal">0</span></div>
-        <button onclick="toggleHolds()" style="width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#6b7280;color:white;font-weight:bold;">
+<button onclick="toggleHolds()" 
+        style="width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#6b7280;color:white;font-weight:bold;">
     View Hold Bills
-        </button>
-        <button class="btn-hold" onclick="holdBill()">HOLD</button>
-        <button class="btn-resume" onclick="showResume()">RESUME</button>
-        <button onclick="showClosingSummary()" 
+</button>
+
+<button class="btn-hold" onclick="holdBill()">HOLD</button>
+
+<button class="btn-resume" onclick="showResume()">RESUME</button>
+
+<button onclick="showClosingSummary()" 
         style="width:100%;padding:10px;margin-top:6px;
                border:none;border-radius:6px;
                background:#0ea5e9;color:white;font-weight:bold;">
     📊 Closing Summary
+</button>
+
 <button onclick="showTodayDiscount()" 
         style="width:100%;padding:10px;margin-top:6px;
                border:none;border-radius:6px;
@@ -399,31 +405,24 @@ input, select {
 </div>
 
 <script>
+
 /* ================= AUTH GUARD ================= */
 if (!localStorage.getItem("user_id")) {
     window.location.href = "/ui/login";
 }
 
 const role = localStorage.getItem("role");
+
 if (role !== "admin") {
     document.querySelectorAll(".btn-admin")
         .forEach(btn => btn.style.display = "none");
-}
-
-let cartId = null;
-let currentTotal = 0;
-
-/* ================= ADMIN VISIBILITY ================= */
-const role = localStorage.getItem("role");
-if (role !== "admin") {
-    document.querySelectorAll(".btn-admin").forEach(btn => btn.style.display = "none");
 }
 
 /* ================= STATE ================= */
 let cartId = null;
 let currentTotal = 0;
 
-// ================= /* ================= SAFE FETCH ================= */
+/* ================= SAFE FETCH ================= */
 async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url, options);
@@ -482,7 +481,6 @@ async function showTodayDiscount() {
 /* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", async function () {
 
-    // 🔥 HEALTH WAKE FIX
     try { await fetch("/health"); } catch {}
 
     const username = localStorage.getItem("username");
@@ -504,9 +502,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 /* ================= MENU ================= */
 async function loadMenu() {
     try {
-
         const data = await safeFetch("/menu");
-
         const menuDiv = document.getElementById("menuButtons");
         menuDiv.innerHTML = "";
 
@@ -808,6 +804,7 @@ async function loadMySales(){
     el.innerText =
         `Bills: ${d.bill_count || 0} | ₹${d.total_amount || 0}`;
 }
+
 function toggleMobileCart() {
     const cart = document.querySelector(".cart");
     cart.classList.toggle("active");
