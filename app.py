@@ -1305,7 +1305,7 @@ def init_db():
             db.session.add_all([
                 Menu(name="Full Set", price=580),
                 Menu(name="Half Set", price=300),
-                Menu(name="Three Tickets", price=150)
+                Menu(name="Three Tickets", price=150),
                 Menu(name="Custom Amount", price=0)  # NEW
 
             ])
