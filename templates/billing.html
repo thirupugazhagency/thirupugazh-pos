@@ -428,11 +428,17 @@ input, select {
 
 <!-- RESUME MODAL -->
 <div id="resumeModal">
+    <button onclick="closeResume()" 
+        style="position:fixed; top:10px; right:15px;
+               background:#ef4444; color:white;
+               border:none; padding:8px 12px;
+               border-radius:6px; font-weight:bold;">
+        Close
+    </button>
+
     <h3>Select Hold Bill</h3>
     <div id="resumeList" style="max-height:300px;overflow-y:auto;"></div>
-    <button onclick="closeResume()">Close</button>
 </div>
-
 <script>
 
 /* ================= AUTH GUARD ================= */
@@ -502,18 +508,16 @@ async function addCustomAmount(){
 
     const customName = nameInput.value.trim() || "Custom Item";
 
-    // Create temporary custom menu entry
     await safeFetch("/cart/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             cart_id: cartId,
-            menu_id: 0,  // dummy id
-            custom_price: amount
+            custom_price: amount,
+            custom_name: customName
         })
     });
 
-    // Clear inputs
     document.getElementById("customAmountInput").value = "";
     nameInput.value = "";
 
@@ -816,7 +820,7 @@ async function showResume() {
     const role = localStorage.getItem("role");
 
     const res = await fetch(
-        `/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`
+        "/cart/held?role=" + role + "&user_id=" + localStorage.getItem("user_id")
     );
 
     const holds = await res.json();
@@ -826,80 +830,85 @@ async function showResume() {
 
     if (!holds.length) {
         list.innerHTML = "<p>No hold bills available</p>";
+        document.getElementById("resumeModal").style.display = "block";
+        return;
     }
 
-    holds.forEach(h => {
+    holds.forEach(function(h) {
 
-        let deleteBtn = "";
+        const card = document.createElement("div");
+        card.style.border = "1px solid #ccc";
+        card.style.padding = "12px";
+        card.style.marginBottom = "12px";
+        card.style.borderRadius = "8px";
+        card.style.background = "#f9fafb";
+
+        const title = document.createElement("div");
+        title.style.fontWeight = "bold";
+        title.style.fontSize = "16px";
+        title.innerText = "Cart #" + h.cart_id;
+
+        const name = document.createElement("div");
+        name.innerText = "👤 " + (h.customer_name || "No Name");
+
+        const phone = document.createElement("div");
+        phone.innerText = "📞 " + (h.customer_phone || "No Number");
+
+        const time = document.createElement("div");
+        time.style.marginTop = "5px";
+        time.style.fontSize = "14px";
+        time.style.color = "#555";
+        time.innerText = "🕒 " + h.created_at;
+
+        const buttonDiv = document.createElement("div")
+        buttonDiv.style.marginTop = "10px";
+
+        const resumeBtn = document.createElement("button");
+        resumeBtn.innerText = "Resume";
+        resumeBtn.style.width = "48%";
+        resumeBtn.style.padding = "10px";
+        resumeBtn.style.background = "#16a34a";
+        resumeBtn.style.color = "white";
+        resumeBtn.style.border = "none";
+        resumeBtn.style.borderRadius = "6px";
+        resumeBtn.style.fontWeight = "bold";
+        resumeBtn.onclick = function() {
+            resumeHold(h.cart_id);
+        };
+
+        buttonDiv.appendChild(resumeBtn);
 
         if (role === "admin") {
-            deleteBtn = `
-                <button onclick="deleteHold(${h.cart_id})"
-                    style="padding:6px 10px;background:#ef4444;color:white;border:none;border-radius:4px;margin-left:5px;">
-                    Delete
-                </button>
-            `;
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerText = "Delete";
+            deleteBtn.style.width = "48%";
+            deleteBtn.style.padding = "10px";
+            deleteBtn.style.background = "#ef4444";
+            deleteBtn.style.color = "white";
+            deleteBtn.style.border = "none";
+            deleteBtn.style.borderRadius = "6px";
+            deleteBtn.style.fontWeight = "bold";
+            deleteBtn.style.float = "right";
+
+            deleteBtn.onclick = function() {
+                deleteHold(h.cart_id);
+            };
+
+            buttonDiv.appendChild(deleteBtn);
         }
 
-        list.innerHTML += `
-            list.innerHTML += `
-    <div style="
-        border:1px solid #ccc;
-        padding:12px;
-        margin-bottom:12px;
-        border-radius:8px;
-        background:#f9fafb;
-    ">
+        card.appendChild(title);
+        card.appendChild(name);
+        card.appendChild(phone);
+        card.appendChild(time);
+        card.appendChild(buttonDiv);
 
-        <div style="font-weight:bold;font-size:16px;">
-            Cart #${h.cart_id}
-        </div>
+        list.appendChild(card);
+    });
 
-        <div style="margin-top:5px;">
-            👤 ${h.customer_name || "No Name"}
-        </div>
-
-        <div>
-            📞 ${h.customer_phone || "No Number"}
-        </div>
-
-        <div style="margin-top:5px;font-size:14px;color:#555;">
-            🕒 ${h.created_at}
-        </div>
-
-        <div style="margin-top:10px;">
-            <button onclick="resumeHold(${h.cart_id})"
-                style="
-                    width:48%;
-                    padding:10px;
-                    background:#16a34a;
-                    color:white;
-                    border:none;
-                    border-radius:6px;
-                    font-weight:bold;
-                ">
-                Resume
-            </button>
-
-            ${role === "admin" ? `
-                <button onclick="deleteHold(${h.cart_id})"
-                    style="
-                        width:48%;
-                        padding:10px;
-                        background:#ef4444;
-                        color:white;
-                        border:none;
-                        border-radius:6px;
-                        font-weight:bold;
-                        float:right;
-                    ">
-                    Delete
-                </button>
-            ` : ""}
-        </div>
-
-    </div>
-`;
+    document.getElementById("resumeModal").style.display = "block";
+}
 
 /* ================= PAY ================= */
 async function payNow() {
