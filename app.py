@@ -399,36 +399,38 @@ def owner_dashboard():
 # ==================================================
 # CART
 # ==================================================
-@app.route("/cart/create", methods=["POST"])
-def create_cart():
-    data = request.json or {}
-
-    cart = Cart(
-        status="ACTIVE",
-        staff_id=data.get("staff_id")
-    )
-
-    db.session.add(cart)
-    db.session.commit()
-    return jsonify({"cart_id": cart.id})
-
 @app.route("/cart/add", methods=["POST"])
 def add_to_cart():
     d = request.json
 
-    item = CartItem.query.filter_by(
-        cart_id=d["cart_id"],
-        menu_id=d["menu_id"]
-    ).first()
+    # ===== NORMAL MENU ITEM =====
+    if d.get("menu_id"):
 
-    if item:
-        item.quantity += 1
-    else:
+        item = CartItem.query.filter_by(
+            cart_id=d["cart_id"],
+            menu_id=d["menu_id"]
+        ).first()
+
+        if item:
+            item.quantity += 1
+        else:
+            db.session.add(
+                CartItem(
+                    cart_id=d["cart_id"],
+                    menu_id=d["menu_id"],
+                    quantity=1
+                )
+            )
+
+    # ===== SEASON TICKET (CUSTOM ITEM) =====
+    elif d.get("custom_price"):
+
         db.session.add(
             CartItem(
                 cart_id=d["cart_id"],
-                menu_id=d["menu_id"],
-                quantity=1
+                quantity=1,
+                custom_price=int(d["custom_price"]),
+                custom_name=d.get("custom_name") or "Season Ticket"
             )
         )
 
@@ -504,15 +506,20 @@ def admin_delete_hold(cart_id):
 def time_check():
     from datetime import datetime, timedelta
 
+# ==================================================
+# BUSINESS DATE (3:30 PM – 3:30 PM IST)
+# ==================================================
 def get_business_date():
-    # Convert UTC to IST (UTC + 5:30)
+
+    # Convert UTC to IST
     now = datetime.utcnow() + timedelta(hours=5, minutes=30)
 
-    # 3PM IST business cycle
-    if now.hour < 15:
+    # If time is before 3:30 PM → previous business date
+    if (now.hour < 15) or (now.hour == 15 and now.minute < 30):
         return (now - timedelta(days=1)).date()
 
     return now.date()
+
 # ==================================================
 # HOLD / RESUME
 # ==================================================
