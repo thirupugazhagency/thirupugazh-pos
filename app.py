@@ -517,7 +517,23 @@ def admin_delete_hold(cart_id):
         print("Hold delete error:", e)
 
         return jsonify({"status":"error","message":str(e)})
+# =========================================
+# ADMIN: CLEAR ALL HOLD BILLS
+# =========================================
+@app.route("/admin/hold/clear-all", methods=["GET"])
+def clear_all_holds():
 
+    holds = Cart.query.filter_by(status="HOLD").all()
+
+    for cart in holds:
+
+        CartItem.query.filter_by(cart_id=cart.id).delete()
+
+        db.session.delete(cart)
+
+    db.session.commit()
+
+    return "All hold bills cleared successfully"
 # ==================================================
 # SERVER TIME CHECK (TEMPORARY DEBUG)
 # ==================================================
