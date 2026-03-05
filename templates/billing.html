@@ -568,21 +568,33 @@ document.addEventListener("DOMContentLoaded", async function () {
 
 /* ================= MENU ================= */
 async function loadMenu() {
+
     try {
+
         const data = await safeFetch("/menu");
+
         const menuDiv = document.getElementById("menuButtons");
         menuDiv.innerHTML = "";
 
         data.forEach(item => {
-            menuDiv.innerHTML += `
-                <button onclick="addToCart(${item.id})">
-                    ${item.name} - ₹${item.price}
-                </button>
-            `;
+
+            // Skip Custom Amount item
+            if (item.price === 0) return;
+
+            const btn = document.createElement("button");
+            btn.innerText = `${item.name} - ₹${item.price}`;
+
+            btn.onclick = function(){
+                addToCart(item.id);
+            };
+
+            menuDiv.appendChild(btn);
+
         });
 
     } catch (e) {
-        console.log("Menu error:", e);
+        console.log("Menu load error:", e);
+        document.getElementById("menuButtons").innerText = "Menu failed to load";
     }
 }
 
@@ -600,31 +612,14 @@ async function createCart() {
 
 async function addToCart(menuId) {
 
-    let customPrice = null;
-
-    const menuButtons = document.getElementById("menuButtons");
-
-    const clickedButton = event.target.innerText;
-
-    if (clickedButton.includes("Custom Amount")) {
-
-        const entered = prompt("Enter Amount:");
-
-        if (!entered || isNaN(entered) || Number(entered) <= 0) {
-            alert("Invalid amount");
-            return;
-        }
-
-        customPrice = Number(entered);
-    }
-
     await safeFetch("/cart/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify({
             cart_id: cartId,
-            menu_id: menuId,
-            custom_price: customPrice
+            menu_id: menuId
         })
     });
 
