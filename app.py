@@ -486,7 +486,7 @@ def view_cart(cart_id):
 # ==================================================
 # ADMIN DELETE HOLD BILL (SAFE VERSION)
 # ==================================================
-@app.route("/admin/hold/delete/<int:cart_id>", methods=["DELETE"])
+@app.route("/admin/hold/delete/<int:cart_id>", methods=["POST","DELETE"])
 def admin_delete_hold(cart_id):
 
     cart = Cart.query.get(cart_id)
@@ -709,17 +709,18 @@ def checkout():
     bill_no = generate_bill_no()
 
     sale = Sale(
-        bill_no=bill_no,
-        subtotal=subtotal,
-        discount=discount,
-        total=final_total,
-        items_json=items_data,  # 
-        payment_method=d.get("payment_method"),
-        customer_name=d.get("customer_name"),
-        customer_phone=d.get("customer_phone"),
-        staff_id=d.get("staff_id"),
-        business_date=get_business_date()  # 
-    )
+    bill_no=bill_no,
+    subtotal=subtotal,
+    discount=discount,
+    total=final_total,
+    status="COMPLETED",
+    items_json=items_data,
+    payment_method=d.get("payment_method"),
+    customer_name=d.get("customer_name"),
+    customer_phone=d.get("customer_phone"),
+    staff_id=d.get("staff_id"),
+    business_date=get_business_date()
+)
 
     db.session.add(sale)
 
