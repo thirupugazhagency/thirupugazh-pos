@@ -1216,6 +1216,59 @@ def admin_monthly_pdf():
         download_name=f"monthly_sales_{month}_{year}.pdf",
         mimetype="application/pdf"
     )
+
+# ==================================================
+# ADMIN CLEAR OLD HOLD BILLS AFTER 3:30 PM
+# ==================================================
+@app.route("/admin/hold/clear-old", methods=["POST"])
+def admin_clear_old_holds():
+
+    try:
+
+        now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+        # Only allow after 3:30 PM
+        if (now.hour < 15) or (now.hour == 15 and now.minute < 30):
+            return jsonify({
+                "status": "not_allowed",
+                "message": "Old holds can only be cleared after 3:30 PM"
+            }), 403
+
+        business_date = get_business_date()
+
+        old_holds = Cart.query.filter(
+            Cart.status == "HOLD",
+            Cart.created_at < datetime.combine(business_date, datetime.min.time())
+        ).all()
+
+        deleted = 0
+
+        for cart in old_holds:
+
+            items = CartItem.query.filter_by(cart_id=cart.id).all()
+
+            for item in items:
+                db.session.delete(item)
+
+            db.session.delete(cart)
+
+            deleted += 1
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "ok",
+            "deleted_old_holds": deleted
+        })
+
+    except Exception as e:
+
+        print("Old hold cleanup error:", e)
+
+        return jsonify({
+            "status": "error"
+        }), 500
+
 # ==================================================
 # ADMIN CLEAR ALL HOLD BILLS (ONE CLICK CLEANUP)
 # ==================================================
