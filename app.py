@@ -1216,6 +1216,44 @@ def admin_monthly_pdf():
         download_name=f"monthly_sales_{month}_{year}.pdf",
         mimetype="application/pdf"
     )
+# ==================================================
+# ADMIN CLEAR ALL HOLD BILLS (ONE CLICK CLEANUP)
+# ==================================================
+@app.route("/admin/hold/clear-all", methods=["POST"])
+def admin_clear_all_holds():
+
+    try:
+
+        holds = Cart.query.filter_by(status="HOLD").all()
+
+        deleted = 0
+
+        for cart in holds:
+
+            # delete items first
+            items = CartItem.query.filter_by(cart_id=cart.id).all()
+
+            for item in items:
+                db.session.delete(item)
+
+            db.session.delete(cart)
+
+            deleted += 1
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "ok",
+            "deleted_holds": deleted
+        })
+
+    except Exception as e:
+
+        print("Clear hold error:", e)
+
+        return jsonify({
+            "status": "error"
+        }), 500
 
 # ==================================================
 # BUSINESS DATE DEBUG CHECK
