@@ -829,54 +829,39 @@ def admin_daily_report():
 # ==================================================
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
-    date_str = request.args.get("date")
-    staff_id = request.args.get("staff_id")
 
-    business_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str else get_business_date()
-    )
+    business_date = get_business_date()
 
-    query = Sale.query.filter(
+    sales = Sale.query.filter(
         Sale.business_date == business_date,
         Sale.status == "COMPLETED"
-    )
+    ).all()
 
-    if staff_id:
-        query = query.filter(Sale.staff_id == int(staff_id))
+    import pandas as pd
 
-    sales = query.order_by(Sale.id.asc()).all()
-
-    data = []
+    rows = []
 
     for s in sales:
-        staff = User.query.get(s.staff_id)
 
-        data.append({
-    "Bill Number": s.bill_no or "",
-    "Staff Name": staff.username if staff else "",
-    "Customer Name": s.customer_name or "",
-    "Mobile": s.customer_phone or "",
-    "Payment Mode": s.payment_method or "",
-    "Subtotal (₹)": s.subtotal or 0,
-    "Discount (₹)": s.discount or 0,
-    "Final Amount (₹)": s.total or 0,
-    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p") if s.created_at else ""
-})
+        rows.append({
+            "Bill No": s.bill_no,
+            "Customer Name": s.customer_name,
+            "Customer Phone": s.customer_phone,
+            "Payment Mode": s.payment_method,
+            "Subtotal": s.subtotal,
+            "Discount": s.discount,
+            "Total": s.total,
+            "Staff ID": s.staff_id,
+            "Business Date": s.business_date
+        })
 
-    df = pd.DataFrame(data)
+    df = pd.DataFrame(rows)
 
-    output = io.BytesIO()
-    df.to_excel(output, index=False)
-    output.seek(0)
+    file_name = "daily_sales.xlsx"
 
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=f"daily_sales_{business_date}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    df.to_excel(file_name, index=False)
 
+    return send_file(file_name, as_attachment=True)
 # ==================================================
 # STAFF TODAY DISCOUNT SUMMARY
 # ==================================================
