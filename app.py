@@ -633,31 +633,45 @@ def held_carts():
 
     return jsonify(result)
 
+from datetime import datetime, timedelta
+
 @app.route("/cart/resume/<int:cart_id>")
-def resume_cart(cart_id):
+def resume_hold(cart_id):
 
     role = request.args.get("role")
-    now = datetime.now()
-
-    # After 3PM only admin can resume
-    if now.hour >= 15 and role != "admin":
-        return jsonify({"error": "Hold expired"}), 403
 
     cart = Cart.query.get(cart_id)
 
-    if cart and cart.status == "HOLD":
-        cart.status = "ACTIVE"
-        db.session.commit()
+    if not cart:
+        return jsonify({"error": "Cart not found"}), 404
 
-        return jsonify({
-            "cart_id": cart.id,
-            "customer_name": cart.customer_name,
-            "customer_phone": cart.customer_phone
-        })
+    if cart.status != "HOLD":
+        return jsonify({"error": "Not a hold bill"}), 400
 
-    return jsonify({"error": "Not found"}), 404
+    # Current India time
+    now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    # After 3:30 PM block staff from resuming old holds
+    if role != "admin":
+
+        if now.hour > 15 or (now.hour == 15 and now.minute >= 30):
+
+            today = now.date()
+
+            if cart.created_at.date() != today:
+                return jsonify({"error": "Old holds blocked after 3:30 PM"}), 403
+
+    cart.status = "ACTIVE"
+
+    db.session.commit()
+
+    return jsonify({
+        "cart_id": cart.id,
+        "customer_name": cart.customer_name,
+        "customer_phone": cart.customer_phone
+    })
 # ==================================================
-# # ==================================================
+# ==================================================
 # CHECKOUT (WITH BILL NUMBER + ITEM STORAGE)
 # ==================================================
 @app.route("/checkout", methods=["POST"])
