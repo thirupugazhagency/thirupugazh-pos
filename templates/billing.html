@@ -705,22 +705,37 @@ async function holdBill() {
 
 /* ================= HOLDS ================= */
 async function loadHolds() {
+
     const holds = await safeFetch(
         `/cart/held?role=${role}&user_id=${localStorage.getItem("user_id")}`
     );
 
     const div = document.getElementById("holdList");
+
     div.innerHTML = holds.length ? "" : "No holds";
 
     holds.forEach(h => {
+
+        let deleteButton = "";
+
+        if (role === "admin") {
+            deleteButton = `
+                <button onclick="deleteHold(${h.cart_id})"
+                style="margin-top:5px;background:#ef4444;color:white;border:none;padding:5px 8px;border-radius:5px;">
+                Delete
+                </button>
+            `;
+        }
+
         div.innerHTML += `
-            <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
-                <strong>Cart #${h.cart_id}</strong><br>
-                👤 ${h.customer_name || "No Name"}<br>
-                📞 ${h.customer_phone || "No Number"}<br>
-                🧾 ${h.items}<br>
-                <small>${h.created_at}</small>
-            </div>`;
+        <div style="border:1px solid #ccc;padding:6px;margin-bottom:6px;">
+            <strong>Cart #${h.cart_id}</strong><br>
+            👤 ${h.customer_name || "No Name"}<br>
+            📞 ${h.customer_phone || "No Number"}<br>
+            <small>${h.created_at}</small>
+            ${deleteButton}
+        </div>
+        `;
     });
 }
 
@@ -740,7 +755,6 @@ async function deleteHold(cartId) {
     alert("Hold deleted successfully");
 
     await loadHolds();
-    await showResume();
 }
 
 async function showClosingSummary() {
