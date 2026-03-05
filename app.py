@@ -20,6 +20,16 @@ def to_ist(dt):
 app = Flask(__name__)
 
 # ==================================================
+# REQUEST LOGGER (DEBUG TOOL)
+# ==================================================
+@app.before_request
+def log_request():
+    try:
+        print(f"\nREQUEST → {request.method} {request.path}")
+    except:
+        pass
+
+# ==================================================
 # DATABASE CONFIG (SAFE FOR WINDOWS + RENDER)
 # ==================================================
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -519,6 +529,19 @@ def get_business_date():
         return (now - timedelta(days=1)).date()
 
     return now.date()
+
+@app.route("/ui/live-dashboard")
+def live_dashboard():
+    return render_template("live_dashboard.html")
+
+# ==================================================
+# GET CURRENT BUSINESS DATE (IST 3:30 PM CYCLE)
+# ==================================================
+@app.route("/business-date")
+def get_current_business_date():
+    return jsonify({
+        "business_date": str(get_business_date())
+    })
 
 # ==================================================
 # HOLD / RESUME
@@ -1337,6 +1360,29 @@ def health():
     return "OK", 200
 
 # ==================================================
+# GLOBAL ERROR HANDLER (DETAILED DEBUG)
+# ==================================================
+@app.errorhandler(Exception)
+def handle_exception(e):
+
+    import traceback
+
+    error_type = type(e).__name__
+    error_message = str(e)
+
+    print("\n=========== THIRUPUGAZH POS ERROR ===========")
+    print("Error Type:", error_type)
+    print("Error Message:", error_message)
+    print("Traceback:")
+    traceback.print_exc()
+    print("=============================================\n")
+
+    return jsonify({
+        "status": "error",
+        "type": error_type,
+        "message": error_message
+    }), 500
+# ==================================================
 # INIT DB
 # ==================================================
 def init_db():
@@ -1374,11 +1420,6 @@ def init_db():
         db.session.commit()
 
 init_db()
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    print("Unhandled error:", e)
-    return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

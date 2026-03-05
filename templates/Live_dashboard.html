@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Sales Dashboard</title>
+
+<style>
+body{
+font-family:Arial;
+background:#f3f4f6;
+padding:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:8px;
+margin-bottom:15px;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+h2{
+margin-top:0;
+}
+
+.stat{
+font-size:24px;
+font-weight:bold;
+}
+
+.staff{
+padding:5px 0;
+border-bottom:1px solid #eee;
+}
+</style>
+</head>
+
+<body>
+
+<h1>📊 Thirupugazh Live Sales</h1>
+
+<div class="card">
+<h2>Today Summary</h2>
+
+<div>Total Sales: <span id="total">₹0</span></div>
+<div>Total Bills: <span id="bills">0</span></div>
+<div>Active Holds: <span id="holds">0</span></div>
+</div>
+
+<div class="card">
+<h2>Payment Breakdown</h2>
+
+<div>Cash: ₹<span id="cash">0</span></div>
+<div>UPI: ₹<span id="upi">0</span></div>
+<div>GPay: ₹<span id="gpay">0</span></div>
+<div>Online: ₹<span id="online">0</span></div>
+</div>
+
+<div class="card">
+<h2>Staff Performance</h2>
+
+<div id="staffList"></div>
+
+</div>
+
+<script>
+
+async function loadDashboard(){
+
+const res = await fetch("/owner/dashboard");
+const data = await res.json();
+
+document.getElementById("total").innerText = "₹"+data.total_today;
+document.getElementById("bills").innerText = data.bill_count;
+document.getElementById("holds").innerText = data.hold_count;
+
+document.getElementById("cash").innerText = data.cash_total;
+document.getElementById("upi").innerText = data.upi_total;
+document.getElementById("gpay").innerText = data.gpay_total;
+document.getElementById("online").innerText = data.online_total;
+
+const staffDiv = document.getElementById("staffList");
+staffDiv.innerHTML="";
+
+data.staff_performance.forEach(s=>{
+staffDiv.innerHTML +=
+`<div class="staff">${s.staff} — ₹${s.total}</div>`;
+});
+
+}
+
+loadDashboard();
+
+setInterval(loadDashboard,5000);
+
+</script>
+
+</body>
+</html>
