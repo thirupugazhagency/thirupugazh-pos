@@ -486,65 +486,37 @@ def view_cart(cart_id):
 # ==================================================
 # ADMIN DELETE HOLD BILL (SAFE VERSION)
 # ==================================================
-@app.route("/admin/hold/delete/<int:cart_id>", methods=["POST","DELETE"])
+@app.route("/admin/hold/delete/<int:cart_id>", methods=["DELETE","POST","GET"])
 def admin_delete_hold(cart_id):
 
-    cart = Cart.query.get(cart_id)
+    try:
 
-    if not cart:
-        return jsonify({"error": "Not found"}), 404
+        cart = Cart.query.get(cart_id)
 
-    if cart.status != "HOLD":
-        return jsonify({"error": "Not a hold bill"}), 400
+        if not cart:
+            return jsonify({"status":"error","message":"Cart not found"})
 
-    # Delete cart items first
-    items = CartItem.query.filter_by(cart_id=cart_id).all()
-    for item in items:
-        db.session.delete(item)
+        if cart.status != "HOLD":
+            return jsonify({"status":"error","message":"Not a hold bill"})
 
-    # Then delete cart
-    db.session.delete(cart)
-
-    db.session.commit()
-
-    return jsonify({"status": "deleted"})
-
-# ==================================================
-# ADMIN CLEAR OLD HOLD BILLS AFTER 3:30 PM
-# ==================================================
-@app.route("/admin/hold/clear-old", methods=["POST"])
-def admin_clear_old_holds():
-
-    now = datetime.utcnow() + timedelta(hours=5, minutes=30)
-
-    # Allow only after 3:30 PM
-    if now.hour < 15 or (now.hour == 15 and now.minute < 30):
-        return jsonify({
-            "status": "not_allowed",
-            "message": "Can clear holds only after 3:30 PM"
-        }), 403
-
-    holds = Cart.query.filter_by(status="HOLD").all()
-
-    deleted = 0
-
-    for cart in holds:
-
-        items = CartItem.query.filter_by(cart_id=cart.id).all()
+        # delete cart items
+        items = CartItem.query.filter_by(cart_id=cart_id).all()
 
         for item in items:
             db.session.delete(item)
 
+        # delete cart
         db.session.delete(cart)
 
-        deleted += 1
+        db.session.commit()
 
-    db.session.commit()
+        return jsonify({"status":"deleted"})
 
-    return jsonify({
-        "status": "ok",
-        "deleted_holds": deleted
-    })
+    except Exception as e:
+
+        print("Hold delete error:", e)
+
+        return jsonify({"status":"error","message":str(e)})
 
 # ==================================================
 # SERVER TIME CHECK (TEMPORARY DEBUG)
