@@ -743,18 +743,30 @@ async function deleteHold(cartId) {
 
     if (!confirm("Delete this hold bill?")) return;
 
-    const res = await fetch(`/admin/hold/delete/${cartId}`, {
-        method: "DELETE"
-    });
+    try {
 
-    if (!res.ok) {
-        alert("Delete failed");
-        return;
+        const res = await fetch(`/admin/hold/delete/${cartId}`, {
+            method: "DELETE"
+        });
+
+        const data = await res.json();
+
+        if (data.status !== "deleted") {
+            alert("Delete failed");
+            return;
+        }
+
+        alert("Hold deleted successfully");
+
+        await loadHolds();
+        await showResume();
+
+    } catch (err) {
+
+        console.log("Delete hold error:", err);
+        alert("Unable to delete hold bill");
+
     }
-
-    alert("Hold deleted successfully");
-
-    await loadHolds();
 }
 
 async function showClosingSummary() {
