@@ -559,6 +559,25 @@ def hold_cart():
 
     return jsonify({"status": "ok"})
 
+@app.route("/cart/create", methods=["POST"])
+def create_cart():
+
+    data = request.get_json(silent=True) or {}
+
+    staff_id = data.get("staff_id")
+
+    cart = Cart(
+        status="ACTIVE",
+        staff_id=staff_id
+    )
+
+    db.session.add(cart)
+    db.session.commit()
+
+    return jsonify({
+        "cart_id": cart.id
+    })
+
 @app.route("/cart/held")
 def held_carts():
     role = request.args.get("role")

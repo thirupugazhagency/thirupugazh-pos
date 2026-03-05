@@ -650,7 +650,9 @@ async function loadCart() {
     currentTotal = data.total || 0;
 
     // 🔥 THIS LOOP IS IMPORTANT
-    data.items.forEach(i => {
+    if (!data.items) return;
+
+data.items.forEach(i => {
 
         const row = document.createElement("div");
         row.className = "cart-item";
