@@ -58,11 +58,15 @@ db = SQLAlchemy(app)
 # BUSINESS DATE (3 PM – 3 PM)
 # ==================================================
 def get_business_date():
-    now = datetime.now()
-    if now.hour < 15:
-        return (now - timedelta(days=1)).date()
-    return now.date()
 
+    # Convert UTC to IST
+    now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+
+    # Business day cycle (3:30 PM IST)
+    if (now.hour < 15) or (now.hour == 15 and now.minute < 30):
+        return (now - timedelta(days=1)).date()
+
+    return now.date()
 # ==================================================
 # MODELS
 # ==================================================
@@ -866,7 +870,7 @@ def admin_daily_excel():
     "Discount": s.discount,
     "Total": s.total,
     "Staff ID": s.staff_id,
-    "Business Date": s.business_date
+    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p")
 })
 
     df = pd.DataFrame(rows)
