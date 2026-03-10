@@ -1154,35 +1154,34 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-# ================= BILL DETAILS =================
-pdf.setFont("Helvetica-Bold", 12)
-pdf.drawString(50, y, "Bill Details")
-y -= 20
+    # ================= BILL DETAILS =================
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, "Bill Details")
+    y -= 20
 
-pdf.setFont("Helvetica", 11)
+    pdf.setFont("Helvetica", 11)
 
-# Convert UTC → IST
-ist_time = to_ist(sale.created_at)
+    # Convert UTC → IST
+    ist_time = to_ist(sale.created_at)
 
-pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
-y -= 18
+    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
+    y -= 18
 
-pdf.drawString(
-    50,
-    y,
-    "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
-)
-y -= 18
+    pdf.drawString(
+        50,
+        y,
+        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
+    )
+    y -= 18
 
-pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
-y -= 18
+    pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
+    y -= 18
 
-pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
-y -= 18
+    pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
+    y -= 18
 
-pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
-y -= 40
-
+    pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
+    y -= 40
     # ================= TOTAL SECTION =================
     pdf.setFont("Helvetica-Bold", 14)
 
