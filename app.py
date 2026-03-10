@@ -902,8 +902,7 @@ def admin_daily_pdf():
         business_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     else:
         business_date = get_business_date()
-    )
-
+    
     query = Sale.query.filter(
     Sale.business_date == business_date,
     Sale.status == "COMPLETED"
