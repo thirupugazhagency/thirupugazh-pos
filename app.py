@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os, io
 import pandas as pd
 from reportlab.lib.pagesizes import A4
@@ -9,11 +9,12 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Image
 from reportlab.lib.utils import ImageReader
 
+# CREATE FLASK APP
+app = Flask(__name__)
+
 # ==================================================
 # IST CONVERSION HELPER
 # ==================================================
-from datetime import datetime, timedelta, timezone
-
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def to_ist(dt):
@@ -22,7 +23,7 @@ def to_ist(dt):
     return dt.replace(tzinfo=timezone.utc).astimezone(IST)
 
 # ==================================================
-# REQUEST LOGGER (DEBUG TOOL)
+# REQUEST LOGGER
 # ==================================================
 @app.before_request
 def log_request():
@@ -30,7 +31,6 @@ def log_request():
         print(f"\nREQUEST → {request.method} {request.path}")
     except:
         pass
-
 # ==================================================
 # DATABASE CONFIG (SAFE FOR WINDOWS + RENDER)
 # ==================================================
@@ -1154,34 +1154,35 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-    # ================= BILL DETAILS =================
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(50, y, "Bill Details")
-    y -= 20
+# ================= BILL DETAILS =================
+pdf.setFont("Helvetica-Bold", 12)
+pdf.drawString(50, y, "Bill Details")
+y -= 20
 
-    pdf.setFont("Helvetica", 11)
+pdf.setFont("Helvetica", 11)
 
-    # Convert UTC → IST
-    ist_time = to_ist(sale.created_at)
+# Convert UTC → IST
+ist_time = to_ist(sale.created_at)
 
-    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
-    y -= 18
+pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
+y -= 18
 
-    pdf.drawString(
-        50,
-        y,
-        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
-    )
-    y -= 18
+pdf.drawString(
+    50,
+    y,
+    "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
+)
+y -= 18
 
-    pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
-    y -= 18
+pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
+y -= 18
 
-    pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
-    y -= 18
+pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
+y -= 18
 
-    pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
-    y -= 40
+pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
+y -= 40
+
     # ================= TOTAL SECTION =================
     pdf.setFont("Helvetica-Bold", 14)
 
