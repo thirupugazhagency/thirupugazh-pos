@@ -830,12 +830,17 @@ def admin_daily_report():
 @app.route("/admin/report/daily/excel")
 def admin_daily_excel():
 
-    business_date = get_business_date()
+    date_str = request.args.get("date")
+
+    if date_str:
+        business_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    else:
+        business_date = get_business_date()
 
     sales = Sale.query.filter(
-        Sale.business_date == business_date,
-        Sale.status == "COMPLETED"
-    ).all()
+    Sale.business_date == business_date,
+    Sale.status == "COMPLETED"
+).order_by(Sale.id.asc()).all()
 
     import pandas as pd
 
@@ -890,12 +895,13 @@ def staff_discount_report():
 # ==================================================
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
-    date_str = request.args.get("date")
-    staff_id = request.args.get("staff_id")
 
-    business_date = (
-        datetime.strptime(date_str, "%Y-%m-%d").date()
-        if date_str else get_business_date()
+    date_str = request.args.get("date")
+
+    if date_str:
+        business_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    else:
+        business_date = get_business_date()
     )
 
     query = Sale.query.filter(
