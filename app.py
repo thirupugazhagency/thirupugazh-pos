@@ -849,16 +849,16 @@ def admin_daily_excel():
     for s in sales:
 
         rows.append({
-            "Bill No": s.bill_no,
-            "Customer Name": s.customer_name,
-            "Customer Phone": s.customer_phone,
-            "Payment Mode": s.payment_method,
-            "Subtotal": s.subtotal,
-            "Discount": s.discount,
-            "Total": s.total,
-            "Staff ID": s.staff_id,
-            "Business Date": s.business_date
-        })
+    "Bill No": s.bill_no,
+    "Customer Name": s.customer_name,
+    "Customer Phone": s.customer_phone,
+    "Payment Mode": s.payment_method,
+    "Subtotal": s.subtotal,
+    "Discount": s.discount,
+    "Total": s.total,
+    "Staff ID": s.staff_id,
+    "Business Date": s.business_date
+})
 
     df = pd.DataFrame(rows)
 
