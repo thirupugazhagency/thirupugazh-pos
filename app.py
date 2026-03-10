@@ -517,6 +517,15 @@ def admin_delete_hold(cart_id):
         print("Hold delete error:", e)
 
         return jsonify({"status":"error","message":str(e)})
+
+@app.route("/ui/bill-search")
+def bill_search_page():
+    return render_template("admin_bill_search.html")
+
+@app.route("/ui/admin-dashboard")
+def ui_admin_dashboard():
+    return render_template("admin_dashboard.html")
+
 # =========================================
 # ADMIN: CLEAR ALL HOLD BILLS
 # =========================================
@@ -867,6 +876,39 @@ def admin_daily_excel():
     df.to_excel(file_name, index=False)
 
     return send_file(file_name, as_attachment=True)
+
+# ==================================================
+# ADMIN BILL SEARCH
+# ==================================================
+@app.route("/admin/bill/search")
+def admin_bill_search():
+
+    bill_no = request.args.get("bill_no")
+    phone = request.args.get("phone")
+
+    query = Sale.query
+
+    if bill_no:
+        query = query.filter(Sale.bill_no.like(f"%{bill_no}%"))
+
+    if phone:
+        query = query.filter(Sale.customer_phone.like(f"%{phone}%"))
+
+    sales = query.order_by(Sale.id.desc()).limit(20).all()
+
+    result = []
+
+    for s in sales:
+        result.append({
+            "sale_id": s.id,
+            "bill_no": s.bill_no,
+            "customer": s.customer_name,
+            "phone": s.customer_phone,
+            "total": s.total
+        })
+
+    return jsonify(result)
+
 # ==================================================
 # STAFF TODAY DISCOUNT SUMMARY
 # ==================================================
@@ -889,6 +931,57 @@ def staff_discount_report():
         "total_discount": total_discount,
         "bill_count": len(sales)
     })
+
+@app.route("/admin/bill/search")
+def search_bill():
+
+    bill_no = request.args.get("bill_no")
+    phone = request.args.get("phone")
+
+    query = Sale.query
+
+    if bill_no:
+        query = query.filter(Sale.bill_no == bill_no)
+
+    if phone:
+        query = query.filter(Sale.customer_phone == phone)
+
+    sales = query.order_by(Sale.id.desc()).limit(20).all()
+
+    return jsonify([
+        {
+            "sale_id": s.id,
+            "bill_no": s.bill_no,
+            "customer": s.customer_name,
+            "phone": s.customer_phone,
+            "total": s.total
+        }
+        for s in sales
+    ])
+
+@app.route("/admin/backup")
+def backup_db():
+
+    backup_file = "backup.xlsx"
+
+    sales = Sale.query.all()
+
+    rows = []
+
+    for s in sales:
+        rows.append({
+            "Bill": s.bill_no,
+            "Customer": s.customer_name,
+            "Phone": s.customer_phone,
+            "Payment": s.payment_method,
+            "Total": s.total,
+            "Date": s.business_date
+        })
+
+    df = pd.DataFrame(rows)
+    df.to_excel(backup_file, index=False)
+
+    return send_file(backup_file, as_attachment=True)
 
 # ==================================================
 # ADMIN DAILY PDF (WITH BILL NO)

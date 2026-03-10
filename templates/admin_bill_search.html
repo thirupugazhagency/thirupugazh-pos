@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Thirupugazh POS – Bill Search</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#f3f4f6;
+padding:20px;
+}
+
+header{
+background:#1e3a8a;
+color:white;
+padding:12px 15px;
+margin-bottom:20px;
+border-radius:6px;
+}
+
+.container{
+background:white;
+padding:20px;
+border-radius:8px;
+max-width:700px;
+margin:auto;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-bottom:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+button{
+padding:10px 15px;
+background:#2563eb;
+color:white;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+button:hover{
+background:#1d4ed8;
+}
+
+.result{
+background:#f9fafb;
+padding:12px;
+border-radius:6px;
+margin-top:10px;
+border:1px solid #e5e7eb;
+}
+
+.bill-btn{
+margin-top:8px;
+background:#16a34a;
+}
+
+.bill-btn:hover{
+background:#15803d;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>🔎 Bill Search & Reprint</h2>
+</header>
+
+<div class="container">
+
+<input id="billNo" placeholder="Enter Bill Number (Example: TLA-2026-0001)">
+
+<input id="phone" placeholder="Enter Customer Phone Number">
+
+<button onclick="searchBill()">Search</button>
+
+<div id="results"></div>
+
+</div>
+
+<script>
+
+async function searchBill(){
+
+const bill = document.getElementById("billNo").value
+const phone = document.getElementById("phone").value
+
+const res = await fetch(`/admin/bill/search?bill_no=${bill}&phone=${phone}`)
+
+const data = await res.json()
+
+const results = document.getElementById("results")
+
+results.innerHTML=""
+
+if(data.length === 0){
+results.innerHTML = "<p>No bills found</p>"
+return
+}
+
+data.forEach(s=>{
+
+results.innerHTML += `
+
+<div class="result">
+
+<strong>Bill No:</strong> ${s.bill_no}<br>
+<strong>Customer:</strong> ${s.customer || "N/A"}<br>
+<strong>Phone:</strong> ${s.phone || "N/A"}<br>
+<strong>Total:</strong> ₹${s.total}
+
+<br><br>
+
+<button class="bill-btn"
+onclick="window.open('/bill/${s.sale_id}/pdf','_blank')">
+
+Reprint Bill
+
+</button>
+
+</div>
+
+`
+
+})
+
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#f3f4f6;
+padding:20px;
+}
+
+header{
+background:#1e3a8a;
+color:white;
+padding:15px;
+border-radius:6px;
+margin-bottom:20px;
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+gap:15px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:8px;
+box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card h3{
+margin:0;
+font-size:18px;
+color:#374151;
+}
+
+.value{
+font-size:26px;
+font-weight:bold;
+margin-top:10px;
+color:#111827;
+}
+
+.section{
+margin-top:25px;
+}
+
+.staff-row{
+background:white;
+padding:10px;
+margin-bottom:8px;
+border-radius:6px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>📊 Thirupugazh POS – Admin Dashboard</h2>
+</header>
+
+<div class="grid">
+
+<div class="card">
+<h3>Today's Sales</h3>
+<div class="value" id="todaySales">₹0</div>
+</div>
+
+<div class="card">
+<h3>Today's Bills</h3>
+<div class="value" id="todayBills">0</div>
+</div>
+
+<div class="card">
+<h3>Monthly Sales</h3>
+<div class="value" id="monthlySales">₹0</div>
+</div>
+
+<div class="card">
+<h3>Hold Bills</h3>
+<div class="value" id="holdCount">0</div>
+</div>
+
+</div>
+
+<div class="section">
+
+<h3>💳 Payment Breakdown</h3>
+
+<div id="payments"></div>
+
+</div>
+
+<div class="section">
+
+<h3>👨‍💼 Staff Performance</h3>
+
+<div id="staffList"></div>
+
+</div>
+
+<script>
+
+async function loadDashboard(){
+
+const res = await fetch("/owner/dashboard")
+
+const data = await res.json()
+
+document.getElementById("todaySales").innerText = "₹"+data.total_today
+document.getElementById("todayBills").innerText = data.bill_count
+document.getElementById("monthlySales").innerText = "₹"+data.monthly_total
+document.getElementById("holdCount").innerText = data.hold_count
+
+const payments = `
+Cash : ₹${data.cash_total}<br>
+UPI : ₹${data.upi_total}<br>
+GPay : ₹${data.gpay_total}<br>
+Online : ₹${data.online_total}
+`
+
+document.getElementById("payments").innerHTML = payments
+
+const staffDiv = document.getElementById("staffList")
+
+staffDiv.innerHTML=""
+
+data.staff_performance.forEach(s=>{
+
+staffDiv.innerHTML += `
+<div class="staff-row">
+<strong>${s.staff}</strong> : ₹${s.total}
+</div>
+`
+
+})
+
+}
+
+loadDashboard()
+
+</script>
+
+</body>
+</html>
