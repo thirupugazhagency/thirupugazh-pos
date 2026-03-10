@@ -1123,26 +1123,12 @@ def generate_bill_pdf(sale_id):
 
     width, height = A4
 
-    # ================= HEADER STRIP =================
+    # Header
     pdf.setFillColorRGB(0.12, 0.23, 0.54)
     pdf.rect(0, height - 100, width, 100, fill=1)
 
     pdf.setFillColorRGB(1, 1, 1)
 
-    # ================= LOGO =================
-    logo_path = os.path.join(app.root_path, "static", "logo.png")
-    if os.path.exists(logo_path):
-        pdf.drawImage(
-            logo_path,
-            50,
-            height - 85,
-            width=70,
-            height=50,
-            preserveAspectRatio=True,
-            mask='auto'
-        )
-
-    # ================= SHOP NAME =================
     pdf.setFont("Helvetica-Bold", 18)
     pdf.drawString(140, height - 60, "Thirupugazh Lottery Agency")
 
@@ -1154,50 +1140,44 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-# ================= BILL DETAILS =================
-pdf.setFont("Helvetica-Bold", 12)
-pdf.drawString(50, y, "Bill Details")
-y -= 20
+    # Bill Details
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, y, "Bill Details")
+    y -= 20
 
-pdf.setFont("Helvetica", 11)
+    pdf.setFont("Helvetica", 11)
 
-# Convert UTC → IST
-ist_time = to_ist(sale.created_at)
+    ist_time = to_ist(sale.created_at)
 
-pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
-y -= 18
+    pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
+    y -= 18
 
-pdf.drawString(
-    50,
-    y,
-    "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
-)
-y -= 18
+    pdf.drawString(50, y, "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST")
+    y -= 18
 
-pdf.drawString(50, y, "Customer Name: " + str(sale.customer_name or ""))
-y -= 18
+    pdf.drawString(50, y, f"Customer Name: {sale.customer_name or ''}")
+    y -= 18
 
-pdf.drawString(50, y, "Mobile: " + str(sale.customer_phone or ""))
-y -= 18
+    pdf.drawString(50, y, f"Mobile: {sale.customer_phone or ''}")
+    y -= 18
 
-pdf.drawString(50, y, "Payment Mode: " + str(sale.payment_method or ""))
-y -= 40
+    pdf.drawString(50, y, f"Payment Mode: {sale.payment_method or ''}")
+    y -= 40
 
-    # ================= TOTAL SECTION =================
+    # Totals
     pdf.setFont("Helvetica-Bold", 14)
 
-    pdf.drawString(50, y, "Subtotal: ₹" + str(sale.subtotal or 0))
+    pdf.drawString(50, y, f"Subtotal: ₹{sale.subtotal or 0}")
     y -= 20
 
-    pdf.drawString(50, y, "Discount: ₹" + str(sale.discount or 0))
+    pdf.drawString(50, y, f"Discount: ₹{sale.discount or 0}")
     y -= 20
 
-    pdf.drawString(50, y, "Final Total: ₹" + str(sale.total or 0))
+    pdf.drawString(50, y, f"Final Total: ₹{sale.total or 0}")
     y -= 40
 
     pdf.setFont("Helvetica-Oblique", 10)
     pdf.drawString(50, y, "Thank you for choosing Thirupugazh Lottery Agency!")
-    pdf.drawString(50, y - 15, "We appreciate your business.")
 
     pdf.save()
     buffer.seek(0)
@@ -1205,10 +1185,9 @@ y -= 40
     return send_file(
         buffer,
         as_attachment=True,
-        download_name=str(sale.bill_no) + ".pdf",
+        download_name=f"{sale.bill_no}.pdf",
         mimetype="application/pdf"
     )
-
 # ==================================================
 # ADMIN MONTHLY EXCEL (WITH BILL NUMBER COLUMN)
 # ==================================================
