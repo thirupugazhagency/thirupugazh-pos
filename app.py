@@ -12,12 +12,14 @@ from reportlab.lib.utils import ImageReader
 # ==================================================
 # IST CONVERSION HELPER
 # ==================================================
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
 def to_ist(dt):
     if not dt:
         return None
-    return dt + timedelta(hours=5, minutes=30)
-
-app = Flask(__name__)
+    return dt.replace(tzinfo=timezone.utc).astimezone(IST)
 
 # ==================================================
 # REQUEST LOGGER (DEBUG TOOL)
@@ -1169,7 +1171,14 @@ def generate_bill_pdf(sale_id):
 
     pdf.setFont("Helvetica", 11)
 
-    ist_time = to_ist(sale.created_at)
+    # Convert UTC to IST
+ist_time = to_ist(sale.created_at)
+
+pdf.drawString(
+    50,
+    y,
+    "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
+)
 
     pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
     y -= 18
