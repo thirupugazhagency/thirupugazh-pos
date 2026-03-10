@@ -1154,7 +1154,7 @@ def generate_bill_pdf(sale_id):
 
     y = height - 140
 
-    # ================= BILL DETAILS =================
+# ================= BILL DETAILS =================
 pdf.setFont("Helvetica-Bold", 12)
 pdf.drawString(50, y, "Bill Details")
 y -= 20
