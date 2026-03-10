@@ -877,38 +877,6 @@ def admin_daily_excel():
     return send_file(file_name, as_attachment=True)
 
 # ==================================================
-# ADMIN BILL SEARCH
-# ==================================================
-@app.route("/admin/bill/search")
-def admin_bill_search():
-
-    bill_no = request.args.get("bill_no")
-    phone = request.args.get("phone")
-
-    query = Sale.query
-
-    if bill_no:
-        query = query.filter(Sale.bill_no.like(f"%{bill_no}%"))
-
-    if phone:
-        query = query.filter(Sale.customer_phone.like(f"%{phone}%"))
-
-    sales = query.order_by(Sale.id.desc()).limit(20).all()
-
-    result = []
-
-    for s in sales:
-        result.append({
-            "sale_id": s.id,
-            "bill_no": s.bill_no,
-            "customer": s.customer_name,
-            "phone": s.customer_phone,
-            "total": s.total
-        })
-
-    return jsonify(result)
-
-# ==================================================
 # STAFF TODAY DISCOUNT SUMMARY
 # ==================================================
 @app.route("/staff/report/discount")
@@ -1278,7 +1246,6 @@ def admin_monthly_pdf():
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     y = 800
-
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, y, f"Monthly Sales Report - {month}/{year}")
     y -= 30
