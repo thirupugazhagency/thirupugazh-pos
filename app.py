@@ -112,7 +112,7 @@ class Sale(db.Model):
 # BILL NUMBER GENERATOR
 # ==================================================
 def generate_bill_no():
-    year = datetime.now().year
+    year = (datetime.utcnow() + timedelta(hours=5, minutes=30)).year
     prefix = f"TLA-{year}"
 
     last_sale = (
@@ -541,8 +541,14 @@ def clear_all_holds():
 # ==================================================
 @app.route("/time-check")
 def time_check():
-    from datetime import datetime, timedelta
 
+    utc = datetime.utcnow()
+    ist = utc + timedelta(hours=5, minutes=30)
+
+    return jsonify({
+        "utc_time": utc.strftime("%Y-%m-%d %H:%M:%S"),
+        "ist_time": ist.strftime("%Y-%m-%d %H:%M:%S")
+    })
 # ==================================================
 # BUSINESS DATE (3:30 PM – 3:30 PM IST)
 # ==================================================
@@ -925,9 +931,6 @@ def staff_discount_report():
         "bill_count": len(sales)
     })
 
-@app.route("/admin/bill/search")
-def search_bill():
-
     bill_no = request.args.get("bill_no")
     phone = request.args.get("phone")
 
@@ -981,7 +984,7 @@ def backup_db():
 # ==================================================
 @app.route("/admin/report/daily/pdf")
 def admin_daily_pdf():
-
+    staff_id = request.args.get("staff_id")
     date_str = request.args.get("date")
 
     if date_str:
