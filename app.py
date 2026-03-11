@@ -1337,30 +1337,6 @@ def admin_clear_all_holds():
 def business_date_check():
     from datetime import datetime, timedelta
 
-@app.route("/bill/<int:sale_id>/pdf")
-def generate_bill_pdf(sale_id):
-
-    sale = Sale.query.get_or_404(sale_id)
-
-    buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
-
-    width, height = A4
-
-    y = height - 140
-
-    # Convert UTC → IST
-    ist_time = to_ist(sale.created_at)
-
-    pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
-    y -= 18
-
-    pdf.drawString(
-        50,
-        y,
-        "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
-    )
-
 # ==================================================
 # ADMIN UPDATE STAFF USERNAME
 # ==================================================
