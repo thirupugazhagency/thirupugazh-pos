@@ -1123,7 +1123,7 @@ def generate_bill_pdf(sale_id):
 
     pdf.setFont("Helvetica", 11)
 
-    ist_time = sale.created_at
+    ist_time = sale.created_at + timedelta(hours=5, minutes=30)
 
     pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
     y -= 18
