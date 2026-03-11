@@ -9,6 +9,14 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Image
 from reportlab.lib.utils import ImageReader
 
+from datetime import datetime
+import pytz
+
+IST = pytz.timezone("Asia/Kolkata")
+
+def now_ist():
+    return datetime.now(IST)
+
 # CREATE FLASK APP
 app = Flask(__name__)
 
@@ -79,7 +87,7 @@ class Cart(db.Model):
     customer_phone = db.Column(db.String(20))
     transaction_id = db.Column(db.String(100))
     discount = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_ist)
 
 class CartItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -865,7 +873,7 @@ def admin_daily_excel():
     "Discount": s.discount,
     "Total": s.total,
     "Staff ID": s.staff_id,
-    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p")
+    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
 })
 
     df = pd.DataFrame(rows)
@@ -1115,7 +1123,7 @@ def generate_bill_pdf(sale_id):
 
     pdf.setFont("Helvetica", 11)
 
-    ist_time = to_ist(sale.created_at)
+    ist_time = sale.created_at
 
     pdf.drawString(50, y, f"Bill No: {sale.bill_no}")
     y -= 18
@@ -1199,7 +1207,7 @@ def admin_monthly_excel():
     "Subtotal (₹)": s.subtotal,
     "Discount (₹)": s.discount,
     "Final Amount (₹)": s.total,
-    "Date & Time": to_ist(s.created_at).strftime("%d-%m-%Y %I:%M %p")
+    "Date & Time": s.created_at.strftime("%d-%m-%Y %I:%M %p")
 })
 
     df = pd.DataFrame(data)
