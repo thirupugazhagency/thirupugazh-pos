@@ -1329,14 +1329,18 @@ def admin_clear_all_holds():
 def business_date_check():
     from datetime import datetime, timedelta
 
-    # Convert UTC to IST
-    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    # Convert UTC → IST
+ist_time = to_ist(sale.created_at)
 
-    return jsonify({
-        "utc_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-        "ist_time": ist_now.strftime("%Y-%m-%d %H:%M:%S"),
-        "business_date": str(get_business_date())
-    })
+pdf.drawString(50, y, "Bill No: " + str(sale.bill_no))
+y -= 18
+
+pdf.drawString(
+    50,
+    y,
+    "Date: " + ist_time.strftime("%d-%m-%Y %I:%M %p") + " IST"
+)
+y -= 18
 
 # ==================================================
 # ADMIN UPDATE STAFF USERNAME
