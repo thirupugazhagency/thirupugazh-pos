@@ -571,7 +571,7 @@ async function loadMenu() {
 
     try {
 
-        const data = await safefetch("https://thirupugazh-pos.onrender.com/menu");
+        const data = await safeFetch("/menu");
 
         const menuDiv = document.getElementById("menuButtons");
         menuDiv.innerHTML = "";
@@ -600,7 +600,7 @@ async function loadMenu() {
 
 /* ================= CART ================= */
 async function createCart() {
-    const data = await safefetch("https://thirupugazh-pos.onrender.com/cart/create", {
+    const data = await safeFetch("/cart/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
